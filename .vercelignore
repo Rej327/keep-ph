@@ -1,0 +1,10 @@
+# Ignore local dev stuff
+
+docs/
+\*.md
+README.md
+
+# Ignore test output
+
+coverage/
+\*.log

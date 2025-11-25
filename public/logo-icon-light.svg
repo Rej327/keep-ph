@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="91.284 101.0417 65.0004 74.123" width="65.0004px" height="74.123px">
+  <defs>
+    <clipPath id="clip0_4605_13032">
+      <rect width="11.4905" height="11.4905" fill="white" transform="translate(40.4465 33.9614) rotate(-45)"/>
+    </clipPath>
+  </defs>
+  <g>
+    <rect y="41.623" width="45.962" height="45.962" rx="12.908" transform="matrix(0.707107, -0.707107, 0.707107, 0.707107, 61.852357, 113.232729)" style="stroke-width: 1; fill: rgb(28, 50, 56);"/>
+    <rect y="32.5" width="45.962" height="45.962" rx="12.908" transform="matrix(0.707107, -0.707107, 0.707107, 0.707107, 68.30301, 110.560777)" style="stroke-width: 1; fill: rgb(81, 152, 173);"/>
+    <rect x="9.192" y="34.175" width="9.192" height="9.192" rx="3.227" transform="matrix(0.707107, -0.707107, 0.707107, 0.707107, 69.810777, 117.551454)" fill="white" style="stroke-width: 1;"/>
+    <rect x="17.466" y="41.989" width="9.192" height="9.192" rx="3.227" transform="matrix(0.707107, -0.707107, 0.707107, 0.707107, 66.70894, 125.689959)" fill="white" style="stroke-width: 1;"/>
+    <rect x="25.739" y="49.802" width="9.192" height="9.192" rx="3.227" transform="matrix(0.707107, -0.707107, 0.707107, 0.707107, 63.607194, 133.828493)" fill="white" style="stroke-width: 1;"/>
+    <rect x="19.304" y="27.664" width="20.783" height="4.596" rx="1.936" transform="matrix(0.707107, -0.707107, 0.707107, 0.707107, 77.376863, 122.794222)" fill="white" style="stroke-width: 1;"/>
+    <rect x="27.577" y="35.477" width="20.783" height="4.596" rx="1.936" transform="matrix(0.707107, -0.707107, 0.707107, 0.707107, 74.275056, 130.932772)" fill="white" style="stroke-width: 1;"/>
+    <g clip-path="url(#clip0_4605_13032)" transform="matrix(1, 0, 0, 1, 91.283967, 101.04175)">
+      <path d="M49.8709 37.3455L45.6338 37.3333C45.3792 37.3326 45.1722 37.1257 45.1715 36.8711L45.1688 35.9492C45.1681 35.6946 45.3739 35.4888 45.6285 35.4896L48.4828 35.4978L48.4653 29.3841C48.4646 29.1295 48.6704 28.9237 48.9249 28.9245L49.8468 28.9271C50.1013 28.9278 50.3083 29.1348 50.309 29.3894L50.3306 36.8859C50.3313 37.1405 50.1255 37.3462 49.8709 37.3455Z" fill="white"/>
+    </g>
+  </g>
+</svg>

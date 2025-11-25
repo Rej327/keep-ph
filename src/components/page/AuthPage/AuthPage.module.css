@@ -1,0 +1,10 @@
+.sideDesign {
+  display: block;
+}
+
+/* Hide side design on mobile */
+@media (max-width: 768px) {
+  .sideDesign {
+    display: none;
+  }
+}
