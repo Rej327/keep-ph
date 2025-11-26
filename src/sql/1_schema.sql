@@ -156,19 +156,6 @@ INSERT INTO status_schema.referral_status_table (referral_status_id, referral_st
     ('RFS-REJECTED', 'rejected', 3),
     ('RFS-EXPIRED', 'expired', 4);
 
--- User Role Table
-CREATE TABLE user_schema.user_role_table (
-    user_role_id TEXT PRIMARY KEY,
-    user_role_value TEXT NOT NULL UNIQUE,
-    user_role_is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    user_role_sort_order INTEGER NOT NULL DEFAULT 0
-);
-
--- Insert default user roles
-INSERT INTO user_schema.user_role_table (user_role_id, user_role_value, user_role_sort_order) VALUES
-    ('UR-CUSTOMER', 'customer', 1),
-    ('UR-ADMIN', 'admin', 2);
-
 -- Account Type Table
 CREATE TABLE user_schema.account_type_table (
     account_type_id TEXT PRIMARY KEY,
@@ -191,11 +178,8 @@ CREATE TABLE user_schema.user_table (
     user_email VARCHAR(254) NOT NULL UNIQUE,
     user_first_name VARCHAR(254),
     user_last_name VARCHAR(254),
-    user_role TEXT NOT NULL DEFAULT 'UR-CUSTOMER', -- FK to user_schema.user_role_table.user_role_id
-    user_is_subscribed BOOLEAN NOT NULL DEFAULT FALSE,
-    user_subscription_ends_at TIMESTAMPTZ, -- Date when subscription expires
+    user_is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     user_avatar_bucket_path VARCHAR(256),
-    user_refresh_token TEXT,
     user_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     user_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -207,6 +191,8 @@ CREATE TABLE user_schema.account_table (
     account_number TEXT NOT NULL UNIQUE, -- Q42025-0001
     account_area_code TEXT NOT NULL, -- Derived from virtual_address_address (MNL, CEB, DVO, etc.)
     account_type TEXT NOT NULL DEFAULT 'AT-FREE', -- FK to user_schema.account_type_table.account_type_id
+    account_is_subscribed BOOLEAN NOT NULL DEFAULT FALSE,
+    account_subscription_ends_at TIMESTAMPTZ,
     account_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     account_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

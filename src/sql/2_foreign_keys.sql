@@ -96,13 +96,6 @@ ALTER TABLE user_schema.account_table
     REFERENCES user_schema.account_type_table(account_type_id)
     ON DELETE RESTRICT;
 
--- User Role Foreign Keys
-ALTER TABLE user_schema.user_table
-    ADD CONSTRAINT fk_user_role
-    FOREIGN KEY (user_role)
-    REFERENCES user_schema.user_role_table(user_role_id)
-    ON DELETE RESTRICT;
-
 -- Virtual Address Foreign Keys
 ALTER TABLE mailroom_schema.virtual_address_table
     ADD CONSTRAINT fk_virtual_address_account
