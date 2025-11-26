@@ -10,7 +10,6 @@
 
 .search {
   flex: 1;
-  max-width: 800px;
   margin-left: var(--mantine-spacing-md);
   margin-right: var(--mantine-spacing-md);
 }

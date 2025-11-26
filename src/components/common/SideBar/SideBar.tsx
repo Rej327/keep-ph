@@ -9,6 +9,7 @@ import {
   Button,
   Progress,
   Avatar,
+  UnstyledButton,
 } from "@mantine/core";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -46,19 +47,30 @@ const adminLinks: LinksGroupProps[] = [
     icon: IconLayoutDashboard,
     link: "/admin/dashboard",
   },
-  { label: "All Mail Items", icon: IconMail, link: "/admin/mail" },
-  { label: "View Mail Item", icon: IconMailOpened, link: "/admin/mail/view" },
-  { label: "Shredding Requests", icon: IconTrash, link: "/admin/shredding" },
+  { label: "All Mail Items", icon: IconMail, link: "/admin/mailroom" },
+  {
+    label: "View Mail Item",
+    icon: IconMailOpened,
+    link: "/admin/mailroom/view",
+  },
+  {
+    label: "Disposal Requests",
+    icon: IconTrash,
+    link: "/admin/disposal/requests",
+  },
   { label: "All Customers", icon: IconUsers, link: "/admin/customers" },
-  { label: "Customer Detail", icon: IconUser, link: "/admin/customers/detail" },
+  { label: "Customer Detail", icon: IconUser, link: "/admin/customer/detail" },
   { label: "System Stats", icon: IconChartBar, link: "/admin/stats" },
 ];
 
 const customerLinks: LinksGroupProps[] = [
   { label: "Dashboard", icon: IconLayoutDashboard, link: "/dashboard" },
-  { label: "Profile", icon: IconUser, link: "/profile" },
-  { label: "All Mail", icon: IconMail, link: "/mail" },
-  { label: "Shredding Request", icon: IconArrowsMaximize, link: "/shredding" },
+  { label: "All Mail", icon: IconMail, link: "/mailroom" },
+  {
+    label: "Disposal Request",
+    icon: IconArrowsMaximize,
+    link: "/disposal/request",
+  },
   { label: "Subscription", icon: IconCreditCard, link: "/subscription" },
 ];
 
@@ -80,7 +92,7 @@ function LinksGroup({ label, icon: Icon, link, links }: LinksGroupProps) {
   if (hasSubLinks) {
     return (
       <div className={classes.linksGroup}>
-        <div
+        <UnstyledButton
           className={`${classes.mainLinkWrapper} ${
             hasActiveChild ? classes.activeParent : ""
           }`}
@@ -97,14 +109,14 @@ function LinksGroup({ label, icon: Icon, link, links }: LinksGroupProps) {
               <IconChevronRight size={16} />
             )}
           </div>
-        </div>
+        </UnstyledButton>
 
         <div
           ref={nestedRef}
           className={classes.nestedLinks}
           style={{ maxHeight: opened ? `${height}px` : "0px" }}
         >
-          {links!.map((sub) => {
+          {links?.map((sub) => {
             const isActive = pathname === sub.link;
             return (
               <Link
@@ -137,7 +149,7 @@ function LinksGroup({ label, icon: Icon, link, links }: LinksGroupProps) {
 }
 
 export type SideBarProps = {
-  type?: "admin" | "customer";
+  type?: boolean;
   user?: User | null;
   mobileOpened?: boolean;
   onMobileClose?: () => void;
@@ -145,13 +157,13 @@ export type SideBarProps = {
 };
 
 export function SideBar({
-  type = "customer",
+  type,
   user,
   mobileOpened = false,
   onMobileClose,
   onMobileOpen,
 }: SideBarProps) {
-  const linksData = type === "admin" ? adminLinks : customerLinks;
+  const linksData = type ? adminLinks : customerLinks;
   const memoLinks = useMemo(() => linksData, [linksData]);
 
   const mainLinks = memoLinks.map((item) => (
@@ -159,7 +171,7 @@ export function SideBar({
   ));
 
   const renderHeader = () => {
-    if (type === "admin") {
+    if (type) {
       return (
         <Group className={classes.header} p="md" mb="md">
           <ThemeIcon size="lg" variant="light" color="blue">
@@ -193,7 +205,7 @@ export function SideBar({
   };
 
   const renderFooter = () => {
-    if (type === "admin") {
+    if (type) {
       return (
         <div className={classes.footer}>
           <Button fullWidth leftSection={<IconUpload size={16} />}>
@@ -240,7 +252,7 @@ export function SideBar({
       </div>
 
       {/* Mobile Floating Action Button - Show only for admin as customer has topbar toggle */}
-      {type === "admin" && (
+      {type && (
         <ActionIcon
           size="xl"
           variant="filled"

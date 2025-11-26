@@ -10,12 +10,12 @@ import {
   useMantineColorScheme,
 } from "@mantine/core";
 import { IconChevronRight } from "@tabler/icons-react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Topbar } from "../../common/TopBar/TopBar";
 import { SideBar } from "../../common/SideBar/SideBar";
 import { useEffect, useState } from "react";
-// import { getUserTeams } from "@/actions/supabase/get";
 import CustomLoader from "@/components/common/CustomLoader";
+import { isUserAdmin } from "@/actions/supabase/get";
 
 type DashboardLayoutProps = {
   children: React.ReactNode;
@@ -24,38 +24,29 @@ type DashboardLayoutProps = {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user } = useAuthStore();
   const { colorScheme } = useMantineColorScheme();
-  const router = useRouter();
-  const pathname = usePathname();
-  const [hasTeamData, setHasTeamData] = useState<string>("");
+  const [isAdmin, setIsAdmin] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState(true);
   const [mobileOpened, setMobileOpened] = useState(false);
 
-  const layoutType = hasTeamData;
-
   useEffect(() => {
-    const checkTeamData = async () => {
+    const checkIsAdmin = async () => {
       if (!user) {
         setIsLoading(false);
         return;
       }
 
       try {
-        const hasTeams = "customer";
-        setHasTeamData(hasTeams);
-
-        // If user has no team data, redirect to public dashboard
-        if (!hasTeams) {
-          router.push("/");
-        }
+        const result = await isUserAdmin(user.id);
+        setIsAdmin(result);
+        setIsLoading(false);
       } catch (error) {
-        console.error("Error checking team data:", error);
-      } finally {
+        console.error(error);
         setIsLoading(false);
       }
     };
 
-    checkTeamData();
-  }, [user, router]);
+    checkIsAdmin();
+  }, [user]);
 
   const DashboardBreadcrumbs = () => {
     const path = usePathname();
@@ -133,44 +124,33 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     );
   }
 
-  // Only render dashboard if user has team data
-  if (hasTeamData === "customer") {
-    return (
-      <Flex h="100vh">
-        <SideBar
-          type={layoutType as "admin" | "customer"}
-          user={user}
-          mobileOpened={mobileOpened}
-          onMobileClose={() => setMobileOpened(false)}
-          onMobileOpen={() => setMobileOpened(true)}
-        />
-        <Flex direction="column" flex={1} className="overflow-hidden">
-          <Topbar
-            user={user}
-            type={layoutType as "admin" | "customer"}
-            onMenuClick={() => setMobileOpened((o) => !o)}
-          />
-          <main
-            style={{
-              overflow: "auto",
-              flex: 1,
-              backgroundColor:
-                colorScheme === "dark" ? "#12121240" : "#9eabaf20",
-              padding: "20px 0",
-            }}
-          >
-            <DashboardBreadcrumbs />
-            {children}
-          </main>
-        </Flex>
-      </Flex>
-    );
-  }
-
-  // This will show briefly before redirect happens
   return (
-    <Center h="100vh">
-      <CustomLoader />
-    </Center>
+    <Flex h="100vh">
+      <SideBar
+        type={isAdmin ? true : false}
+        user={user}
+        mobileOpened={mobileOpened}
+        onMobileClose={() => setMobileOpened(false)}
+        onMobileOpen={() => setMobileOpened(true)}
+      />
+      <Flex direction="column" flex={1} className="overflow-hidden">
+        <Topbar
+          user={user}
+          type={isAdmin ? true : false}
+          onMenuClick={() => setMobileOpened((o) => !o)}
+        />
+        <main
+          style={{
+            overflow: "auto",
+            flex: 1,
+            backgroundColor: colorScheme === "dark" ? "#12121240" : "#9eabaf20",
+            padding: "20px 0",
+          }}
+        >
+          <DashboardBreadcrumbs />
+          {children}
+        </main>
+      </Flex>
+    </Flex>
   );
 }

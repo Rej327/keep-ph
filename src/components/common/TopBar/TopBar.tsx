@@ -1,59 +1,41 @@
 "use client";
 
-import {
-  TextInput,
-  ActionIcon,
-  Indicator,
-  UnstyledButton,
-} from "@mantine/core";
-import {
-  IconBell,
-  IconSettings,
-  IconSearch,
-  IconMenu2,
-} from "@tabler/icons-react";
+import { TextInput, UnstyledButton } from "@mantine/core";
+import { IconSearch, IconMenu2 } from "@tabler/icons-react";
 import classes from "./TopBar.module.css";
-
-type UseClaims = {
-  email?: string;
-  avatar_url?: string;
-  full_name?: string;
-};
+import { User } from "@supabase/supabase-js";
+import { NotificationDropdown } from "./NotificationDropdown";
+import { SettingsDropdown } from "./SettingsDropdown";
+import useAuthStore from "@/zustand/stores/useAuthStore";
 
 type TopbarProps = {
-  user?: UseClaims | null;
-  type?: "admin" | "customer";
+  user?: User | null;
+  type?: boolean;
   onMenuClick?: () => void;
 };
 
-export function Topbar({ user, type = "customer", onMenuClick }: TopbarProps) {
+export function Topbar({ type = false, onMenuClick }: TopbarProps) {
+  const { user } = useAuthStore();
   return (
     <div className={classes.header}>
-      {type === "customer" && (
-        <UnstyledButton onClick={onMenuClick} mr="md">
-          <IconMenu2 size={24} />
-        </UnstyledButton>
-      )}
+      <UnstyledButton onClick={onMenuClick} mr="md" hiddenFrom="sm">
+        <IconMenu2 size={24} />
+      </UnstyledButton>
 
-      <div className={classes.search}>
+      <div className={classes.search} style={{ flex: 1 }}>
         <TextInput
-          placeholder={type === "admin" ? "Search..." : "Search mail..."}
+          placeholder={type === true ? "Search..." : "Search mail..."}
           leftSection={<IconSearch size={16} stroke={1.5} />}
           size="md"
           variant="filled"
           radius="md"
+          w="100%"
         />
       </div>
 
       <div className={classes.actions}>
-        <Indicator color="red" size={8} offset={4} disabled={false} processing>
-          <ActionIcon variant="subtle" color="gray" size="lg">
-            <IconBell size={20} stroke={1.5} />
-          </ActionIcon>
-        </Indicator>
-        <ActionIcon variant="subtle" color="gray" size="lg">
-          <IconSettings size={20} stroke={1.5} />
-        </ActionIcon>
+        <NotificationDropdown />
+        <SettingsDropdown user={user || null} type={type} />
       </div>
     </div>
   );
