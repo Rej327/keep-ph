@@ -1,5 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { isAccountSubscribed, isUserAdmin } from "@/actions/supabase/get";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -30,20 +32,16 @@ export async function updateSession(request: NextRequest) {
   ) as unknown as SupabaseClient;
 
   // Do not run code between createServerClient and
-  // supabase.auth.getClaims(). A simple mistake could make it very hard to debug
+  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
 
-  // IMPORTANT: DO NOT REMOVE auth.getClaims()
+  // IMPORTANT: DO NOT REMOVE auth.getUser()
 
-  const { data } = await supabase.auth.getClaims();
-  const validUser = data?.claims;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const validUser = user;
   const pathname = request.nextUrl.pathname;
-
-  // Public routes (no authentication required)
-  const publicRoutes = ["/", "/login", "/signup"];
-  const isPublicRoute = publicRoutes.some(
-    (route) => pathname === route || pathname.startsWith("/#")
-  );
 
   // Auth routes that should redirect to dashboard if user is already logged in
   const publicAuthRoutes = ["/login", "/signup"];
@@ -55,36 +53,33 @@ export async function updateSession(request: NextRequest) {
   const customerRoutes = [
     "/dashboard",
     "/profile",
-    "/mailbox",
+    "/mailroom",
+    "/disposal",
     "/subscription",
     "/notifications",
   ];
+
+  // Subscription required routes
+  const subscriptionRequiredRoutes = ["/dashboard", "/mailroom", "/disposal"];
+
+  // Admin routes (authentication + admin role required)
+  const adminRoutes = ["/admin"];
+
   const isCustomerRoute = customerRoutes.some((route) =>
     pathname.startsWith(route)
   );
 
-  // Admin routes (authentication + admin role required)
-  const adminRoutes = ["/admin"];
-  const isAdminRoute = adminRoutes.some((route) => pathname.startsWith(route));
-
-  // Subscription required routes
-  const subscriptionRequiredRoutes = [
-    "/dashboard",
-    "/mailbox",
-    "/notifications",
-  ];
   const requiresSubscription = subscriptionRequiredRoutes.some((route) =>
     pathname.startsWith(route)
   );
 
-  // Check if user is admin
-  const userRole = data?.claims?.role || "";
-  const isAdmin = userRole === "admin";
+  const isAdminRoute = adminRoutes.some((route) => pathname.startsWith(route));
+  const isAdmin = validUser ? await isUserAdmin(validUser.id) : false;
 
   // Check if user has an active subscription
-  // This would need to be implemented based on your subscription model
-  // For now, we'll just check if the user has a subscription claim
-  const hasSubscription = data?.claims?.has_subscription === true;
+  const hasSubscription = validUser
+    ? await isAccountSubscribed(validUser.id)
+    : false;
 
   // Redirect logic
   if ((isCustomerRoute || isAdminRoute) && !validUser) {
@@ -98,6 +93,13 @@ export async function updateSession(request: NextRequest) {
     // Redirect non-admin users trying to access admin routes
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
+
+  if (isCustomerRoute && isAdmin) {
+    // Redirect admins trying to access customer routes to admin dashboard
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin/dashboard";
     return NextResponse.redirect(url);
   }
 
