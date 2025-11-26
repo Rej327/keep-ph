@@ -11,10 +11,10 @@ import {
 } from "@mantine/core";
 import { IconChevronRight } from "@tabler/icons-react";
 import { usePathname, useRouter } from "next/navigation";
-import { Topbar } from "../DashboardPage/TopBar/TopBar";
-import { SideBar } from "../DashboardPage/SideBar/SideBar";
+import { Topbar } from "../../common/TopBar/TopBar";
+import { SideBar } from "../../common/SideBar/SideBar";
 import { useEffect, useState } from "react";
-import { getUserTeams } from "@/actions/supabase/get";
+// import { getUserTeams } from "@/actions/supabase/get";
 import CustomLoader from "@/components/common/CustomLoader";
 
 type DashboardLayoutProps = {
@@ -25,8 +25,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user } = useAuthStore();
   const { colorScheme } = useMantineColorScheme();
   const router = useRouter();
-  const [hasTeamData, setHasTeamData] = useState<boolean | null>(null);
+  const pathname = usePathname();
+  const [hasTeamData, setHasTeamData] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
+  const [mobileOpened, setMobileOpened] = useState(false);
+
+  const layoutType = hasTeamData;
 
   useEffect(() => {
     const checkTeamData = async () => {
@@ -36,13 +40,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       }
 
       try {
-        const teamsResponse = await getUserTeams(user.id);
-        const hasTeams = teamsResponse?.data?.length > 0;
+        const hasTeams = "customer";
         setHasTeamData(hasTeams);
 
         // If user has no team data, redirect to public dashboard
         if (!hasTeams) {
-          router.push("/public/applications");
+          router.push("/");
         }
       } catch (error) {
         console.error("Error checking team data:", error);
@@ -131,12 +134,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   // Only render dashboard if user has team data
-  if (hasTeamData) {
+  if (hasTeamData === "customer") {
     return (
-      <Flex direction="column" h="100vh">
-        <Topbar user={user} />
-        <Flex flex={1} className="overflow-hidden">
-          <SideBar />
+      <Flex h="100vh">
+        <SideBar
+          type={layoutType as "admin" | "customer"}
+          user={user}
+          mobileOpened={mobileOpened}
+          onMobileClose={() => setMobileOpened(false)}
+          onMobileOpen={() => setMobileOpened(true)}
+        />
+        <Flex direction="column" flex={1} className="overflow-hidden">
+          <Topbar
+            user={user}
+            type={layoutType as "admin" | "customer"}
+            onMenuClick={() => setMobileOpened((o) => !o)}
+          />
           <main
             style={{
               overflow: "auto",

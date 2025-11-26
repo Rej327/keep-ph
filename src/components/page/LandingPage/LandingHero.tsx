@@ -40,10 +40,14 @@ export function LandingHero() {
         </GridCol>
         <GridCol span={{ base: 12, md: 6 }}>
           {/* Placeholder for the hero image */}
-          <Paper shadow="lg" h={315}>
+          <Paper
+            shadow="lg"
+            w={{ base: 360, md: 560 }}
+            h={{ base: 200, md: 315 }}
+          >
             <iframe
-              width="560"
-              height="315"
+              width="100%"
+              height="100%"
               src="https://www.youtube.com/embed/6bnBc4x5V1k?si=FdoWDh8Btk1Ios8F&amp;controls=0"
               style={{ border: 0, borderRadius: 10 }}
               allowFullScreen
