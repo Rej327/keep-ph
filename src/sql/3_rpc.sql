@@ -459,3 +459,186 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
+-- Get all mail items by user account no and mailbox id
+CREATE OR REPLACE FUNCTION get_all_item_mail_by_user_account_no_and_mailbox_id(
+  input_user_id UUID,
+  input_account_no TEXT,
+  input_mailbox_id UUID
+)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  return_data JSON;
+BEGIN
+  SELECT 
+    JSON_AGG(mail_data) INTO return_data
+  FROM (
+    SELECT 
+      mi.mail_item_id,
+      mi.mail_item_sender,
+      mi.mail_item_name,
+      mi.mail_item_description,
+      mi.mail_item_received_at,
+      mi.mail_item_created_at,
+      mi.mail_item_is_read,
+      mis.mail_item_status_value,
+      ma.mail_attachment_unopened_scan_file_path,
+      ma.mail_attachment_item_scan_file_path,
+      mb.mailbox_label
+
+    FROM mailroom_schema.mail_item_table mi
+    JOIN mailroom_schema.mailbox_table mb ON mi.mail_item_mailbox_id = mb.mailbox_id
+    JOIN user_schema.account_table acc ON mb.mailbox_account_id = acc.account_id
+    JOIN status_schema.mail_item_status_table mis ON mi.mail_item_status_id = mis.mail_item_status_id
+    LEFT JOIN mailroom_schema.mail_attachment_table ma ON mi.mail_item_id = ma.mail_attachment_mail_item_id
+    WHERE 
+      acc.account_user_id = input_user_id
+      AND acc.account_number = input_account_no
+      AND (input_mailbox_id IS NULL OR mb.mailbox_id = input_mailbox_id)
+      AND mi.mail_item_is_deleted = FALSE
+    ORDER BY mi.mail_item_received_at DESC
+  ) as mail_data;
+
+  RETURN COALESCE(return_data, '[]'::JSON);
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Mark mail item as unread
+CREATE OR REPLACE FUNCTION mark_mail_item_as_unread(input_mail_item_id UUID)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  UPDATE mailroom_schema.mail_item_table
+  SET mail_item_is_read = FALSE,
+      mail_item_updated_at = NOW()
+  WHERE mail_item_id = input_mail_item_id;
+
+  RETURN TRUE;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Set mail item archive status
+CREATE OR REPLACE FUNCTION set_mail_item_archive_status(
+  input_mail_item_id UUID,
+  input_is_archived BOOLEAN
+)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+DECLARE
+  target_status TEXT;
+BEGIN
+  IF input_is_archived THEN
+    target_status := 'MIS-ARCHIVED';
+  ELSE
+    target_status := 'MIS-RECEIVED';
+  END IF;
+
+  UPDATE mailroom_schema.mail_item_table
+  SET mail_item_status_id = target_status,
+      mail_item_updated_at = NOW()
+  WHERE mail_item_id = input_mail_item_id;
+
+  RETURN TRUE;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Request mail item disposal
+CREATE OR REPLACE FUNCTION request_mail_item_disposal(
+  input_mail_item_id UUID,
+  input_account_id UUID,
+  input_notes TEXT DEFAULT NULL
+)
+RETURNS UUID
+SET search_path TO ''
+AS $$
+DECLARE
+  new_request_id UUID;
+BEGIN
+  -- Check if already disposed or pending disposal
+  IF EXISTS (
+    SELECT 1 FROM request_schema.dispose_request_table
+    WHERE dispose_request_mail_item_id = input_mail_item_id
+    AND dispose_request_status_id IN ('DRS-PENDING', 'DRS-APPROVED', 'DRS-COMPLETED')
+  ) THEN
+    RAISE EXCEPTION 'Disposal request already exists for this mail item';
+  END IF;
+
+  UPDATE mailroom_schema.mail_item_table
+    SET mail_item_status_id = 'MIS-DISPOSED',
+        mail_item_updated_at = NOW()
+    WHERE mail_item_id = input_mail_item_id;
+
+  INSERT INTO request_schema.dispose_request_table (
+    dispose_request_mail_item_id,
+    dispose_request_account_id,
+    dispose_request_status_id,
+    dispose_request_notes
+  ) VALUES (
+    input_mail_item_id,
+    input_account_id,
+    'DRS-PENDING',
+    input_notes
+  )
+  RETURNING dispose_request_id INTO new_request_id;
+
+  RETURN new_request_id;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Request mail item retrieval
+CREATE OR REPLACE FUNCTION request_mail_item_retrieval(
+  input_mail_item_id UUID,
+  input_account_id UUID,
+  input_address TEXT,
+  input_notes TEXT DEFAULT NULL
+)
+RETURNS UUID
+SET search_path TO ''
+AS $$
+DECLARE
+  new_request_id UUID;
+BEGIN
+  -- Check if retrieval already active
+  IF EXISTS (
+    SELECT 1 FROM request_schema.retrieval_request_table
+    WHERE retrieval_request_mail_item_id = input_mail_item_id
+    AND retrieval_request_status_id IN ('RRS-PENDING', 'RRS-APPROVED', 'RRS-IN_TRANSIT')
+  ) THEN
+    RAISE EXCEPTION 'Retrieval request already active for this mail item';
+  END IF;
+
+  INSERT INTO request_schema.retrieval_request_table (
+    retrieval_request_mail_item_id,
+    retrieval_request_account_id,
+    retrieval_request_status_id,
+    retrieval_request_address,
+    retrieval_request_notes
+  ) VALUES (
+    input_mail_item_id,
+    input_account_id,
+    'RRS-PENDING',
+    input_address,
+    input_notes
+  )
+  RETURNING retrieval_request_id INTO new_request_id;
+  
+  -- Update mail item status to Retrieved? Or wait until approved?
+  -- Typically we wait.
+  
+  UPDATE mailroom_schema.mail_item_table
+  SET mail_item_status_id = 'MIS-RETRIEVED',
+      mail_item_updated_at = NOW()
+  WHERE mail_item_id = input_mail_item_id;
+
+  RETURN new_request_id;
+END;
+$$
+LANGUAGE plpgsql;

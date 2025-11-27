@@ -93,9 +93,8 @@ CREATE TABLE status_schema.dispose_request_status_table (
 -- Insert default dispose request statuses
 INSERT INTO status_schema.dispose_request_status_table (dispose_request_status_id, dispose_request_status_value, dispose_request_status_sort_order) VALUES
     ('DRS-PENDING', 'pending', 1),
-    ('DRS-APPROVED', 'approved', 2),
-    ('DRS-REJECTED', 'rejected', 3),
-    ('DRS-COMPLETED', 'completed', 4);
+    ('DRS-REJECTED', 'rejected', 2),
+    ('DRS-COMPLETED', 'completed', 3);
 
 -- Retrieval Request Status Table
 CREATE TABLE status_schema.retrieval_request_status_table (

@@ -158,3 +158,40 @@ export const getMailboxesByAccountId = async (accountId: string) => {
 
   return data;
 };
+
+export type MailItem = {
+  mail_item_id: string;
+  mail_item_sender: string | null;
+  mail_item_name: string | null;
+  mail_item_description: string | null;
+  mail_item_received_at: string;
+  mail_item_created_at: string;
+  mail_item_is_read: boolean;
+  mail_item_status_value: string;
+  mail_attachment_unopened_scan_file_path: string | null;
+  mail_attachment_item_scan_file_path: string | null;
+  mailbox_label: string | null;
+};
+
+export const getMailItemsByUser = async (
+  userId: string,
+  accountNo: string,
+  mailboxId?: string
+) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc(
+    "get_all_item_mail_by_user_account_no_and_mailbox_id",
+    {
+      input_user_id: userId,
+      input_account_no: accountNo,
+      input_mailbox_id: mailboxId || null,
+    }
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as MailItem[];
+};
