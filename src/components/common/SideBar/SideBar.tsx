@@ -208,8 +208,13 @@ export function SideBar({
     if (type) {
       return (
         <div className={classes.footer}>
-          <Button fullWidth leftSection={<IconUpload size={16} />}>
-            Upload Scanned Mail
+          <Button
+            component="a"
+            href="/admin/upload"
+            fullWidth
+            leftSection={<IconUpload size={16} />}
+          >
+            Upload Received Item
           </Button>
         </div>
       );

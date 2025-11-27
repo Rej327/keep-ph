@@ -38,6 +38,7 @@ export type CreateMailboxWithAccountUpdateParams = {
     account_is_subscribed: boolean;
     account_subscription_ends_at: string | null;
     account_remaining_mailbox_access: number;
+    account_subscription_status_id: string;
   };
   mailbox: Array<{
     mailbox_account_id: string;
@@ -64,6 +65,8 @@ export const createMailboxWithAccountUpdate = async (
             subscriptionData.account.account_subscription_ends_at,
           account_remaining_mailbox_access:
             subscriptionData.account.account_remaining_mailbox_access,
+          account_subscription_status_id:
+            subscriptionData.account.account_subscription_status_id,
           mailbox: subscriptionData.mailbox,
         },
       }
@@ -73,6 +76,43 @@ export const createMailboxWithAccountUpdate = async (
     return { data };
   } catch (err) {
     console.error("Error creating mailbox with account update:", err);
+    return { error: err as Error };
+  }
+};
+
+export type CreateMailItemParams = {
+  mailboxId: string;
+  sender: string;
+  description: string;
+  itemName: string;
+  imagePath: string;
+  receivedAt: Date;
+  statusId?: string;
+};
+
+export const createMailItem = async (params: CreateMailItemParams) => {
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    const { data, error } = await supabase.rpc(
+      "create_mail_item_with_space_decrement" as never,
+      {
+        input_data: {
+          mailbox_id: params.mailboxId,
+          sender: params.sender,
+          image_path: params.imagePath,
+          received_at: params.receivedAt.toISOString(),
+          status_id: "MIS-RECEIVED",
+          name: params.itemName,
+          description: params.description,
+        },
+      }
+    );
+
+    if (error) throw error;
+    return { data };
+  } catch (err) {
+    console.error("Error creating mail item:", err);
     return { error: err as Error };
   }
 };

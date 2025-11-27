@@ -140,3 +140,21 @@ export const getAllCustomers = async (filters?: {
 
   return data as CustomerApiResponse[];
 };
+
+export const getMailboxesByAccountId = async (accountId: string) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase
+    .schema("mailroom_schema")
+    .from("mailbox_table")
+    .select("*")
+    .eq("mailbox_account_id", accountId)
+    .eq("mailbox_status_id", "MBS-ACTIVE");
+
+  if (error) {
+    console.error("Error fetching mailboxes:", error);
+    throw new Error(error.message);
+  }
+
+  return data;
+};

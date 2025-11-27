@@ -219,6 +219,7 @@ export default function CustomersClient() {
         <CustomDataTable
           records={transformedData}
           columns={columns}
+          idAccessor="account_id"
           isRecordLoading={isLoading}
           pageSize={10}
         />

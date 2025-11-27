@@ -56,3 +56,31 @@ USING (
   bucket_id = 'USER-AVATARS'
   AND auth.role() = 'authenticated'
 );
+
+-- --------------------------------------------------------
+-- POLICIES FOR "KEEP-PH-ATTACHMENTS" BUCKET
+-- --------------------------------------------------------
+CREATE POLICY "KEEP-PH-ATTACHMENTS: Allow authenticated uploads" ON storage.objects
+FOR INSERT
+WITH CHECK (
+  bucket_id = 'KEEP-PH-ATTACHMENTS'
+  AND auth.role() = 'authenticated'
+);
+
+CREATE POLICY "KEEP-PH-ATTACHMENTS: Allow public downloads" ON storage.objects
+FOR SELECT
+USING (bucket_id = 'KEEP-PH-ATTACHMENTS');
+
+CREATE POLICY "KEEP-PH-ATTACHMENTS: Allow users to delete their own files" ON storage.objects
+FOR DELETE
+USING (
+  bucket_id = 'KEEP-PH-ATTACHMENTS'
+  AND auth.role() = 'authenticated'
+);
+
+CREATE POLICY "KEEP-PH-ATTACHMENTS: Allow users to update their own files" ON storage.objects
+FOR UPDATE
+USING (
+  bucket_id = 'KEEP-PH-ATTACHMENTS'
+  AND auth.role() = 'authenticated'
+);

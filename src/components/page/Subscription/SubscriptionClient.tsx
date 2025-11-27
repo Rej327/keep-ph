@@ -25,6 +25,7 @@ import {
   UnstyledButton,
   Title,
   Overlay,
+  Loader,
 } from "@mantine/core";
 import { IconCheck, IconCreditCard, IconBox } from "@tabler/icons-react";
 import CustomLoader from "@/components/common/CustomLoader";
@@ -99,6 +100,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
   const [selectedMailboxIds, setSelectedMailboxIds] = useState<string[]>([]);
   const [mailboxPage, setMailboxPage] = useState(1);
   const [mailAccessLimit, setMailAccessLimit] = useState<number>(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { data: userDetails, isLoading } = useSWR(
     user ? ["user-full-details", user.id] : null,
     ([, userId]) => getUserFullDetails(userId)
@@ -141,6 +143,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
   const availableMailbox = selectedMailboxIds.length;
 
   const handleConfirmSelection = async () => {
+    setIsSubmitting(true);
     if (!selectedPlan || availableMailbox === 0) return;
 
     if (selectedMailboxIds.length > mailAccessLimit) {
@@ -157,6 +160,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
         account_is_subscribed: true,
         account_subscription_ends_at: null,
         account_remaining_mailbox_access: mailAccessLimit - availableMailbox,
+        account_subscription_status_id: "SST-ACTIVE",
       },
       mailbox: selectedMailboxIds.map((mailroom) => ({
         mailbox_account_id: userDetails?.account.account_id,
@@ -191,6 +195,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
       setIsModalOpen(false);
       // TODO: Redirect to success page or update UI
     } catch (error) {
+      setIsSubmitting(false);
       console.error("Error in subscription creation:", error);
       // TODO: Show error message to user
     }
@@ -532,11 +537,12 @@ export default function SubscriptionClient({ user }: { user: User }) {
             <Button
               fullWidth
               onClick={handleConfirmSelection}
-              disabled={selectedMailboxIds.length === 0}
+              disabled={selectedMailboxIds.length === 0 || isSubmitting}
             >
-              Confirm Selection ({selectedMailboxIds.length} mailboxes)
+              {isSubmitting ? <Loader size="sm" /> : "Confirm Selection"}
             </Button>
             <Button
+              disabled={isSubmitting}
               fullWidth
               variant="default"
               onClick={() => setIsModalOpen(false)}

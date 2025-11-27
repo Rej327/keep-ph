@@ -26,6 +26,13 @@ ALTER TABLE mailroom_schema.mail_item_table
     REFERENCES status_schema.mail_item_status_table(mail_item_status_id)
     ON DELETE RESTRICT;
 
+-- Mail Item Attachment Foreign Keys
+ALTER TABLE mailroom_schema.mail_attachment_table
+    ADD CONSTRAINT mail_attachment_mail_item_id
+    FOREIGN KEY (mail_attachment_mail_item_id)
+    REFERENCES mailroom_schema.mail_item_table(mail_item_id)
+    ON DELETE CASCADE;
+
 -- Dispose Request Foreign Keys
 ALTER TABLE request_schema.dispose_request_table
     ADD CONSTRAINT fk_dispose_request_account

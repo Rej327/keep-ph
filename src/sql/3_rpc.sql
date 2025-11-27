@@ -256,6 +256,7 @@ DECLARE
   input_account_is_subscribed BOOLEAN := (input_data->>'account_is_subscribed')::BOOLEAN;
   input_account_subscription_ends_at TIMESTAMPTZ := (input_data->>'account_subscription_ends_at')::TIMESTAMPTZ;
   input_account_remaining_mailbox_access SMALLINT := (input_data->>'account_remaining_mailbox_access')::SMALLINT;
+  input_account_subscription_status_id TEXT := (input_data->>'account_subscription_status_id')::TEXT;
   input_mailbox_data JSON := (input_data->'mailbox')::JSON;
 
   -- Function variables
@@ -275,6 +276,7 @@ BEGIN
     account_is_subscribed = input_account_is_subscribed,
     account_subscription_ends_at = input_account_subscription_ends_at,
     account_remaining_mailbox_access = input_account_remaining_mailbox_access,
+    account_subscription_status_id = input_account_subscription_status_id,
     account_updated_at = NOW()
   WHERE account_id = input_account_id;
 
@@ -308,6 +310,152 @@ BEGIN
   ) INTO return_data;
 
   RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Create mail item with space decrement
+CREATE OR REPLACE FUNCTION create_mail_item_with_space_decrement(input_data JSON)
+RETURNS JSON
+SET search_path TO ''
+SECURITY DEFINER
+AS $$
+DECLARE
+  -- Input variables
+  input_mailbox_id UUID := (input_data->>'mailbox_id')::UUID;
+  input_sender TEXT := (input_data->>'sender')::TEXT;
+  input_image_path TEXT := (input_data->>'image_path')::TEXT;
+  input_received_at TIMESTAMPTZ := (input_data->>'received_at')::TIMESTAMPTZ;
+  input_status_id TEXT := COALESCE((input_data->>'status_id')::TEXT, 'MIS-SCANNED');
+  input_name TEXT := (input_data->>'name')::TEXT;
+  input_description TEXT := (input_data->>'description')::TEXT;
+
+  -- Function variables
+  var_current_space SMALLINT;
+  var_new_mail_item_id UUID;
+
+  -- Return variable
+  return_data JSON;
+BEGIN
+  -- 1. Check current space remaining
+  SELECT mailbox_space_remaining INTO var_current_space
+  FROM mailroom_schema.mailbox_table
+  WHERE mailbox_id = input_mailbox_id;
+
+  IF var_current_space IS NULL THEN
+    RAISE EXCEPTION 'Mailbox not found';
+  END IF;
+
+  IF var_current_space <= 0 THEN
+    RAISE EXCEPTION 'Mailbox capacity full, no storage space remaining';
+  END IF;
+
+  -- 2. Decrement space
+  UPDATE mailroom_schema.mailbox_table
+  SET mailbox_space_remaining = mailbox_space_remaining - 1,
+      mailbox_updated_at = NOW()
+  WHERE mailbox_id = input_mailbox_id;
+
+  -- 3. Insert mail item
+  INSERT INTO mailroom_schema.mail_item_table (
+    mail_item_mailbox_id,
+    mail_item_sender,
+    mail_item_received_at,
+    mail_item_status_id,
+    mail_item_name,
+    mail_item_description
+  ) VALUES (
+    input_mailbox_id,
+    input_sender,
+    input_received_at,
+    input_status_id,
+    input_name,
+    input_description
+  )
+  RETURNING mail_item_id INTO var_new_mail_item_id;
+
+    -- 4. Insert attachments
+    INSERT INTO mailroom_schema.mail_attachment_table (
+      mail_attachment_mail_item_id,
+      mail_attachment_unopened_scan_file_path
+    )
+    VALUES (
+      var_new_mail_item_id,
+      input_image_path
+    );
+
+  -- 5. Build return data
+  SELECT JSON_BUILD_OBJECT(
+    'mail_item_id', var_new_mail_item_id,
+    'mailbox_id', input_mailbox_id,
+    'remaining_space', var_current_space - 1
+  ) INTO return_data;
+
+  RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Get all customers
+CREATE OR REPLACE FUNCTION get_all_customers(input_data JSON)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  -- Input variables
+  input_search TEXT := (input_data->>'search')::TEXT;
+  input_status_filter TEXT := (input_data->>'status_filter')::TEXT;
+  input_type_filter TEXT := (input_data->>'type_filter')::TEXT;
+  input_sort_order TEXT := (input_data->>'sort_order')::TEXT;
+  
+  -- Return variable
+  return_data JSON;
+BEGIN
+  SELECT 
+    JSON_AGG(customer_data) INTO return_data
+  FROM (
+    SELECT 
+      JSON_BUILD_OBJECT(
+        'account_id', a.account_id,
+        'account_number', a.account_number,
+        'account_area_code', a.account_area_code,
+        'account_type', a.account_type,
+        'account_type_value', at.account_type_value,
+        'account_subscription_status_id', a.account_subscription_status_id,
+        'account_subscription_status_value', ss.subscription_status_value,
+        'account_subscription_ends_at', a.account_subscription_ends_at,
+        'account_remaining_mailbox_access', a.account_remaining_mailbox_access,
+        'account_created_at', a.account_created_at,
+        'user_id', u.user_id,
+        'user_email', u.user_email,
+        'user_first_name', u.user_first_name,
+        'user_last_name', u.user_last_name
+      ) as customer_data
+    FROM user_schema.account_table a
+    LEFT JOIN user_schema.user_table u ON a.account_user_id = u.user_id
+    LEFT JOIN user_schema.account_type_table at ON a.account_type = at.account_type_id
+    LEFT JOIN status_schema.subscription_status_table ss ON a.account_subscription_status_id = ss.subscription_status_id
+    WHERE 
+      (input_search IS NULL OR input_search = '' OR 
+       LOWER(u.user_first_name || ' ' || u.user_last_name) LIKE LOWER('%' || input_search || '%') OR
+       LOWER(u.user_email) LIKE LOWER('%' || input_search || '%') OR
+       LOWER(a.account_number) LIKE LOWER('%' || input_search || '%'))
+      AND
+      (input_status_filter IS NULL OR input_status_filter = '' OR 
+       LOWER(ss.subscription_status_value) = LOWER(input_status_filter))
+      AND
+      (input_type_filter IS NULL OR input_type_filter = '' OR 
+       LOWER(at.account_type_value) = LOWER(input_type_filter))
+    ORDER BY 
+      CASE 
+        WHEN input_sort_order = 'asc' THEN a.account_created_at
+      END ASC,
+      CASE 
+        WHEN input_sort_order = 'desc' OR input_sort_order IS NULL THEN a.account_created_at
+      END DESC
+  ) subquery;
+
+  RETURN COALESCE(return_data, '[]'::JSON);
 END;
 $$
 LANGUAGE plpgsql;

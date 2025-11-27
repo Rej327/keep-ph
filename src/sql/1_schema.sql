@@ -10,6 +10,8 @@ DELETE FROM storage.buckets;
 INSERT INTO storage.buckets (id, name, public) VALUES
 ('KEEP-PH-DOCUMENTS', 'KEEP-PH-DOCUMENTS', true);
 INSERT INTO storage.buckets (id, name, public) VALUES
+('KEEP-PH-ATTACHMENTS', 'KEEP-PH-ATTACHMENTS', true);
+INSERT INTO storage.buckets (id, name, public) VALUES
 ('USER-AVATARS', 'USER-AVATARS', true);
 
 -- Drop existing schemas if they exist
@@ -62,8 +64,9 @@ INSERT INTO status_schema.mail_item_status_table (mail_item_status_id, mail_item
     ('MIS-RECEIVED', 'received', 1),
     ('MIS-SORTED', 'sorted', 2),
     ('MIS-SCANNED', 'scanned', 3),
-    ('MIS-ARCHIVED', 'archived', 4),
-    ('MIS-DISPOSED', 'disposed', 5);
+    ('MIS-RETRIEVED', 'retrieved', 4),
+    ('MIS-ARCHIVED', 'archived', 5),
+    ('MIS-DISPOSED', 'disposed', 6);
 
 -- Virtual Address Status Table
 CREATE TABLE status_schema.virtual_address_status_table (
@@ -235,13 +238,23 @@ CREATE TABLE mailroom_schema.mail_item_table (
     mail_item_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     mail_item_mailbox_id UUID NOT NULL, -- FK to mailroom_schema.mailbox_table.mailbox_id
     mail_item_sender TEXT,
-    mail_item_image_path TEXT,
+    mail_item_attachment_id UUID,
     mail_item_received_at TIMESTAMPTZ DEFAULT NOW(),
     mail_item_status_id TEXT NOT NULL, -- FK to status_schema.mail_item_status_table.mail_item_status_id
     mail_item_is_read BOOLEAN DEFAULT FALSE,
     mail_item_is_deleted BOOLEAN DEFAULT FALSE,
     mail_item_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     mail_item_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Mail Attachements Table
+CREATE TABLE mailroom_schema.mail_attachment_table (
+    mail_attachment_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    mail_attachment_mail_item_id UUID NOT NULL, -- FK to mailroom_schema.mail_item_table.mail_item_id
+    mail_attachment_unopened_scan_file_path TEXT,
+    mail_attachment_item_scan_file_path TEXT,
+    mail_attachment_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    mail_attachment_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Virtual Address Table
