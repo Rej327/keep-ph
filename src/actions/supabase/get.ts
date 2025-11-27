@@ -50,6 +50,8 @@ export type UserFullDetails = {
     account_max_gb_storage: number;
     account_max_mailbox_access: number;
     account_subscription_ends_at: string | null;
+    account_subscription_status_id: string;
+    account_subscription_status_value: string;
   };
   virtual_address: {
     virtual_address_id: string;
