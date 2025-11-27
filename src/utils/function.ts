@@ -15,7 +15,7 @@ export const getErrorMessage = (err: unknown): string => {
 };
 
 export const replaceUnderscore = (text: string): string => {
-  return text.replace(/_/g, " ");
+  return text.replace(/_/g, " ").toUpperCase();
 };
 
 export const normalizeColumnName = (label: string, index: number) =>
@@ -26,7 +26,7 @@ export const normalizeColumnName = (label: string, index: number) =>
 
 export const getStatusColor = (status: string = ""): string => {
   const colorGroups = {
-    green: ["APPROVED", "COMPLETED", "OFFERED", "PASS", "ACCEPTED", "MEMBER"],
+    green: ["ACTIVE"],
     blue: ["IN_PROGRESS", "SCHEDULED", "DRAFT", "SENT", "AVAILABLE"],
     yellow: ["PENDING", "ONBOARDING"],
     orange: ["RESCHEDULED"],

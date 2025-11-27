@@ -1,3 +1,4 @@
+import { CustomerApiResponse } from "@/components/page/Admin/Customers/CustomersClient";
 import { createSupabaseBrowserClient } from "@/utils/supabase/browserClient";
 
 export const isUserAdmin = async (userId: string): Promise<boolean> => {
@@ -111,4 +112,31 @@ export const filterExistingLabel = async () => {
   }
 
   return data; // This will be an array of rows with only mailbox_label
+};
+
+export const getAllCustomers = async (filters?: {
+  search?: string;
+  status_filter?: string;
+  type_filter?: string;
+  sort_order?: "asc" | "desc";
+}) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const inputData = {
+    search: filters?.search || "",
+    status_filter: filters?.status_filter || "",
+    type_filter: filters?.type_filter || "",
+    sort_order: filters?.sort_order || "desc",
+  };
+
+  const { data, error } = await supabase.rpc("get_all_customers", {
+    input_data: inputData,
+  });
+
+  if (error) {
+    console.error("Error fetching customers:", error);
+    throw new Error(error.message);
+  }
+
+  return data as CustomerApiResponse[];
 };

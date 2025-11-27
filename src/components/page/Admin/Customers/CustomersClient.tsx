@@ -9,135 +9,152 @@ import {
   Badge,
   Stack,
   Anchor,
+  TextInput,
 } from "@mantine/core";
 import { CustomDataTable } from "@/components/common/CustomDataTable";
+import { getAllCustomers } from "@/actions/supabase/get";
+import { useState } from "react";
+import useSWR from "swr";
+import { replaceUnderscore } from "@/utils/function";
 
-// Mock data based on the image
-const mockData = [
-  {
-    id: "CUST-00123",
-    name: "Jane Doe",
-    email: "jane.doe@example.com",
-    accountNo: "KP-987654",
-    type: "Premium",
-    status: "Active",
-  },
-  {
-    id: "CUST-00124",
-    name: "John Smith",
-    email: "john.smith@example.com",
-    accountNo: "KP-987655",
-    type: "Basic",
-    status: "Active",
-  },
-  {
-    id: "CUST-00125",
-    name: "Alice Johnson",
-    email: "alice.j@example.com",
-    accountNo: "KP-987656",
-    type: "Business",
-    status: "Suspended",
-  },
-  {
-    id: "CUST-00126",
-    name: "Michael Brown",
-    email: "m.brown@example.com",
-    accountNo: "KP-987657",
-    type: "Basic",
-    status: "Active",
-  },
-  {
-    id: "CUST-00127",
-    name: "Emily Davis",
-    email: "emily.davis@example.com",
-    accountNo: "KP-987658",
-    type: "Premium",
-    status: "Pending",
-  },
-];
+// Define types for API response
+export type CustomerApiResponse = {
+  account_id: string;
+  account_number: string;
+  account_area_code: string;
+  account_type: string;
+  account_type_value: string;
+  account_subscription_status_id: string;
+  account_subscription_status_value: string;
+  account_subscription_ends_at: string | null;
+  account_remaining_mailbox_access: number | null;
+  account_created_at: string;
+  user_id: string;
+  user_email: string;
+  user_first_name: string;
+  user_last_name: string;
+};
 
 export default function CustomersClient() {
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  const {
+    data: customers,
+    error,
+    isLoading,
+  } = useSWR<CustomerApiResponse[]>(
+    ["customers", search, statusFilter, typeFilter, sortOrder],
+    () =>
+      getAllCustomers({
+        search,
+        status_filter: statusFilter,
+        type_filter: typeFilter,
+        sort_order: sortOrder,
+      }),
+    { revalidateOnFocus: false }
+  );
+
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Active":
+    switch (status?.toLowerCase()) {
+      case "active":
         return "green";
-      case "Suspended":
+      case "suspended":
         return "yellow";
-      case "Pending":
+      case "pending":
         return "gray";
+      case "expired":
+        return "red";
       default:
         return "gray";
     }
   };
 
+  // Transform API data to match table expectations
+  const transformedData = customers || [];
+
   const columns = [
     {
-      accessor: "id",
-      title: "CUSTOMER ID",
-      render: (record: (typeof mockData)[0]) => (
+      accessor: "area_code",
+      title: "AREA CODE",
+      render: (record: CustomerApiResponse) => (
         <Text size="sm" fw={600}>
-          {record.id}
+          {record.account_area_code}
+        </Text>
+      ),
+    },
+    {
+      accessor: "id",
+      title: "ACCOUNT NO.",
+      render: (record: CustomerApiResponse) => (
+        <Text size="sm" fw={600}>
+          {record.account_number}
         </Text>
       ),
     },
     {
       accessor: "name",
       title: "NAME",
-      render: (record: (typeof mockData)[0]) => (
+      render: (record: CustomerApiResponse) => (
         <Group gap="sm">
           <Stack gap={0}>
             <Text size="sm" fw={500}>
-              {record.name}
+              {record.user_first_name}
             </Text>
             <Text size="xs" c="dimmed">
-              {record.email}
+              {record.user_email}
             </Text>
           </Stack>
         </Group>
       ),
     },
     {
-      accessor: "accountNo",
-      title: "ACCOUNT NO.",
-      render: (record: (typeof mockData)[0]) => (
-        <Text size="sm" c="dimmed">
-          {record.accountNo}
-        </Text>
-      ),
-    },
-    {
       accessor: "type",
       title: "SUBSCRIPTION TYPE",
-      render: (record: (typeof mockData)[0]) => (
+      render: (record: CustomerApiResponse) => (
         <Text size="sm" c="dimmed">
-          {record.type}
+          {replaceUnderscore(record.account_type_value)}
         </Text>
       ),
     },
     {
       accessor: "status",
       title: "SUBSCRIPTION STATUS",
-      render: (record: (typeof mockData)[0]) => (
-        <Badge color={getStatusColor(record.status)} variant="light">
-          {record.status}
+      render: (record: CustomerApiResponse) => (
+        <Badge
+          color={getStatusColor(record.account_subscription_status_value)}
+          size="lg"
+          variant="light"
+        >
+          {replaceUnderscore(record.account_subscription_status_value)}
         </Badge>
       ),
     },
     {
       accessor: "actions",
-      title: "",
-      render: (record: (typeof mockData)[0]) => (
-        <Group gap="md" justify="flex-end">
+      title: "ACTIONS",
+      render: (record: CustomerApiResponse) => (
+        <Group gap="md" justify="flex-start">
           <Anchor component="button" size="sm" fw={500}>
             View Details
           </Anchor>
           <Anchor
             component="button"
             size="sm"
-            c={record.status === "Suspended" ? "green" : "orange"}
+            c={
+              record.account_subscription_status_value?.toLowerCase() ===
+              "suspended"
+                ? "green"
+                : "orange"
+            }
             fw={500}
           >
-            {record.status === "Suspended" ? "Activate" : "Suspend"}
+            {record.account_subscription_status_value?.toLowerCase() ===
+            "suspended"
+              ? "Activate"
+              : "Suspend"}
           </Anchor>
         </Group>
       ),
@@ -154,13 +171,63 @@ export default function CustomersClient() {
           </div>
           <Select
             placeholder="All Statuses"
-            data={["All Statuses", "Active", "Suspended", "Pending"]}
-            defaultValue="All Statuses"
+            data={[
+              { value: "", label: "All Statuses" },
+              { value: "active", label: "Active" },
+              { value: "suspended", label: "Suspended" },
+              { value: "pending", label: "Pending" },
+              { value: "expired", label: "Expired" },
+            ]}
+            value={statusFilter}
+            onChange={(value) => setStatusFilter(value || "")}
             w={200}
           />
         </Group>
 
-        <CustomDataTable records={mockData} columns={columns} pageSize={10} />
+        <Group gap="md">
+          <TextInput
+            placeholder="Search customers..."
+            value={search}
+            onChange={(event) => setSearch(event.currentTarget.value)}
+            style={{ flex: 1 }}
+          />
+          <Select
+            placeholder="Account Type"
+            data={[
+              { value: "", label: "All Types" },
+              { value: "free", label: "Free" },
+              { value: "digital", label: "Digital" },
+              { value: "personal", label: "Personal" },
+              { value: "business", label: "Business" },
+            ]}
+            value={typeFilter}
+            onChange={(value) => setTypeFilter(value || "")}
+            w={150}
+          />
+          <Select
+            placeholder="Sort Order"
+            data={[
+              { value: "desc", label: "Newest First" },
+              { value: "asc", label: "Oldest First" },
+            ]}
+            value={sortOrder}
+            onChange={(value) => setSortOrder(value as "asc" | "desc")}
+            w={150}
+          />
+        </Group>
+
+        <CustomDataTable
+          records={transformedData}
+          columns={columns}
+          isRecordLoading={isLoading}
+          pageSize={10}
+        />
+
+        {error && (
+          <Text c="red" ta="center">
+            Error loading customers: {error.message}
+          </Text>
+        )}
       </Stack>
     </Container>
   );
