@@ -110,20 +110,29 @@ export default function UploadMailClient() {
   };
 
   const handleFileUpload = async () => {
-    if (!file || !selectedMailbox || !sendDate || !selectedCustomer) return;
+    // Validate required fields
+    if (!file || !selectedMailbox || !sendDate || !selectedCustomer) {
+      notifications.show({
+        title: "Missing Information",
+        message:
+          "Please ensure all required fields are filled and a file is selected.",
+        color: "red",
+      });
+      return;
+    }
 
     setUploading(true);
     try {
       setIsSubmitting(true);
-      const { data: uploadData, error: uploadError } =
-        await uploadAttachmentfile(file, selectedMailbox);
-
-      if (uploadError) return;
+      const { data: uploadData } = await uploadAttachmentfile(
+        file,
+        selectedMailbox
+      );
 
       // 2. Create mail item record
       const { error: dbError } = await createMailItem({
         mailboxId: selectedMailbox,
-        sender: itemName, // Using itemName as sender
+        sender: sendBy, // Using itemName as sender
         description: description,
         itemName: itemName,
         imagePath: uploadData.path,

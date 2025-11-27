@@ -101,7 +101,7 @@ export const createMailItem = async (params: CreateMailItemParams) => {
           mailbox_id: params.mailboxId,
           sender: params.sender,
           image_path: params.imagePath,
-          received_at: params.receivedAt.toISOString(),
+          received_at: new Date(params.receivedAt).toISOString(),
           status_id: "MIS-RECEIVED",
           name: params.itemName,
           description: params.description,
