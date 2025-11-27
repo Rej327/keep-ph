@@ -6,6 +6,7 @@ import {
   DataTableSortStatus,
 } from "mantine-datatable";
 import { useState, useMemo } from "react";
+import { Paper } from "@mantine/core";
 import CustomLoader from "./CustomLoader";
 import CustomNoData from "./CustomNoData";
 
@@ -93,26 +94,38 @@ export function CustomDataTable<T extends RecordType>({
   const endIndex = startIndex + recordsPerPage;
   const paginatedRecords = sortedRecords.slice(startIndex, endIndex);
 
+  const styledColumns = columns.map((col) => ({
+    ...col,
+    titleStyle: {
+      color: "var(--mantine-color-gray-6)",
+      fontWeight: 600,
+      fontSize: "12px",
+      ...col.titleStyle,
+    },
+  }));
+
   return (
-    <DataTable
-      idAccessor={idAccessor as string}
-      withTableBorder={false}
-      borderRadius="sm"
-      highlightOnHover
-      striped
-      records={paginatedRecords}
-      columns={columns}
-      fetching={isRecordLoading}
-      customLoader={<CustomLoader />}
-      totalRecords={sortedRecords.length}
-      recordsPerPage={recordsPerPage}
-      page={page}
-      onPageChange={setPage}
-      recordsPerPageOptions={[5, 10, 20, 50]}
-      onRecordsPerPageChange={setRecordsPerPage}
-      paginationActiveBackgroundColor="#1966D1"
-      sortStatus={sortStatus}
-      onSortStatusChange={handleSortStatusChange}
-    />
+    <Paper withBorder radius="md" p="md">
+      <DataTable
+        idAccessor={idAccessor as string}
+        withTableBorder={false}
+        borderRadius="sm"
+        highlightOnHover
+        verticalSpacing="md"
+        records={paginatedRecords}
+        columns={styledColumns}
+        fetching={isRecordLoading}
+        customLoader={<CustomLoader />}
+        totalRecords={sortedRecords.length}
+        recordsPerPage={recordsPerPage}
+        page={page}
+        onPageChange={setPage}
+        recordsPerPageOptions={[5, 10, 20, 50]}
+        onRecordsPerPageChange={setRecordsPerPage}
+        paginationActiveBackgroundColor="#1966D1"
+        sortStatus={sortStatus}
+        onSortStatusChange={handleSortStatusChange}
+      />
+    </Paper>
   );
 }
