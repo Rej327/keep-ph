@@ -159,3 +159,9 @@ ALTER TABLE referral_schema.referral_reward_table
     FOREIGN KEY (referral_reward_invitation_id)
     REFERENCES referral_schema.referral_invitation_table(referral_invitation_id)
     ON DELETE CASCADE;
+
+-- Account table - Subscription_status_id
+ALTER TABLE user_schema.account_table
+    ADD CONSTRAINT fk_account_subscription_status_id
+    FOREIGN KEY (account_subscription_status_id)
+    REFERENCES status_schema.subscription_status_table(subscription_status_id);

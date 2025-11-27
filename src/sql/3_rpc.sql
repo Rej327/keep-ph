@@ -61,12 +61,18 @@ BEGIN
     account_user_id,
     account_number,
     account_area_code,
-    account_type
+    account_type,
+    account_subscription_status_id,
+    account_subscription_ends_at,
+    account_remaining_mailbox_access
   ) VALUES (
     input_user_id,
     var_account_number,
     var_area_code,
-    input_account_type
+    input_account_type,
+    'SST-NONSUB',
+    NULL,
+    NULL
   )
   RETURNING account_id INTO var_new_account_id;
 
@@ -169,9 +175,12 @@ BEGIN
       'account_max_quantity_storage', at.account_max_quantity_storage,
       'account_max_gb_storage', at.account_max_gb_storage,
       'account_max_mailbox_access', at.account_max_mailbox_access,
+      'account_subscription_status_id', a.account_subscription_status_id,
+      'account_subscription_status_value', ss.subscription_status_value,
       'account_subscription_ends_at', a.account_subscription_ends_at
     ) FROM user_schema.account_table a
     JOIN user_schema.account_type_table at ON a.account_type = at.account_type_id
+    JOIN status_schema.subscription_status_table ss ON a.account_subscription_status_id = ss.subscription_status_id
     WHERE a.account_user_id = input_user_id),
     'virtual_address', (SELECT JSON_BUILD_OBJECT(
       'virtual_address_id', v.virtual_address_id,

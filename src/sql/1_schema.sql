@@ -156,6 +156,20 @@ INSERT INTO status_schema.referral_status_table (referral_status_id, referral_st
     ('RFS-REJECTED', 'rejected', 3),
     ('RFS-EXPIRED', 'expired', 4);
 
+CREATE TABLE status_schema.subscription_status_table (
+    subscription_status_id TEXT PRIMARY KEY,
+    subscription_status_value TEXT NOT NULL UNIQUE,
+    subscription_status_is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    subscription_status_sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+-- Insert default subscription statuses
+INSERT INTO status_schema.subscription_status_table (subscription_status_id, subscription_status_value, subscription_status_sort_order) VALUES
+    ('SST-NONSUB', 'non_subscriber', 1),
+    ('SST-ACTIVE', 'active', 2),
+    ('SST-SUSPENDED', 'suspended', 3),
+    ('SST-EXPIRED', 'expired', 4);
+
 -- Account Type Table
 CREATE TABLE user_schema.account_type_table (
     account_type_id TEXT PRIMARY KEY,
@@ -195,6 +209,7 @@ CREATE TABLE user_schema.account_table (
     account_area_code TEXT NOT NULL, -- Derived from virtual_address_address (MNL, CEB, DVO, etc.)
     account_type TEXT NOT NULL DEFAULT 'AT-FREE', -- FK to user_schema.account_type_table.account_type_id
     account_is_subscribed BOOLEAN NOT NULL DEFAULT FALSE,
+    account_subscription_status_id TEXT NOT NULL DEFAULT 'SST-NONSUB', --fK to status_schema.subscription_status_table.subscription_status_id
     account_subscription_ends_at TIMESTAMPTZ,
     account_remaining_mailbox_access SMALLINT DEFAULT NULL,
     account_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
