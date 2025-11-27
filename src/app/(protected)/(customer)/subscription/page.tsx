@@ -1,15 +1,15 @@
-import { createSupabaseServerClient } from "@/utils/supabase/serverClient";
-import { redirect } from "next/navigation";
+"use client";
 
-export default async function SubscriptionPage() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+import { redirect } from "next/navigation";
+import SubscriptionClient from "@/components/page/Subscription/SubscriptionClient";
+import useAuthStore from "@/zustand/stores/useAuthStore";
+
+export default function SubscriptionPage() {
+  const { user } = useAuthStore();
 
   if (!user) {
     redirect("/login");
   }
 
-  return <div className="container mx-auto py-8"></div>;
+  return <SubscriptionClient user={user} />;
 }

@@ -25,8 +25,6 @@ export const isAccountSubscribed = async (userId: string): Promise<boolean> => {
     throw new Error(error.message);
   }
 
-  console.log(data);
-
   return data as boolean;
 };
 
@@ -48,6 +46,9 @@ export type UserFullDetails = {
     account_type: string;
     account_type_value: string;
     account_is_subscribed: boolean;
+    account_max_quantity_storage: number;
+    account_max_gb_storage: number;
+    account_max_mailbox_access: number;
     account_subscription_ends_at: string | null;
   };
   virtual_address: {
@@ -75,6 +76,37 @@ export const getUserFullDetails = async (userId: string) => {
   if (error) {
     throw new Error(error.message);
   }
-
+  console.log(data);
   return data as UserFullDetails;
+};
+
+export const getMailAccessLimit = async (userId: string, planId: string) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("get_mail_access_limit", {
+    input_user_id: userId,
+    input_plan_id: planId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as number;
+};
+
+export const filterExistingLabel = async () => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase
+    .schema("mailroom_schema")
+    .from("mailbox_table")
+    .select("mailbox_label");
+
+  if (error) {
+    console.error("Error fetching labels:", error);
+    return null;
+  }
+
+  return data; // This will be an array of rows with only mailbox_label
 };

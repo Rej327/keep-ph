@@ -5,5 +5,5 @@
 @tailwind utilities;
 
 * {
-scroll-behavior: smooth;
+font-family: 'Manrope', sans-serif;
 }

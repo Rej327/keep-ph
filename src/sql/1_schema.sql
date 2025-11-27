@@ -160,16 +160,19 @@ INSERT INTO status_schema.referral_status_table (referral_status_id, referral_st
 CREATE TABLE user_schema.account_type_table (
     account_type_id TEXT PRIMARY KEY,
     account_type_value TEXT NOT NULL UNIQUE,
+    account_max_quantity_storage INTEGER NOT NULL DEFAULT 0,
+    account_max_gb_storage INTEGER NOT NULL DEFAULT 0,
+    account_max_mailbox_access INTEGER NOT NULL DEFAULT 1,
     account_type_is_active BOOLEAN NOT NULL DEFAULT TRUE,
     account_type_sort_order INTEGER NOT NULL DEFAULT 0
 );
 
 -- Insert default account types
-INSERT INTO user_schema.account_type_table (account_type_id, account_type_value, account_type_sort_order) VALUES
-    ('AT-FREE', 'free', 1),
-    ('AT-DIGITAL', 'digital', 2),
-    ('AT-PERSONAL', 'personal', 3),
-    ('AT-BUSINESS', 'business', 4);
+INSERT INTO user_schema.account_type_table (account_type_id, account_type_value, account_max_quantity_storage, account_max_gb_storage, account_max_mailbox_access, account_type_sort_order) VALUES
+    ('AT-FREE', 'free', 5, 1, 1, 1),
+    ('AT-DIGITAL', 'digital', 50, 5, 5, 2),
+    ('AT-PERSONAL', 'personal', 250, 20, 10, 3),
+    ('AT-BUSINESS', 'business', 500, 50, 20, 4);
 
 -- User Table
 CREATE TABLE user_schema.user_table (
@@ -193,6 +196,7 @@ CREATE TABLE user_schema.account_table (
     account_type TEXT NOT NULL DEFAULT 'AT-FREE', -- FK to user_schema.account_type_table.account_type_id
     account_is_subscribed BOOLEAN NOT NULL DEFAULT FALSE,
     account_subscription_ends_at TIMESTAMPTZ,
+    account_remaining_mailbox_access SMALLINT DEFAULT NULL,
     account_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     account_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -206,7 +210,7 @@ CREATE TABLE mailroom_schema.mailbox_table (
     mailbox_account_id UUID NOT NULL, -- FK to user_schema.account_table.account_id
     mailbox_status_id TEXT NOT NULL, -- FK to status_schema.mailbox_status_table.mailbox_status_id
     mailbox_label TEXT,
-    mailbox_max_items INTEGER NOT NULL DEFAULT 154,
+    mailbox_space_remaining SMALLINT DEFAULT 0,
     mailbox_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     mailbox_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

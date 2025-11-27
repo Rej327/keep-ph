@@ -140,63 +140,6 @@ END;
 $$
 LANGUAGE plpgsql;
 
-
--- User Table
-CREATE TABLE user_schema.user_table (
-    user_id UUID PRIMARY KEY NOT NULL,
-    user_username VARCHAR(30),
-    user_email VARCHAR(254) NOT NULL UNIQUE,
-    user_first_name VARCHAR(254),
-    user_last_name VARCHAR(254),
-    user_is_admin BOOLEAN NOT NULL DEFAULT FALSE,
-    user_avatar_bucket_path VARCHAR(256),
-    user_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    user_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Account Table
-CREATE TABLE user_schema.account_table (
-    account_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    account_user_id UUID NOT NULL, -- FK to user_schema.user_table.user_id
-    account_number TEXT NOT NULL UNIQUE, -- Q42025-0001
-    account_area_code TEXT NOT NULL, -- Derived from virtual_address_address (MNL, CEB, DVO, etc.)
-    account_type TEXT NOT NULL DEFAULT 'AT-FREE', -- FK to user_schema.account_type_table.account_type_id
-    account_is_subscribed BOOLEAN NOT NULL DEFAULT FALSE,
-    account_subscription_ends_at TIMESTAMPTZ,
-    account_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    account_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Virtual Address Table
-CREATE TABLE mailroom_schema.virtual_address_table (
-    virtual_address_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    virtual_address_account_id UUID NOT NULL, -- FK to user_schema.account_table.account_id
-    virtual_address_address TEXT NOT NULL UNIQUE, -- Full address string
-    virtual_address_street TEXT, -- Street address
-    virtual_address_city TEXT NOT NULL, -- City/Municipality
-    virtual_address_province TEXT NOT NULL, -- Province/State
-    virtual_address_postal_code TEXT, -- ZIP/Postal code
-    virtual_address_country TEXT NOT NULL, -- Country
-    virtual_address_area_code TEXT NOT NULL, -- MNL, CEB, DVO, etc. (computed from city/province)
-    virtual_address_status_id TEXT NOT NULL, -- FK to status_schema.virtual_address_status_table.virtual_address_status_id
-    virtual_address_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    virtual_address_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE user_schema.account_type_table (
-    account_type_id TEXT PRIMARY KEY,
-    account_type_value TEXT NOT NULL UNIQUE,
-    account_type_is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    account_type_sort_order INTEGER NOT NULL DEFAULT 0
-);
-
--- Insert default account types
-INSERT INTO user_schema.account_type_table (account_type_id, account_type_value, account_type_sort_order) VALUES
-    ('AT-FREE', 'free', 1),
-    ('AT-DIGITAL', 'digital', 2),
-    ('AT-PERSONAL', 'personal', 3),
-    ('AT-BUSINESS', 'business', 4);
-    
 -- Get user full details for profile
 CREATE OR REPLACE FUNCTION get_user_full_details(input_user_id UUID)
 RETURNS JSON
@@ -223,6 +166,9 @@ BEGIN
       'account_type', a.account_type,
       'account_type_value', at.account_type_value,
       'account_is_subscribed', a.account_is_subscribed,
+      'account_max_quantity_storage', at.account_max_quantity_storage,
+      'account_max_gb_storage', at.account_max_gb_storage,
+      'account_max_mailbox_access', at.account_max_mailbox_access,
       'account_subscription_ends_at', a.account_subscription_ends_at
     ) FROM user_schema.account_table a
     JOIN user_schema.account_type_table at ON a.account_type = at.account_type_id
@@ -242,6 +188,114 @@ BEGIN
     ) FROM mailroom_schema.virtual_address_table v
     JOIN status_schema.virtual_address_status_table vs ON v.virtual_address_status_id = vs.virtual_address_status_id
     WHERE v.virtual_address_account_id = (SELECT account_id FROM user_schema.account_table WHERE account_user_id = input_user_id))
+  ) INTO return_data;
+
+  RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Get mail access limit
+CREATE OR REPLACE FUNCTION get_mail_access_limit(input_user_id UUID, input_plan_id TEXT)
+RETURNS INTEGER
+SET search_path TO ''
+AS $$
+DECLARE
+  var_account_type TEXT;
+  var_account_is_subscribed BOOLEAN;
+  var_account_remaining_mailbox_access SMALLINT;
+  var_account_max_mailbox_access INTEGER; -- Default to null
+  return_data INTEGER;
+BEGIN
+  -- Get user's current account state (if account exists)
+  SELECT
+    account_is_subscribed,
+    account_remaining_mailbox_access
+  INTO
+    var_account_is_subscribed,
+    var_account_remaining_mailbox_access
+  FROM user_schema.account_table
+  WHERE account_user_id = input_user_id;
+
+  -- Get max mailbox access for the account type
+  SELECT
+    account_max_mailbox_access INTO var_account_max_mailbox_access
+  FROM user_schema.account_type_table
+  WHERE account_type_id = input_plan_id;
+
+  -- If user has no account (new user), default to free plan
+  IF var_account_remaining_mailbox_access IS NULL THEN return_data := var_account_max_mailbox_access;
+  ELSE
+    -- Return remaining access for existing subscribed users
+    return_data := var_account_remaining_mailbox_access;
+  END IF;
+
+  RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Create mailbox with account update
+CREATE OR REPLACE FUNCTION create_mailbox_with_account_update(input_data JSON)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  -- Input variables
+  input_account_id UUID := (input_data->>'account_id')::UUID;
+  input_account_type TEXT := (input_data->>'account_type')::TEXT;
+  input_account_is_subscribed BOOLEAN := (input_data->>'account_is_subscribed')::BOOLEAN;
+  input_account_subscription_ends_at TIMESTAMPTZ := (input_data->>'account_subscription_ends_at')::TIMESTAMPTZ;
+  input_account_remaining_mailbox_access SMALLINT := (input_data->>'account_remaining_mailbox_access')::SMALLINT;
+  input_mailbox_data JSON := (input_data->'mailbox')::JSON;
+
+  -- Function variables
+  var_mailbox_item JSON;
+  var_mailbox_account_id UUID;
+  var_mailbox_status_id TEXT;
+  var_mailbox_label TEXT;
+  var_mailbox_space_remaining SMALLINT;
+
+  -- Return variable
+  return_data JSON;
+BEGIN
+  -- 1. Update account subscription details
+  UPDATE user_schema.account_table
+  SET
+    account_type = input_account_type,
+    account_is_subscribed = input_account_is_subscribed,
+    account_subscription_ends_at = input_account_subscription_ends_at,
+    account_remaining_mailbox_access = input_account_remaining_mailbox_access,
+    account_updated_at = NOW()
+  WHERE account_id = input_account_id;
+
+  -- 2. Insert mailboxes
+  FOR var_mailbox_item IN SELECT * FROM json_array_elements(input_mailbox_data)
+  LOOP
+    var_mailbox_account_id := (var_mailbox_item->>'mailbox_account_id')::UUID;
+    var_mailbox_status_id := (var_mailbox_item->>'mailbox_status_id')::TEXT;
+    var_mailbox_label := (var_mailbox_item->>'mailbox_label')::TEXT;
+    var_mailbox_space_remaining := (var_mailbox_item->>'mailbox_space_remaining')::SMALLINT;
+
+    INSERT INTO mailroom_schema.mailbox_table (
+      mailbox_account_id,
+      mailbox_status_id,
+      mailbox_label,
+      mailbox_space_remaining
+    ) VALUES (
+      var_mailbox_account_id,
+      var_mailbox_status_id,
+      var_mailbox_label,
+      var_mailbox_space_remaining
+    );
+  END LOOP;
+
+  -- 3. Build return data
+  SELECT JSON_BUILD_OBJECT(
+    'success', TRUE,
+    'message', 'Account updated and mailboxes created successfully',
+    'account_id', input_account_id,
+    'mailbox_count', json_array_length(input_mailbox_data)
   ) INTO return_data;
 
   RETURN return_data;
