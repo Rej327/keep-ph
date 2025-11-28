@@ -34,6 +34,7 @@ import {
   CreateMailboxWithAccountUpdateParams,
 } from "@/actions/supabase/post";
 import { notifications } from "@mantine/notifications";
+import { colors } from "@/styles/colors";
 
 type Plan = {
   id: string;
@@ -143,13 +144,14 @@ export default function SubscriptionClient({ user }: { user: User }) {
   const availableMailbox = selectedMailboxIds.length;
 
   const handleConfirmSelection = async () => {
-    setIsSubmitting(true);
     if (!selectedPlan || availableMailbox === 0) return;
+    setIsSubmitting(true);
 
     if (selectedMailboxIds.length > mailAccessLimit) {
       console.log(
         `You can only select up to ${mailAccessLimit} mailboxes for your plan.`
       );
+      setIsSubmitting(false);
       return;
     }
 
@@ -181,8 +183,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
           message: "Error creating subscription",
           color: "red",
         });
-
-        // TODO: Show error message to user
+        setIsSubmitting(false);
         return;
       }
 
@@ -193,6 +194,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
       console.log("Subscription created successfully:", result.data);
       setSelectedMailboxIds([]);
       setIsModalOpen(false);
+      setIsSubmitting(false);
       // TODO: Redirect to success page or update UI
     } catch (error) {
       setIsSubmitting(false);
@@ -205,13 +207,11 @@ export default function SubscriptionClient({ user }: { user: User }) {
     return <CustomLoader />;
   }
 
-  if (loading) {
-    return (
-      <Overlay>
-        <CustomLoader />
-      </Overlay>
-    );
-  }
+  const loadingOverlay = loading ? (
+    <Overlay>
+      <CustomLoader />
+    </Overlay>
+  ) : null;
 
   const isSubscribed = userDetails?.account.account_is_subscribed;
 
@@ -230,6 +230,148 @@ export default function SubscriptionClient({ user }: { user: User }) {
     }
   };
 
+  const mailboxSelectionModal = (
+    <Modal
+      opened={isModalOpen}
+      onClose={() => setIsModalOpen(false)}
+      size="md"
+      centered
+      padding={0}
+      radius="lg"
+      withCloseButton={false}
+    >
+      <Stack align="center" p="xl" gap="md">
+        <ThemeIcon size={60} radius="xl" variant="light" color="blue">
+          <IconBox size={32} />
+        </ThemeIcon>
+
+        <Title order={3} ta="center">
+          Select Your Mailbox IDs
+        </Title>
+        <Text c="dimmed" size="sm" ta="center" maw={300}>
+          Choose up to {mailAccessLimit} mailboxes for your permanent mail
+          storage.
+        </Text>
+
+        <Group justify="center" gap="xs">
+          <Text size="sm" fw={500}>
+            Selected: {selectedMailboxIds.length} / {mailAccessLimit}
+          </Text>
+          <Badge
+            color={
+              selectedMailboxIds.length === mailAccessLimit ? "green" : "blue"
+            }
+            size="sm"
+          >
+            {selectedMailboxIds.length === mailAccessLimit
+              ? "Complete"
+              : "Select More"}
+          </Badge>
+        </Group>
+
+        <Box w="100%">
+          <Text size="xs" fw={500} mb="xs">
+            Available Mailbox IDs
+          </Text>
+          <SimpleGrid cols={5} spacing="xs">
+            {Array.from({ length: 15 }).map((_, i) => {
+              const letter = String.fromCharCode(65 + (mailboxPage - 1)); // A for page 1, B for page 2, etc.
+              const number = i + 1;
+              const id = `${letter}${number}`;
+              const isSelected = selectedMailboxIds.includes(id);
+              const isDisabled =
+                (!isSelected && selectedMailboxIds.length >= mailAccessLimit) ||
+                (existingMailbox &&
+                  existingMailbox.some(
+                    (mailbox) => mailbox.mailbox_label === id
+                  ));
+
+              let borderColor: string;
+              if (isSelected) {
+                borderColor = "var(--mantine-color-blue-6)";
+              } else if (isDisabled) {
+                borderColor = "var(--mantine-color-gray-4)";
+              } else {
+                borderColor = "var(--mantine-color-gray-3)";
+              }
+
+              let backgroundColor: string;
+              if (isSelected) {
+                backgroundColor = "var(--mantine-color-blue-0)";
+              } else if (isDisabled) {
+                backgroundColor = "var(--mantine-color-gray-1)";
+              } else {
+                backgroundColor = "transparent";
+              }
+
+              let textColor: string;
+              if (isSelected) {
+                textColor = "var(--mantine-color-blue-7)";
+              } else if (isDisabled) {
+                textColor = "var(--mantine-color-gray-5)";
+              } else {
+                textColor = "inherit";
+              }
+
+              return (
+                <UnstyledButton
+                  key={id}
+                  onClick={() => !isDisabled && handleMailboxToggle(id)}
+                  disabled={isDisabled || existingMailboxLoading}
+                  style={{
+                    border: `1px solid ${borderColor}`,
+                    borderRadius: "var(--mantine-radius-md)",
+                    padding: "8px",
+                    textAlign: "center",
+                    backgroundColor,
+                    color: textColor,
+                    fontWeight: isSelected ? 600 : 400,
+                    opacity: isDisabled ? 0.6 : 1,
+                    cursor: isDisabled ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {id}
+                </UnstyledButton>
+              );
+            })}
+          </SimpleGrid>
+        </Box>
+
+        <Group justify="center" w="100%" mt="sm">
+          <UnstyledButton
+            disabled={mailboxPage === 1}
+            onClick={() => setMailboxPage((p) => p - 1)}
+            style={{ opacity: mailboxPage === 1 ? 0.5 : 1 }}
+          >
+            ←
+          </UnstyledButton>
+          <Text size="sm">Page {mailboxPage} of 25</Text>
+          <UnstyledButton onClick={() => setMailboxPage((p) => p + 1)}>
+            →
+          </UnstyledButton>
+        </Group>
+
+        <Group w="100%" mt="md">
+          <Button
+            fullWidth
+            onClick={handleConfirmSelection}
+            disabled={selectedMailboxIds.length === 0 || isSubmitting}
+          >
+            {isSubmitting ? <Loader size="sm" /> : "Confirm Selection"}
+          </Button>
+          <Button
+            disabled={isSubmitting}
+            fullWidth
+            variant="default"
+            onClick={() => setIsModalOpen(false)}
+          >
+            Cancel
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+
   if (isSubscribed) {
     return (
       <Container size="lg" py="xl">
@@ -244,29 +386,47 @@ export default function SubscriptionClient({ user }: { user: User }) {
 
           <Card withBorder radius="md" p="xl">
             <Stack gap="xs">
-              <Text c="dimmed" size="sm">
-                Current Plan
-              </Text>
-              <Group>
-                <Title order={3}>
-                  {getPlanDisplayName(userDetails?.account.account_type_value)}
-                </Title>
-                <Badge color="green" variant="light">
-                  Active
-                </Badge>
-              </Group>
-              <Text c="dimmed" size="sm">
-                Your plan renews on{" "}
-                {userDetails?.account.account_subscription_ends_at
-                  ? new Date(
-                      userDetails.account.account_subscription_ends_at
-                    ).toLocaleDateString()
-                  : "N/A"}
-                .
-              </Text>
-              <Group mt="md" justify="flex-end">
-                <Button variant="default">Change Plan</Button>
-              </Group>
+              <Stack gap={"xs"}>
+                <Text c="dimmed" size="sm">
+                  Current Plan
+                </Text>
+                <Group>
+                  <Title order={3}>
+                    {getPlanDisplayName(
+                      userDetails?.account.account_type_value
+                    )}
+                  </Title>
+                  <Badge color="green" variant="light">
+                    Active
+                  </Badge>
+                </Group>
+                <Text c="dimmed" size="sm">
+                  Your plan expires on{" "}
+                  {userDetails?.account.account_subscription_ends_at
+                    ? new Date(
+                        userDetails.account.account_subscription_ends_at
+                      ).toLocaleDateString()
+                    : "N/A"}
+                  .
+                </Text>
+              </Stack>
+              <Stack mt="md" justify="flex-end">
+                <Button
+                  variant="default"
+                  color={colors.background}
+                  onClick={() => {
+                    const currentPlan = PLANS.find(
+                      (p) => p.id === userDetails.account.account_type
+                    );
+                    if (currentPlan) {
+                      handleChoosePlan(currentPlan);
+                    }
+                  }}
+                >
+                  Get More Storage
+                </Button>
+                {/* <Button variant="default">Change Plan</Button> */}
+              </Stack>
             </Stack>
           </Card>
 
@@ -321,6 +481,8 @@ export default function SubscriptionClient({ user }: { user: User }) {
             </Stack>
           </Alert>
         </Stack>
+        {mailboxSelectionModal}
+        {loadingOverlay}
       </Container>
     );
   }
@@ -412,146 +574,8 @@ export default function SubscriptionClient({ user }: { user: User }) {
         ))}
       </SimpleGrid>
 
-      <Modal
-        opened={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        size="md"
-        centered
-        padding={0}
-        radius="lg"
-        withCloseButton={false}
-      >
-        <Stack align="center" p="xl" gap="md">
-          <ThemeIcon size={60} radius="xl" variant="light" color="blue">
-            <IconBox size={32} />
-          </ThemeIcon>
-
-          <Title order={3} ta="center">
-            Select Your Mailbox IDs
-          </Title>
-          <Text c="dimmed" size="sm" ta="center" maw={300}>
-            Choose up to {mailAccessLimit} mailboxes for your permanent mail
-            storage.
-          </Text>
-
-          <Group justify="center" gap="xs">
-            <Text size="sm" fw={500}>
-              Selected: {selectedMailboxIds.length} / {mailAccessLimit}
-            </Text>
-            <Badge
-              color={
-                selectedMailboxIds.length === mailAccessLimit ? "green" : "blue"
-              }
-              size="sm"
-            >
-              {selectedMailboxIds.length === mailAccessLimit
-                ? "Complete"
-                : "Select More"}
-            </Badge>
-          </Group>
-
-          <Box w="100%">
-            <Text size="xs" fw={500} mb="xs">
-              Available Mailbox IDs
-            </Text>
-            <SimpleGrid cols={5} spacing="xs">
-              {Array.from({ length: 15 }).map((_, i) => {
-                const letter = String.fromCharCode(65 + (mailboxPage - 1)); // A for page 1, B for page 2, etc.
-                const number = i + 1;
-                const id = `${letter}${number}`;
-                const isSelected = selectedMailboxIds.includes(id);
-                const isDisabled =
-                  (!isSelected &&
-                    selectedMailboxIds.length >= mailAccessLimit) ||
-                  (existingMailbox &&
-                    existingMailbox.some(
-                      (mailbox) => mailbox.mailbox_label === id
-                    ));
-
-                let borderColor: string;
-                if (isSelected) {
-                  borderColor = "var(--mantine-color-blue-6)";
-                } else if (isDisabled) {
-                  borderColor = "var(--mantine-color-gray-4)";
-                } else {
-                  borderColor = "var(--mantine-color-gray-3)";
-                }
-
-                let backgroundColor: string;
-                if (isSelected) {
-                  backgroundColor = "var(--mantine-color-blue-0)";
-                } else if (isDisabled) {
-                  backgroundColor = "var(--mantine-color-gray-1)";
-                } else {
-                  backgroundColor = "transparent";
-                }
-
-                let textColor: string;
-                if (isSelected) {
-                  textColor = "var(--mantine-color-blue-7)";
-                } else if (isDisabled) {
-                  textColor = "var(--mantine-color-gray-5)";
-                } else {
-                  textColor = "inherit";
-                }
-
-                return (
-                  <UnstyledButton
-                    key={id}
-                    onClick={() => !isDisabled && handleMailboxToggle(id)}
-                    disabled={isDisabled || existingMailboxLoading}
-                    style={{
-                      border: `1px solid ${borderColor}`,
-                      borderRadius: "var(--mantine-radius-md)",
-                      padding: "8px",
-                      textAlign: "center",
-                      backgroundColor,
-                      color: textColor,
-                      fontWeight: isSelected ? 600 : 400,
-                      opacity: isDisabled ? 0.6 : 1,
-                      cursor: isDisabled ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {id}
-                  </UnstyledButton>
-                );
-              })}
-            </SimpleGrid>
-          </Box>
-
-          <Group justify="center" w="100%" mt="sm">
-            <UnstyledButton
-              disabled={mailboxPage === 1}
-              onClick={() => setMailboxPage((p) => p - 1)}
-              style={{ opacity: mailboxPage === 1 ? 0.5 : 1 }}
-            >
-              ←
-            </UnstyledButton>
-            <Text size="sm">Page {mailboxPage} of 25</Text>
-            <UnstyledButton onClick={() => setMailboxPage((p) => p + 1)}>
-              →
-            </UnstyledButton>
-          </Group>
-
-          <Group w="100%" mt="md">
-            <Button
-              fullWidth
-              onClick={handleConfirmSelection}
-              disabled={selectedMailboxIds.length === 0 || isSubmitting}
-            >
-              {isSubmitting ? <Loader size="sm" /> : "Confirm Selection"}
-            </Button>
-            <Button
-              disabled={isSubmitting}
-              fullWidth
-              variant="default"
-              onClick={() => setIsModalOpen(false)}
-            >
-              Cancel
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+      {mailboxSelectionModal}
+      {loadingOverlay}
     </Container>
   );
 }
