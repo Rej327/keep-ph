@@ -642,3 +642,82 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
+-- Admin Customer Mailroom
+-- Get all mailrooms
+CREATE OR REPLACE FUNCTION get_all_mailrooms(input_data JSON)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  -- Input variables
+  input_search TEXT := (input_data->>'search')::TEXT;
+  input_status_filter TEXT := (input_data->>'status_filter')::TEXT;
+  input_type_filter TEXT := (input_data->>'type_filter')::TEXT;
+  input_sort_order TEXT := (input_data->>'sort_order')::TEXT;
+
+  return_data JSON;
+
+BEGIN
+    SELECT
+        COALESCE(JSON_AGG(
+            JSON_BUILD_OBJECT(
+                'mailbox_id', mb.mailbox_id,
+                'mailbox_label', mb.mailbox_label,
+                'mailbox_status_id', mb.mailbox_status_id,
+                'mailbox_status_value', mst.mailbox_status_value,
+                'mailbox_remaining_space', mb.mailbox_space_remaining,
+                'account_id', acc.account_id,
+                'account_number', acc.account_number,
+								'account_area_code', acc.account_area_code,
+                'user_id', u.user_id,
+                'user_full_name', CONCAT_WS(' ', u.user_first_name, u.user_last_name),
+                'user_email', u.user_email,
+                'mailbox_created_at', mb.mailbox_created_at
+            ) ORDER BY 
+                CASE WHEN input_sort_order = 'asc' THEN mb.mailbox_created_at END ASC,
+                CASE WHEN input_sort_order = 'desc' OR input_sort_order IS NULL THEN mb.mailbox_created_at END DESC
+        ), '[]'::JSON)
+    INTO
+        return_data
+    FROM
+        mailroom_schema.mailbox_table mb
+    JOIN
+        status_schema.mailbox_status_table mst ON mb.mailbox_status_id = mst.mailbox_status_id
+    JOIN
+        user_schema.account_table acc ON mb.mailbox_account_id = acc.account_id
+    JOIN
+        user_schema.user_table u ON acc.account_user_id = u.user_id
+    WHERE
+        (input_search IS NULL OR input_search = '' OR
+         mb.mailbox_label ILIKE '%' || input_search || '%' OR
+         acc.account_number ILIKE '%' || input_search || '%' OR
+         u.user_email ILIKE '%' || input_search || '%' OR
+         CONCAT_WS(' ', u.user_first_name, u.user_last_name) ILIKE '%' || input_search || '%')
+        AND
+        (input_status_filter IS NULL OR input_status_filter = '' OR mb.mailbox_status_id::TEXT = input_status_filter)
+        AND
+        (input_type_filter IS NULL OR input_type_filter = '' OR acc.account_type = input_type_filter);
+
+    RETURN return_data;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Update mailbox status
+CREATE OR REPLACE FUNCTION update_mailbox_status(
+  input_mailbox_id UUID,
+  input_status_id TEXT
+)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  UPDATE mailroom_schema.mailbox_table
+  SET mailbox_status_id = input_status_id,
+      mailbox_updated_at = NOW()
+  WHERE mailbox_id = input_mailbox_id;
+
+  RETURN FOUND;
+END;
+$$
+LANGUAGE plpgsql;
