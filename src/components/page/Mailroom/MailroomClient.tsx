@@ -201,7 +201,7 @@ export default function MailroomClient() {
     () => [
       {
         accessor: "mail_attachment_unopened_scan_file_path",
-        title: "Scan",
+        title: "Receipt",
         width: 80,
         render: (record) => (
           <Image
