@@ -129,6 +129,7 @@ export default function MailroomClient() {
       });
     } finally {
       setActionLoading(false);
+      setSelectedItem(null);
     }
   };
 
@@ -151,6 +152,7 @@ export default function MailroomClient() {
       });
     } finally {
       setActionLoading(false);
+      setSelectedItem(null);
     }
   };
 
@@ -186,6 +188,7 @@ export default function MailroomClient() {
       });
     } finally {
       setActionLoading(false);
+      setSelectedItem(null);
     }
   };
 

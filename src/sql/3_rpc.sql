@@ -571,7 +571,7 @@ BEGIN
   END IF;
 
   UPDATE mailroom_schema.mail_item_table
-    SET mail_item_status_id = 'MIS-DISPOSED',
+    SET mail_item_status_id = 'MIS-DISPOSAL',
         mail_item_updated_at = NOW()
     WHERE mail_item_id = input_mail_item_id;
 
@@ -634,7 +634,7 @@ BEGIN
   -- Typically we wait.
   
   UPDATE mailroom_schema.mail_item_table
-  SET mail_item_status_id = 'MIS-RETRIEVED',
+  SET mail_item_status_id = 'MIS-RETRIEVAL',
       mail_item_updated_at = NOW()
   WHERE mail_item_id = input_mail_item_id;
 

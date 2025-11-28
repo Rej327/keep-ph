@@ -62,11 +62,12 @@ CREATE TABLE status_schema.mail_item_status_table (
 -- Insert default mail item statuses
 INSERT INTO status_schema.mail_item_status_table (mail_item_status_id, mail_item_status_value, mail_item_status_sort_order) VALUES
     ('MIS-RECEIVED', 'received', 1),
-    ('MIS-SORTED', 'sorted', 2),
+    ('MIS-RETRIEVAL', 'retrieval', 2),
     ('MIS-SCANNED', 'scanned', 3),
     ('MIS-RETRIEVED', 'retrieved', 4),
     ('MIS-ARCHIVED', 'archived', 5),
-    ('MIS-DISPOSED', 'disposed', 6);
+    ('MIS-DISPOSAL', 'disposal', 6);
+    ('MIS-DISPOSED', 'disposed', 7);
 
 -- Virtual Address Status Table
 CREATE TABLE status_schema.virtual_address_status_table (

@@ -48,10 +48,12 @@ export const getStatusFormat = (status: string = ""): string => {
     yellow: [
       "INACTIVE",
       "PENDING",
+      "DISPOSAL",
       "SUSPENDED",
       "ARCHIVED",
       "NON_SUBSCRIBER",
       "ONBOARDING",
+      "RETRIEVAL",
     ],
     red: [
       "REJECTED",
