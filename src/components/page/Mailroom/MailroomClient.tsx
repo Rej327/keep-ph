@@ -52,6 +52,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { CustomDataTable } from "@/components/common/CustomDataTable";
 import { DataTableColumn } from "mantine-datatable";
+import { getStatusFormat } from "@/utils/function";
 
 export default function MailroomClient() {
   const user = useAuthStore((state) => state.user);
@@ -250,7 +251,7 @@ export default function MailroomClient() {
               <Badge
                 size="sm"
                 variant="light"
-                color={getStatusColor(record.mail_item_status_value)}
+                color={getStatusFormat(record.mail_item_status_value)}
               >
                 {record.mail_item_status_value}
               </Badge>
@@ -292,25 +293,6 @@ export default function MailroomClient() {
         return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
       });
   }, [mailItems, searchTerm, statusFilter, sortOrder]);
-
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "new":
-      case "received":
-        return "green";
-      case "archived":
-        return "gray";
-      case "forwarded":
-        return "blue";
-      case "pending":
-        return "yellow";
-      case "shredded":
-      case "disposed":
-        return "red";
-      default:
-        return "blue";
-    }
-  };
 
   const handleRefresh = () => {
     mutate();
@@ -432,7 +414,7 @@ export default function MailroomClient() {
                   </Text>
                   <Badge
                     mt="xs"
-                    color={getStatusColor(selectedItem.mail_item_status_value)}
+                    color={getStatusFormat(selectedItem.mail_item_status_value)}
                   >
                     {selectedItem.mail_item_status_value}
                   </Badge>

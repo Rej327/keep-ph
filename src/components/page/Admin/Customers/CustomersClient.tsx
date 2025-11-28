@@ -15,7 +15,7 @@ import { CustomDataTable } from "@/components/common/CustomDataTable";
 import { getAllCustomers } from "@/actions/supabase/get";
 import { useState } from "react";
 import useSWR from "swr";
-import { replaceUnderscore } from "@/utils/function";
+import { getStatusFormat, replaceUnderscore } from "@/utils/function";
 
 // Define types for API response
 export type CustomerApiResponse = {
@@ -56,21 +56,6 @@ export default function CustomersClient() {
       }),
     { revalidateOnFocus: false }
   );
-
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "active":
-        return "green";
-      case "suspended":
-        return "yellow";
-      case "pending":
-        return "gray";
-      case "expired":
-        return "red";
-      default:
-        return "gray";
-    }
-  };
 
   // Transform API data to match table expectations
   const transformedData = customers || [];
@@ -124,7 +109,7 @@ export default function CustomersClient() {
       title: "SUBSCRIPTION STATUS",
       render: (record: CustomerApiResponse) => (
         <Badge
-          color={getStatusColor(record.account_subscription_status_value)}
+          color={getStatusFormat(record.account_subscription_status_value)}
           size="lg"
           variant="light"
         >
