@@ -18,19 +18,52 @@ export const replaceUnderscore = (text: string): string => {
   return text.replace(/_/g, " ").toUpperCase();
 };
 
-export const normalizeColumnName = (label: string, index: number) =>
-  label
-    .toLowerCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^a-z0-9_]/g, "") || `field_${index}`;
-
-export const getStatusColor = (status: string = ""): string => {
+export const getStatusFormat = (status: string = ""): string => {
   const colorGroups = {
-    green: ["ACTIVE"],
-    blue: ["IN_PROGRESS", "SCHEDULED", "DRAFT", "SENT", "AVAILABLE"],
-    yellow: ["PENDING", "ONBOARDING"],
+    green: [
+      "ACTIVE",
+      "APPROVED",
+      "DELIVERED",
+      "COMPLETED",
+      "ACCEPTED",
+      "RECEIVED",
+      "RETRIEVED",
+      "DIGITAL",
+      "PERSONAL",
+      "BUSINESS",
+    ],
+    blue: [
+      "IN_PROGRESS",
+      "IN_TRANSIT",
+      "MAINTENANCE",
+      "SORTED",
+      "SCANNED",
+      "READY_FOR_PICKUP",
+      "FREE",
+      "SCHEDULED",
+      "DRAFT",
+      "SENT",
+      "AVAILABLE",
+    ],
+    yellow: [
+      "INACTIVE",
+      "PENDING",
+      "SUSPENDED",
+      "ARCHIVED",
+      "NON_SUBSCRIBER",
+      "ONBOARDING",
+    ],
+    red: [
+      "REJECTED",
+      "FULL",
+      "DISPOSED",
+      "EXPIRED",
+      "CANCELED",
+      "DECLINED",
+      "FAIL",
+      "WITHDRAWN",
+    ],
     orange: ["RESCHEDULED"],
-    red: ["REJECTED", "CANCELED", "DECLINED", "FAIL", "REJECTED", "WITHDRAWN"],
   };
 
   const statusToColor = Object.entries(colorGroups).reduce(
