@@ -91,3 +91,21 @@ export const updateMailboxStatus = async (
 
   return data as boolean;
 };
+
+export const updateDisposalRequestStatus = async (
+  requestId: string,
+  statusId: string
+) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("update_disposal_request_status", {
+    input_request_id: requestId,
+    input_status_id: statusId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as boolean;
+};

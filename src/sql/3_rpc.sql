@@ -721,3 +721,89 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
+-- Get all disposal requests
+CREATE OR REPLACE FUNCTION get_all_disposal_requests(input_data JSON)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  -- Input variables
+  input_search TEXT := (input_data->>'search')::TEXT;
+  input_status_filter TEXT := (input_data->>'status_filter')::TEXT;
+  input_sort_order TEXT := (input_data->>'sort_order')::TEXT;
+  
+  -- Return variable
+  return_data JSON;
+BEGIN
+  SELECT 
+    COALESCE(JSON_AGG(request_data), '[]'::JSON) INTO return_data
+  FROM (
+    SELECT 
+      JSON_BUILD_OBJECT(
+        'dispose_request_id', dr.dispose_request_id,
+        'dispose_request_mail_item_id', dr.dispose_request_mail_item_id,
+        'dispose_request_account_id', dr.dispose_request_account_id,
+        'dispose_request_status_id', dr.dispose_request_status_id,
+        'dispose_request_status_value', drs.dispose_request_status_value,
+        'dispose_request_requested_at', dr.dispose_request_requested_at,
+        'mail_item_name', mi.mail_item_name,
+        'mail_item_sender', mi.mail_item_sender,
+        'user_id', u.user_id,
+        'user_full_name', CONCAT_WS(' ', u.user_first_name, u.user_last_name),
+        'user_email', u.user_email
+      ) as request_data
+    FROM request_schema.dispose_request_table dr
+    JOIN status_schema.dispose_request_status_table drs ON dr.dispose_request_status_id = drs.dispose_request_status_id
+    JOIN mailroom_schema.mail_item_table mi ON dr.dispose_request_mail_item_id = mi.mail_item_id
+    JOIN user_schema.account_table acc ON dr.dispose_request_account_id = acc.account_id
+    JOIN user_schema.user_table u ON acc.account_user_id = u.user_id
+    WHERE 
+      (input_search IS NULL OR input_search = '' OR 
+       LOWER(u.user_first_name || ' ' || u.user_last_name) LIKE LOWER('%' || input_search || '%') OR
+       LOWER(u.user_email) LIKE LOWER('%' || input_search || '%'))
+      AND
+      (input_status_filter IS NULL OR input_status_filter = '' OR 
+       LOWER(drs.dispose_request_status_value) = LOWER(input_status_filter) OR
+       LOWER(dr.dispose_request_status_id) = LOWER(input_status_filter))
+    ORDER BY 
+      CASE 
+        WHEN input_sort_order = 'asc' THEN dr.dispose_request_requested_at
+      END ASC,
+      CASE 
+        WHEN input_sort_order = 'desc' OR input_sort_order IS NULL THEN dr.dispose_request_requested_at
+      END DESC
+  ) subquery;
+
+  RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Update disposal request status
+CREATE OR REPLACE FUNCTION update_disposal_request_status(
+  input_request_id UUID,
+  input_status_id TEXT
+)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  UPDATE request_schema.dispose_request_table
+  SET dispose_request_status_id = input_status_id,
+      dispose_request_updated_at = NOW(),
+      dispose_request_processed_at = CASE WHEN input_status_id IN ('DRS-APPROVED', 'DRS-COMPLETED', 'DRS-REJECTED') THEN NOW() ELSE dispose_request_processed_at END
+  WHERE dispose_request_id = input_request_id;
+
+  -- If completed, update mail item status to disposed (if not already)
+  IF input_status_id = 'DRS-COMPLETED' THEN
+    UPDATE mailroom_schema.mail_item_table
+    SET mail_item_status_id = 'MIS-DISPOSED',
+        mail_item_updated_at = NOW()
+    WHERE mail_item_id = (SELECT dispose_request_mail_item_id FROM request_schema.dispose_request_table WHERE dispose_request_id = input_request_id);
+  END IF;
+
+  RETURN FOUND;
+END;
+$$
+LANGUAGE plpgsql;

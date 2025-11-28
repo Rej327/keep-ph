@@ -240,3 +240,42 @@ export const getAllMailrooms = async (filters?: {
 
   return data as MailroomItem[];
 };
+
+export type DisposalRequestItem = {
+  dispose_request_id: string;
+  dispose_request_mail_item_id: string;
+  dispose_request_account_id: string;
+  dispose_request_status_id: string;
+  dispose_request_status_value: string;
+  dispose_request_requested_at: string;
+  mail_item_name: string | null;
+  mail_item_sender: string | null;
+  user_id: string;
+  user_full_name: string;
+  user_email: string;
+};
+
+export const getAllDisposalRequests = async (filters?: {
+  search?: string;
+  status_filter?: string;
+  sort_order?: "asc" | "desc";
+}) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const inputData = {
+    search: filters?.search || "",
+    status_filter: filters?.status_filter || "",
+    sort_order: filters?.sort_order || "desc",
+  };
+
+  const { data, error } = await supabase.rpc("get_all_disposal_requests", {
+    input_data: inputData,
+  });
+
+  if (error) {
+    console.error("Error fetching disposal requests:", error);
+    throw new Error(error.message);
+  }
+
+  return data as DisposalRequestItem[];
+};
