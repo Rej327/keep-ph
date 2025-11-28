@@ -7,7 +7,7 @@ import {
   Stack,
   ThemeIcon,
   Button,
-  Progress,
+  // Progress,
   Avatar,
   UnstyledButton,
 } from "@mantine/core";
@@ -18,18 +18,18 @@ import {
   IconChevronUp,
   IconChevronRight,
   IconMenu2,
-  IconLayoutDashboard,
+  // IconLayoutDashboard,
   IconMail,
-  IconMailOpened,
+  // IconMailOpened,
   IconTrash,
   IconUsers,
-  IconUser,
-  IconChartBar,
-  IconArrowsMaximize,
+  // IconUser,
+  // IconChartBar,
+  // IconArrowsMaximize,
   IconCreditCard,
-  IconShieldLock,
   IconUpload,
-  IconPlus,
+  IconTruckDelivery,
+  // IconPlus,
 } from "@tabler/icons-react";
 import classes from "./SideBar.module.css";
 import { User } from "@supabase/supabase-js";
@@ -42,35 +42,40 @@ type LinksGroupProps = {
 };
 
 const adminLinks: LinksGroupProps[] = [
-  {
-    label: "Admin Dashboard",
-    icon: IconLayoutDashboard,
-    link: "/admin/dashboard",
-  },
-  { label: "All Mail Items", icon: IconMail, link: "/admin/mailroom" },
-  {
-    label: "View Mail Item",
-    icon: IconMailOpened,
-    link: "/admin/mailroom/view",
-  },
+  // {
+  //   label: "Admin Dashboard",
+  //   icon: IconLayoutDashboard,
+  //   link: "/admin/dashboard",
+  // },
+  { label: "All Customers", icon: IconUsers, link: "/admin/customers" },
+  { label: "Customer Mailroom", icon: IconMail, link: "/admin/mailroom" },
+  // {
+  //   label: "View Mail Item",
+  //   icon: IconMailOpened,
+  //   link: "/admin/mailroom/view",
+  // },
   {
     label: "Disposal Requests",
     icon: IconTrash,
     link: "/admin/disposal/requests",
   },
-  { label: "All Customers", icon: IconUsers, link: "/admin/customers" },
-  { label: "Customer Detail", icon: IconUser, link: "/admin/customer/detail" },
-  { label: "System Stats", icon: IconChartBar, link: "/admin/stats" },
+  {
+    label: "Retrieval Request",
+    icon: IconTruckDelivery,
+    link: "/admin/retrieval/requests",
+  },
+  // { label: "Customer Detail", icon: IconUser, link: "/admin/customer/detail" },
+  // { label: "System Stats", icon: IconChartBar, link: "/admin/stats" },
 ];
 
 const customerLinks: LinksGroupProps[] = [
-  { label: "Dashboard", icon: IconLayoutDashboard, link: "/dashboard" },
+  // { label: "Dashboard", icon: IconLayoutDashboard, link: "/dashboard" },
   { label: "All Mail", icon: IconMail, link: "/mailroom" },
-  {
-    label: "Disposal Request",
-    icon: IconArrowsMaximize,
-    link: "/disposal/request",
-  },
+  // {
+  //   label: "Disposal Request",
+  //   icon: IconArrowsMaximize,
+  //   link: "/disposal/request",
+  // },
   { label: "Subscription", icon: IconCreditCard, link: "/subscription" },
 ];
 
@@ -175,7 +180,7 @@ export function SideBar({
       return (
         <Group className={classes.header} p="md" mb="md">
           <ThemeIcon size="lg" variant="light" color="blue">
-            <IconShieldLock size={20} />
+            <IconMail size={24} color="#1966D1" />
           </ThemeIcon>
           <Stack gap={0}>
             <Text fw={700} size="sm" lh={1.2}>
@@ -220,27 +225,27 @@ export function SideBar({
       );
     }
 
-    return (
-      <div className={classes.footer}>
-        <Stack gap="xs" mb="md">
-          <Group justify="space-between">
-            <Text size="sm" fw={500}>
-              Storage Usage
-            </Text>
-            <Text size="sm" fw={500}>
-              65%
-            </Text>
-          </Group>
-          <Progress value={65} size="sm" />
-          <Text size="xs" c="dimmed">
-            6.5 GB of 10 GB used
-          </Text>
-        </Stack>
-        <Button fullWidth leftSection={<IconPlus size={16} />}>
-          New Scan
-        </Button>
-      </div>
-    );
+    // return (
+    //   <div className={classes.footer}>
+    //     <Stack gap="xs" mb="md">
+    //       <Group justify="space-between">
+    //         <Text size="sm" fw={500}>
+    //           Storage Usage
+    //         </Text>
+    //         <Text size="sm" fw={500}>
+    //           65%
+    //         </Text>
+    //       </Group>
+    //       <Progress value={65} size="sm" />
+    //       <Text size="xs" c="dimmed">
+    //         6.5 GB of 10 GB used
+    //       </Text>
+    //     </Stack>
+    //     <Button fullWidth leftSection={<IconPlus size={16} />}>
+    //       New Scan
+    //     </Button>
+    //   </div>
+    // );
   };
 
   return (
