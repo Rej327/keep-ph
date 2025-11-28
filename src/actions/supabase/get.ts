@@ -111,7 +111,7 @@ export const filterExistingLabel = async () => {
     return null;
   }
 
-  return data; // This will be an array of rows with only mailbox_label
+  return data;
 };
 
 export const getAllCustomers = async (filters?: {
@@ -194,4 +194,49 @@ export const getMailItemsByUser = async (
   }
 
   return data as MailItem[];
+};
+
+export type MailroomItem = {
+  mailbox_id: string;
+  mailbox_label: string | null;
+  mailbox_status_id: string;
+  mailbox_status_value: string;
+  mailbox_remaining_space: number;
+  account_area_code: string;
+  account_remaining_mailbox_access: number;
+  account_id: string;
+  account_number: string;
+  user_id: string;
+  user_full_name: string;
+  user_email: string;
+  mailbox_created_at: string;
+};
+
+export const getAllMailrooms = async (filters?: {
+  search?: string;
+  status_filter?: string;
+  type_filter?: string;
+  sort_order?: "asc" | "desc";
+}) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const inputData = {
+    search: filters?.search || "",
+    status_filter: filters?.status_filter || "",
+    type_filter: filters?.type_filter || "",
+    sort_order: filters?.sort_order || "desc",
+  };
+
+  const { data, error } = await supabase.rpc("get_all_mailrooms", {
+    input_data: inputData,
+  });
+
+  console.log("All Mailrooms:", data);
+
+  if (error) {
+    console.error("Error fetching mailrooms:", error);
+    throw new Error(error.message);
+  }
+
+  return data as MailroomItem[];
 };

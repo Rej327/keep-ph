@@ -73,3 +73,21 @@ export const requestMailItemRetrieval = async (
 
   return data;
 };
+
+export const updateMailboxStatus = async (
+  mailboxId: string,
+  statusId: string
+) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("update_mailbox_status", {
+    input_mailbox_id: mailboxId,
+    input_status_id: statusId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as boolean;
+};
