@@ -32,17 +32,16 @@ export async function updateSession(request: NextRequest) {
   ) as unknown as SupabaseClient;
 
   // Do not run code between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
+  // supabase.auth.getClaims(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
 
-  // IMPORTANT: DO NOT REMOVE auth.getUser()
+  // IMPORTANT: DO NOT REMOVE auth.getClaims()
+  const { data } = await supabase.auth.getClaims();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = data?.claims;
   const validUser = user;
-  const pathname = request.nextUrl.pathname;
 
+  const pathname = request.nextUrl.pathname;
   // Auth routes that should redirect to dashboard if user is already logged in
   const publicAuthRoutes = ["/login", "/signup"];
   const isPublicAuthRoute = publicAuthRoutes.some((route) =>
@@ -74,11 +73,11 @@ export async function updateSession(request: NextRequest) {
   );
 
   const isAdminRoute = adminRoutes.some((route) => pathname.startsWith(route));
-  const isAdmin = validUser ? await isUserAdmin(validUser.id) : false;
+  const isAdmin = validUser ? await isUserAdmin(validUser.sub) : false;
 
   // Check if user has an active subscription
   const hasSubscription = validUser
-    ? await isAccountSubscribed(validUser.id)
+    ? await isAccountSubscribed(validUser.sub)
     : false;
 
   // Redirect logic
