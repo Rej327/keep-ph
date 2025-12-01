@@ -69,18 +69,51 @@ export type UserFullDetails = {
   };
 };
 
-export const getUserFullDetails = async (userId: string) => {
+// export const getUserFullDetails = async (userId: string) => {
+//   const supabase = createSupabaseBrowserClient();
+
+//   const { data, error } = await supabase.rpc("get_user_full_details", {
+//     input_user_id: userId,
+//   });
+
+//   if (error) {
+//     throw new Error(error.message);
+//   }
+//   console.log(data);
+//   return data as UserFullDetails;
+// };
+
+export type UserProfileDetail = {
+  user_id: string;
+  user_username: string | null;
+  user_email: string;
+  user_first_name: string | null;
+  user_last_name: string | null;
+  user_is_admin: boolean;
+  user_avatar_bucket_path: string | null;
+};
+
+export const getUser = async (userId: string) => {
   const supabase = createSupabaseBrowserClient();
 
-  const { data, error } = await supabase.rpc("get_user_full_details", {
+  const { data, error } = await supabase.rpc("get_user", {
     input_user_id: userId,
   });
 
   if (error) {
     throw new Error(error.message);
   }
-  console.log(data);
-  return data as UserFullDetails;
+
+  const userDetails = data as UserProfileDetail;
+  if (userDetails.user_avatar_bucket_path) {
+    const { data: publicUrlData } = supabase.storage
+      .from("USER-AVATARS")
+      .getPublicUrl(userDetails.user_avatar_bucket_path);
+    userDetails.user_avatar_bucket_path = publicUrlData.publicUrl;
+  }
+
+  console.log(userDetails);
+  return userDetails;
 };
 
 export const getMailAccessLimit = async (userId: string, planId: string) => {

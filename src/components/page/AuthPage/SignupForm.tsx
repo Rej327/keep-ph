@@ -1,10 +1,10 @@
 "use client";
 
-import { createUserAccount } from "@/actions/supabase/post";
+import { deleteUserFromAuth } from "@/actions/supabase/delete";
+import { createUserProfile } from "@/actions/supabase/post";
 import { useWaitClient } from "@/hooks/useWaitClient";
 import { createSupabaseBrowserClient } from "@/utils/supabase/browserClient";
 import {
-  Badge,
   Button,
   Center,
   Checkbox,
@@ -15,27 +15,26 @@ import {
   PasswordInput,
   Popover,
   Progress,
-  SegmentedControl,
-  Select,
   Stack,
   Text,
   TextInput,
   Title,
+  Avatar,
+  FileButton,
+  SimpleGrid,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
   IconCheck,
   IconCircleCheck,
-  IconCreditCard,
-  IconLock,
-  IconMapPin,
+  IconMailFilled,
   IconX,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTopLoader } from "nextjs-toploader";
 import { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import validator from "validator";
 
 type FormValuesType = {
@@ -46,6 +45,7 @@ type FormValuesType = {
   password: string;
   confirmPassword: string;
   terms: boolean;
+  avatar?: File | null;
   // Payment fields
   cardholderName?: string;
   cardNumber?: string;
@@ -58,7 +58,6 @@ type FormValuesType = {
 export default function SignupForm() {
   const [activeStep, setActiveStep] = useState(0);
   const [showSignupSuccess, setShowSignupSuccess] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("credit-card");
 
   const {
     register,
@@ -66,13 +65,14 @@ export default function SignupForm() {
     watch,
     setError,
     trigger,
-    control,
     formState: { errors },
   } = useForm<FormValuesType>();
 
   const passwordValue = watch("password", "");
+  const emailValue = watch("email", "");
   const [popoverOpened, setPopoverOpened] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
   const router = useRouter();
   const supabase = createSupabaseBrowserClient();
@@ -81,26 +81,12 @@ export default function SignupForm() {
 
   if (!isClientReady) return null;
 
-  const validateStep2 = async () => {
-    const result = await trigger([
-      "firstName",
-      "lastName",
-      "email",
-      "phone",
-      "password",
-      "confirmPassword",
-      "terms",
-    ]);
+  const validateStep0 = async () => {
+    const result = await trigger(["email", "password", "confirmPassword"]);
 
     if (result) {
       const pwd = watch("password");
       const confirm = watch("confirmPassword");
-      const terms = watch("terms");
-
-      if (!terms) {
-        setError("terms", { message: "You must agree to the terms." });
-        return false;
-      }
 
       const failed: string[] = [];
       if (pwd.length < 6)
@@ -132,13 +118,29 @@ export default function SignupForm() {
     return false;
   };
 
+  const validateStep1 = async () => {
+    const result = await trigger(["firstName", "lastName", "phone", "terms"]);
+    if (result) {
+      const terms = watch("terms");
+      if (!terms) {
+        setError("terms", { message: "You must agree to the terms." });
+        return false;
+      }
+      return true;
+    }
+    return false;
+  };
+
   const handleNextStep = async () => {
     if (activeStep === 0) {
-      setActiveStep(1);
-    } else if (activeStep === 1) {
-      const isValid = await validateStep2();
+      const isValid = await validateStep0();
       if (isValid) {
-        setActiveStep(2);
+        setActiveStep(1);
+      }
+    } else if (activeStep === 1) {
+      const isValid = await validateStep1();
+      if (isValid) {
+        handleSubmit(handleFinalSubmit)();
       }
     }
   };
@@ -159,7 +161,6 @@ export default function SignupForm() {
           data: {
             first_name: data.firstName,
             last_name: data.lastName,
-            phone: data.phone,
           },
         },
       });
@@ -167,14 +168,39 @@ export default function SignupForm() {
       if (error) throw error;
 
       if (userData.user && userData.user.email) {
-        const result = await createUserAccount({
-          userId: userData.user.id,
-          email: userData.user.email,
-          firstName: data.firstName,
-          lastName: data.lastName,
-        });
+        let avatarPath: string | undefined;
+        let fileExt: string | undefined;
 
-        if (result.error) throw result.error;
+        if (avatarFile) {
+          fileExt = avatarFile.name.split(".").pop();
+          avatarPath = `${userData.user.id}/avatar.${fileExt}`;
+        }
+
+        try {
+          const result = await createUserProfile({
+            userId: userData.user.id,
+            email: userData.user.email,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            avatar: avatarPath,
+          });
+
+          if (result.error) throw result.error;
+
+          if (avatarFile && avatarPath) {
+            const { error: uploadError } = await supabase.storage
+              .from("USER-AVATARS")
+              .upload(avatarPath, avatarFile);
+
+            if (uploadError) {
+              throw uploadError;
+            }
+          }
+        } catch (profileError) {
+          // If profile creation or upload fails, delete the user from Auth
+          await deleteUserFromAuth(userData.user.id);
+          throw profileError;
+        }
       }
 
       console.log("User created", {
@@ -193,10 +219,6 @@ export default function SignupForm() {
       topLoader.done();
       setIsLoading(false);
     }
-  };
-
-  const handleSkipPayment = () => {
-    handleSubmit(handleFinalSubmit)();
   };
 
   function PasswordRequirement({
@@ -243,13 +265,24 @@ export default function SignupForm() {
   if (strength === 100) strengthColor = "teal";
   else if (strength > 50) strengthColor = "yellow";
 
+  const handleBackHome = () => {
+    try {
+      topLoader.start();
+      router.push("/");
+    } catch {
+      console.error("Something went wrong while navigating to the Home Page!");
+    } finally {
+      topLoader.done();
+    }
+  };
+
   return (
-    <Container h="100vh" size="lg">
+    <Container size="lg" mih="100vh">
       <LoadingOverlay
         visible={isLoading}
         loaderProps={{ color: "#1966D1", size: 40, variant: "dots" }}
       />
-      <Center h="inherit">
+      <Center mih="100vh" py="xl">
         {showSignupSuccess ? (
           <Paper
             w={{ base: "100%", md: 600 }}
@@ -276,17 +309,6 @@ export default function SignupForm() {
                   start forwarding your mail or explore your new dashboard.
                 </Text>
               </Stack>
-
-              <Paper w="100%" p="md" withBorder radius="md">
-                <Stack gap="xs">
-                  <Text size="sm" c="dimmed">
-                    Your Virtual Address:
-                  </Text>
-                  <Text fw={500}>123 Digital Lane, Suite 500</Text>
-                  <Text fw={500}>Manila, Philippines 1000</Text>
-                </Stack>
-              </Paper>
-
               <Button
                 size="md"
                 color="#1966D1"
@@ -304,161 +326,57 @@ export default function SignupForm() {
             {/* Stepper Progress */}
             <Stack gap="xs">
               <Text size="sm" ta="center" fw={500}>
-                Step {activeStep + 1} of 3
+                Step {activeStep + 1} of 2
               </Text>
 
               <Progress
-                value={((activeStep + 1) / 3) * 100}
+                value={((activeStep + 1) / 2) * 100}
                 color="#1966D1"
                 size="sm"
               />
             </Stack>
 
             <Paper radius="md" p={40} shadow="md" withBorder>
+              <Group justify="center" mb={10} gap={10}>
+                <IconMailFilled
+                  onClick={handleBackHome}
+                  color="#1966D1"
+                  className="cursor-pointer"
+                />
+                <Text c={"#14262b"} fw={500} size="1.4rem">
+                  Keep PH
+                </Text>
+              </Group>
               <form onSubmit={handleSubmit(handleFinalSubmit)}>
                 {activeStep === 0 && (
-                  <Stack gap="xl">
-                    <Stack gap="xs" align="center">
-                      <Title order={2}>Your Virtual Address</Title>
-                      <Text c="dimmed">
-                        Step 1: Your account will be assigned to the following
-                        virtual address.
-                      </Text>
-                    </Stack>
-
-                    <Paper withBorder radius="md" p="lg">
-                      <Stack gap="md">
-                        <Group>
-                          <Text c="#1966D1" fw={600} size="sm">
-                            Your Designated Address
-                          </Text>
-                        </Group>
-                        <Title order={4}>
-                          Gold Building, 15 Annapolis St., Greenhills, San Juan,
-                          Metro Manila
-                        </Title>
-
-                        {/* Placeholder for Map */}
-                        <Paper
-                          bg="gray.1"
-                          h={250}
-                          radius="md"
-                          style={{
-                            display: "flex",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            position: "relative",
-                            overflow: "hidden",
-                          }}
-                        >
-                          {/* Google Maps Embed Placeholder - Ideally use an iframe here if allowed */}
-                          <iframe
-                            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3860.8854480471355!2d121.05527549999998!3d14.605600800000003!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397b7dde89ff1f1%3A0xc7d73c48077da697!2sGold%20Building%2C%2015%20Annapolis%20St%2C%20San%20Juan%20City%2C%20Metro%20Manila!5e0!3m2!1sen!2sph!4v1764164554439!5m2!1sen!2sph"
-                            width="100%"
-                            height="100%"
-                            style={{ border: 0 }}
-                            allowFullScreen
-                            loading="lazy"
-                            referrerPolicy="no-referrer-when-downgrade"
-                          />
-                        </Paper>
-
-                        <Group justify="center" gap="xs">
-                          <Badge
-                            color="blue"
-                            variant="light"
-                            leftSection={<IconMapPin size={12} />}
-                            radius="sm"
-                            tt="none"
-                          >
-                            Business Address
-                          </Badge>
-                          <Badge
-                            color="yellow"
-                            variant="light"
-                            leftSection={<IconCircleCheck size={12} />}
-                            radius="sm"
-                            tt="none"
-                          >
-                            Mail & Package Handling
-                          </Badge>
-                          <Badge
-                            color="green"
-                            variant="light"
-                            leftSection={<IconCheck size={12} />}
-                            radius="sm"
-                            tt="none"
-                          >
-                            Digital Mail Scanning
-                          </Badge>
-                        </Group>
-                      </Stack>
-                    </Paper>
-
-                    <Button
-                      size="lg"
-                      color="#1966D1"
-                      onClick={handleNextStep}
-                      fullWidth
-                      style={{ alignSelf: "center", maxWidth: "200px" }}
-                    >
-                      Next
-                    </Button>
-                  </Stack>
-                )}
-
-                {activeStep === 1 && (
                   <Stack gap="md">
                     <Stack gap="xs" align="center">
                       <Title order={2}>Create Your Account</Title>
-                      <Text c="dimmed">Step 2: Personal Information</Text>
+                      <Text c="dimmed">Step 1: Account Information</Text>
                     </Stack>
 
-                    <Group grow align="flex-start">
-                      <TextInput
-                        label="First Name"
-                        placeholder="Enter your first name"
-                        {...register("firstName", {
-                          required: "First name is required",
-                        })}
-                        error={errors.firstName?.message}
-                        size="md"
-                      />
-                      <TextInput
-                        label="Last Name"
-                        placeholder="Enter your last name"
-                        {...register("lastName", {
-                          required: "Last name is required",
-                        })}
-                        error={errors.lastName?.message}
-                        size="md"
-                      />
-                    </Group>
+                    <TextInput
+                      label="Email"
+                      placeholder="Enter your email address"
+                      {...register("email", {
+                        required: "Email is required",
+                        validate: (value) =>
+                          validator.isEmail(value) || "Email is invalid.",
+                      })}
+                      error={errors.email?.message}
+                      size="md"
+                      styles={() => ({
+                        label: {
+                          fontWeight: 600,
+                        },
+                      })}
+                    />
 
-                    <Group grow align="flex-start">
-                      <TextInput
-                        label="Email"
-                        placeholder="Enter your email address"
-                        {...register("email", {
-                          required: "Email is required",
-                          validate: (value) =>
-                            validator.isEmail(value) || "Email is invalid.",
-                        })}
-                        error={errors.email?.message}
-                        size="md"
-                      />
-                      <TextInput
-                        label="Phone"
-                        placeholder="Enter your phone number"
-                        {...register("phone", {
-                          required: "Phone number is required",
-                        })}
-                        error={errors.phone?.message}
-                        size="md"
-                      />
-                    </Group>
-
-                    <Group grow align="flex-start">
+                    <SimpleGrid
+                      cols={{ base: 1, md: 2 }}
+                      spacing="md"
+                      verticalSpacing="xs"
+                    >
                       <Popover
                         opened={popoverOpened}
                         position="bottom"
@@ -478,6 +396,11 @@ export default function SignupForm() {
                               })}
                               error={errors.password?.message}
                               size="md"
+                              styles={() => ({
+                                label: {
+                                  fontWeight: 600,
+                                },
+                              })}
                             />
                           </div>
                         </Popover.Target>
@@ -510,8 +433,126 @@ export default function SignupForm() {
                         })}
                         error={errors.confirmPassword?.message}
                         size="md"
+                        styles={() => ({
+                          label: {
+                            fontWeight: 600,
+                          },
+                        })}
                       />
+                    </SimpleGrid>
+
+                    <Button
+                      size="md"
+                      color="#1966D1"
+                      onClick={handleNextStep}
+                      fullWidth
+                      mt="md"
+                    >
+                      Next
+                    </Button>
+
+                    <Group justify="center" gap={5} mt="xs">
+                      <Text size="sm" c="dimmed">
+                        Already have an account?
+                      </Text>
+                      <Link
+                        href="/login"
+                        style={{
+                          fontSize: "14px",
+                          color: "#1966D1",
+                          fontWeight: 600,
+                          textDecoration: "none",
+                        }}
+                      >
+                        Log In
+                      </Link>
                     </Group>
+                  </Stack>
+                )}
+
+                {activeStep === 1 && (
+                  <Stack gap="md">
+                    <Stack gap="xs" align="center">
+                      <Title order={2}>Complete Profile</Title>
+                      <Text c="dimmed">Step 2: Personal Information</Text>
+                    </Stack>
+
+                    <Center>
+                      <Stack align="center" gap="xs">
+                        <FileButton
+                          onChange={setAvatarFile}
+                          accept="image/png,image/jpeg,image/webp"
+                        >
+                          {(props) => (
+                            <Avatar
+                              {...props}
+                              src={
+                                avatarFile
+                                  ? URL.createObjectURL(avatarFile)
+                                  : null
+                              }
+                              size={120}
+                              radius={120}
+                              className="cursor-pointer hover:opacity-80 transition-opacity"
+                              color="#1966d1"
+                              name={`${watch("firstName") || ""} ${
+                                watch("lastName") || ""
+                              }`}
+                            />
+                          )}
+                        </FileButton>
+                        <Text size="sm" c="dimmed">
+                          Click to upload profile picture
+                        </Text>
+                      </Stack>
+                    </Center>
+
+                    <TextInput
+                      label="Email"
+                      value={emailValue}
+                      disabled
+                      size="md"
+                      styles={() => ({
+                        label: {
+                          fontWeight: 600,
+                        },
+                      })}
+                    />
+
+                    <SimpleGrid
+                      cols={{ base: 1, md: 2 }}
+                      spacing="md"
+                      verticalSpacing="xs"
+                    >
+                      <TextInput
+                        label="First Name"
+                        placeholder="Enter your first name"
+                        {...register("firstName", {
+                          required: "First name is required",
+                        })}
+                        error={errors.firstName?.message}
+                        size="md"
+                        styles={() => ({
+                          label: {
+                            fontWeight: 600,
+                          },
+                        })}
+                      />
+                      <TextInput
+                        label="Last Name"
+                        placeholder="Enter your last name"
+                        {...register("lastName", {
+                          required: "Last name is required",
+                        })}
+                        error={errors.lastName?.message}
+                        size="md"
+                        styles={() => ({
+                          label: {
+                            fontWeight: 600,
+                          },
+                        })}
+                      />
+                    </SimpleGrid>
 
                     <Checkbox
                       label={
@@ -546,136 +587,9 @@ export default function SignupForm() {
                         onClick={handleNextStep}
                         size="md"
                       >
-                        Next
+                        Create Account
                       </Button>
                     </Group>
-
-                    <Group justify="center" gap={5}>
-                      <Text size="sm" c="dimmed">
-                        Already have an account?
-                      </Text>
-                      <Link
-                        href="/login"
-                        style={{
-                          fontSize: "14px",
-                          color: "#1966D1",
-                          fontWeight: 600,
-                          textDecoration: "none",
-                        }}
-                      >
-                        Log In
-                      </Link>
-                    </Group>
-                  </Stack>
-                )}
-
-                {activeStep === 2 && (
-                  <Stack gap="xl">
-                    <Stack gap="xs" align="center">
-                      <Title order={2}>Set up your payment</Title>
-                      <Text c="dimmed">
-                        You will not be charged until your 14-day free trial
-                        ends.
-                      </Text>
-                    </Stack>
-
-                    <SegmentedControl
-                      value={paymentMethod}
-                      onChange={setPaymentMethod}
-                      data={[
-                        { label: "Credit Card", value: "credit-card" },
-                        { label: "E-Wallet", value: "e-wallet" },
-                      ]}
-                      fullWidth
-                      size="md"
-                    />
-
-                    {paymentMethod === "credit-card" && (
-                      <Stack gap="md">
-                        <TextInput
-                          label="Cardholder Name"
-                          placeholder="Enter name on card"
-                          {...register("cardholderName")}
-                          size="md"
-                        />
-                        <TextInput
-                          label="Card Number"
-                          placeholder="0000 0000 0000 0000"
-                          leftSection={<IconCreditCard size={16} />}
-                          {...register("cardNumber")}
-                          size="md"
-                        />
-                        <Group grow>
-                          <TextInput
-                            label="Expiry Date"
-                            placeholder="MM / YY"
-                            {...register("expiryDate")}
-                            size="md"
-                          />
-                          <TextInput
-                            label="CVC"
-                            placeholder="123"
-                            {...register("cvc")}
-                            size="md"
-                          />
-                        </Group>
-                      </Stack>
-                    )}
-
-                    {paymentMethod === "e-wallet" && (
-                      <Stack gap="md">
-                        <Controller
-                          name="eWalletProvider"
-                          control={control}
-                          render={({ field }) => (
-                            <Select
-                              label="E-Wallet Provider"
-                              placeholder="Select your e-wallet"
-                              data={[
-                                { value: "gcash", label: "GCash" },
-                                { value: "maya", label: "Maya" },
-                                { value: "coins", label: "Coins.ph" },
-                              ]}
-                              size="md"
-                              {...field}
-                            />
-                          )}
-                        />
-                        <TextInput
-                          label="Account Number / Phone"
-                          placeholder="Enter your account number or phone"
-                          {...register("eWalletAccount")}
-                          size="md"
-                        />
-                      </Stack>
-                    )}
-
-                    <Paper bg="gray.0" p="xs" radius="md">
-                      <Center>
-                        <Group gap="xs">
-                          <IconLock size={14} color="green" />
-                          <Text size="sm" c="dimmed">
-                            Secure SSL Connection
-                          </Text>
-                        </Group>
-                      </Center>
-                    </Paper>
-
-                    <Stack gap="md">
-                      <Button type="submit" size="lg" color="#1966D1" fullWidth>
-                        Proceed to Finish
-                      </Button>
-                      <Center>
-                        <Text
-                          size="sm"
-                          style={{ cursor: "pointer" }}
-                          onClick={handleSkipPayment}
-                          fw={500}
-                        >
-                          Skip for now
-                        </Text>
-                      </Center>
-                    </Stack>
                   </Stack>
                 )}
               </form>

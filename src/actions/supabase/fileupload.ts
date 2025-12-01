@@ -39,3 +39,20 @@ export const uploadDocumentfile = async (
 
   return { data: uploadData, error: uploadError };
 };
+
+export const uploadUserAvatar = async (userId: string, file: File) => {
+  const supabase = createSupabaseBrowserClient();
+
+  // 1. Upload file to storage
+  const fileExt = file.name.split(".").pop();
+  const fileName = `${userId}/${Math.random()
+    .toString(36)
+    .substring(2)}.${fileExt}`;
+  const { data: uploadData, error: uploadError } = await supabase.storage
+    .from("USER-AVATARS") // Using the bucket from schema
+    .upload(fileName, file);
+
+  if (uploadError) throw uploadError;
+
+  return { data: uploadData, error: uploadError };
+};

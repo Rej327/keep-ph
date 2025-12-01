@@ -12,8 +12,8 @@ import { createSupabaseBrowserClient } from "@/utils/supabase/browserClient";
 import { useRouter } from "next/navigation";
 import { useTopLoader } from "nextjs-toploader";
 import useSWR from "swr";
-import { getUserFullDetails } from "@/actions/supabase/get";
 import { User } from "@supabase/supabase-js";
+import { getUser } from "@/actions/supabase/get";
 
 export function SettingsDropdown({
   user,
@@ -27,8 +27,8 @@ export function SettingsDropdown({
   const topLoader = useTopLoader();
 
   const { data: userDetails } = useSWR(
-    user ? ["user-full-details", user.id] : null,
-    ([, userId]) => getUserFullDetails(userId)
+    user ? ["user-user", user.id] : null,
+    ([, userId]) => getUser(userId)
   );
 
   const handleLogout = async () => {
@@ -53,24 +53,29 @@ export function SettingsDropdown({
       <Menu.Dropdown>
         <Menu.Item
           leftSection={
-            <Avatar src={null} alt="John Doe" radius="xl" size="md" />
+            <Avatar
+              src={userDetails?.user_avatar_bucket_path}
+              alt="John Doe"
+              radius="xl"
+              size="md"
+            />
           }
           style={{ padding: "12px" }}
         >
           <div>
             <Text size="sm" fw={500}>
-              {userDetails?.user.user_first_name}
+              {userDetails?.user_first_name}
             </Text>
             <Text size="xs" c="dimmed">
-              {userDetails?.user.user_email}
+              {userDetails?.user_email}
             </Text>
-            <Text size="xs" c="dimmed">
+            {/* <Text size="xs" c="dimmed">
               {userDetails?.account.account_area_code}-
               {userDetails?.account.account_number}
             </Text>
             <Text size="xs" c="dimmed">
               {userDetails?.account.account_type_value.toUpperCase()}
-            </Text>
+            </Text> */}
           </div>
         </Menu.Item>
 

@@ -147,7 +147,65 @@ $$
 LANGUAGE plpgsql;
 
 -- Get user full details for profile
-CREATE OR REPLACE FUNCTION get_user_full_details(input_user_id UUID)
+-- CREATE OR REPLACE FUNCTION get_user_full_details(input_user_id UUID)
+-- RETURNS JSON
+-- SET search_path TO ''
+-- AS $$
+-- DECLARE
+--   return_data JSON;
+-- BEGIN
+--   SELECT JSON_BUILD_OBJECT(
+--     'user', (SELECT JSON_BUILD_OBJECT(
+--       'user_id', u.user_id,
+--       'user_username', u.user_username,
+--       'user_email', u.user_email,
+--       'user_first_name', u.user_first_name,
+--       'user_last_name', u.user_last_name,
+--       'user_is_admin', u.user_is_admin,
+--       'user_avatar_bucket_path', u.user_avatar_bucket_path
+--     ) FROM user_schema.user_table u WHERE u.user_id = input_user_id),
+--     'account', (SELECT JSON_BUILD_OBJECT(
+--       'account_id', a.account_id,
+--       'account_user_id', a.account_user_id,
+--       'account_number', a.account_number,
+--       'account_area_code', a.account_area_code,
+--       'account_type', a.account_type,
+--       'account_type_value', at.account_type_value,
+--       'account_is_subscribed', a.account_is_subscribed,
+--       'account_max_quantity_storage', at.account_max_quantity_storage,
+--       'account_max_gb_storage', at.account_max_gb_storage,
+--       'account_max_mailbox_access', at.account_max_mailbox_access,
+--       'account_subscription_status_id', a.account_subscription_status_id,
+--       'account_subscription_status_value', ss.subscription_status_value,
+--       'account_subscription_ends_at', a.account_subscription_ends_at
+--     ) FROM user_schema.account_table a
+--     JOIN user_schema.account_type_table at ON a.account_type = at.account_type_id
+--     JOIN status_schema.subscription_status_table ss ON a.account_subscription_status_id = ss.subscription_status_id
+--     WHERE a.account_user_id = input_user_id),
+--     'virtual_address', (SELECT JSON_BUILD_OBJECT(
+--       'virtual_address_id', v.virtual_address_id,
+--       'virtual_address_account_id', v.virtual_address_account_id,
+--       'virtual_address_address', v.virtual_address_address,
+--       'virtual_address_street', v.virtual_address_street,
+--       'virtual_address_city', v.virtual_address_city,
+--       'virtual_address_province', v.virtual_address_province,
+--       'virtual_address_postal_code', v.virtual_address_postal_code,
+--       'virtual_address_country', v.virtual_address_country,
+--       'virtual_address_area_code', v.virtual_address_area_code,
+--       'virtual_address_status_id', v.virtual_address_status_id,
+--       'virtual_address_status_value', vs.virtual_address_status_value
+--     ) FROM mailroom_schema.virtual_address_table v
+--     JOIN status_schema.virtual_address_status_table vs ON v.virtual_address_status_id = vs.virtual_address_status_id
+--     WHERE v.virtual_address_account_id = (SELECT account_id FROM user_schema.account_table WHERE account_user_id = input_user_id))
+--   ) INTO return_data;
+
+--   RETURN return_data;
+-- END;
+-- $$
+-- LANGUAGE plpgsql;
+
+-- Get current user
+CREATE OR REPLACE FUNCTION get_user(input_user_id UUID)
 RETURNS JSON
 SET search_path TO ''
 AS $$
@@ -163,40 +221,7 @@ BEGIN
       'user_last_name', u.user_last_name,
       'user_is_admin', u.user_is_admin,
       'user_avatar_bucket_path', u.user_avatar_bucket_path
-    ) FROM user_schema.user_table u WHERE u.user_id = input_user_id),
-    'account', (SELECT JSON_BUILD_OBJECT(
-      'account_id', a.account_id,
-      'account_user_id', a.account_user_id,
-      'account_number', a.account_number,
-      'account_area_code', a.account_area_code,
-      'account_type', a.account_type,
-      'account_type_value', at.account_type_value,
-      'account_is_subscribed', a.account_is_subscribed,
-      'account_max_quantity_storage', at.account_max_quantity_storage,
-      'account_max_gb_storage', at.account_max_gb_storage,
-      'account_max_mailbox_access', at.account_max_mailbox_access,
-      'account_subscription_status_id', a.account_subscription_status_id,
-      'account_subscription_status_value', ss.subscription_status_value,
-      'account_subscription_ends_at', a.account_subscription_ends_at
-    ) FROM user_schema.account_table a
-    JOIN user_schema.account_type_table at ON a.account_type = at.account_type_id
-    JOIN status_schema.subscription_status_table ss ON a.account_subscription_status_id = ss.subscription_status_id
-    WHERE a.account_user_id = input_user_id),
-    'virtual_address', (SELECT JSON_BUILD_OBJECT(
-      'virtual_address_id', v.virtual_address_id,
-      'virtual_address_account_id', v.virtual_address_account_id,
-      'virtual_address_address', v.virtual_address_address,
-      'virtual_address_street', v.virtual_address_street,
-      'virtual_address_city', v.virtual_address_city,
-      'virtual_address_province', v.virtual_address_province,
-      'virtual_address_postal_code', v.virtual_address_postal_code,
-      'virtual_address_country', v.virtual_address_country,
-      'virtual_address_area_code', v.virtual_address_area_code,
-      'virtual_address_status_id', v.virtual_address_status_id,
-      'virtual_address_status_value', vs.virtual_address_status_value
-    ) FROM mailroom_schema.virtual_address_table v
-    JOIN status_schema.virtual_address_status_table vs ON v.virtual_address_status_id = vs.virtual_address_status_id
-    WHERE v.virtual_address_account_id = (SELECT account_id FROM user_schema.account_table WHERE account_user_id = input_user_id))
+    ) FROM user_schema.user_table u WHERE u.user_id = input_user_id)
   ) INTO return_data;
 
   RETURN return_data;
@@ -804,6 +829,54 @@ BEGIN
   END IF;
 
   RETURN FOUND;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Create user profile (Onboarding)
+CREATE OR REPLACE FUNCTION create_user_profile(input_data JSON)
+RETURNS JSON
+SET search_path TO ''
+SECURITY DEFINER
+AS $$
+DECLARE
+  -- Input variables
+  input_user_id UUID := (input_data->>'user_id')::UUID;
+  input_email VARCHAR(254) := (input_data->>'email')::VARCHAR;
+  input_first_name VARCHAR(254) := (input_data->>'first_name')::VARCHAR;
+  input_last_name VARCHAR(254) := (input_data->>'last_name')::VARCHAR;
+  input_avatar VARCHAR(254) := (input_data->>'avatar_bucket_path')::VARCHAR;
+  
+  -- Return variable
+  return_data JSON;
+BEGIN
+  -- 1. Insert into user_schema.user_table
+  INSERT INTO user_schema.user_table (
+    user_id,
+    user_email,
+    user_first_name,
+    user_last_name,
+    user_avatar_bucket_path
+  ) VALUES (
+    input_user_id,
+    input_email,
+    input_first_name,
+    input_last_name,
+    input_avatar
+  )
+  ON CONFLICT (user_id) DO UPDATE SET
+    user_first_name = EXCLUDED.user_first_name,
+    user_last_name = EXCLUDED.user_last_name,
+    user_avatar_bucket_path = EXCLUDED.user_avatar_bucket_path,
+    user_updated_at = NOW();
+
+  -- 2. Build Return Data
+  SELECT JSON_BUILD_OBJECT(
+    'user_id', input_user_id,
+    'email', input_email
+  ) INTO return_data;
+
+  RETURN return_data;
 END;
 $$
 LANGUAGE plpgsql;

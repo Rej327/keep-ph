@@ -196,26 +196,19 @@ export default function LoginForm() {
                     validator.isEmail(value) || "Email is invalid.",
                 })}
                 error={errors?.email?.message}
-                variant="default"
                 styles={() => ({
-                  input: {
-                    borderColor: "#1966D1",
-                    "&:focus": {
-                      borderColor: "#1966D1",
-                      boxShadow: `0 0 0 2px rgba(81, 152, 173, 0.2)`,
-                    },
-                  },
                   label: {
-                    color: "#14262b",
+                    fontWeight: 600,
                   },
                 })}
+                size="md"
               />
               <Stack gap={2}>
                 <Group justify="space-between" mb={0}>
-                  <Text fw={600} c="#14262b" size="sm">
+                  <Text fw={600} size="md">
                     Password
                   </Text>
-                  <Text c="#1a67d2" size="sm">
+                  <Text c="#1a67d2" size="md">
                     Forgot Password?
                   </Text>
                 </Group>
@@ -229,24 +222,18 @@ export default function LoginForm() {
                     },
                   })}
                   error={errors?.password?.message}
-                  variant="default"
                   styles={() => ({
-                    input: {
-                      borderColor: "#1966D1",
-                      "&:focus": {
-                        borderColor: "#1966D1",
-                        boxShadow: `0 0 0 2px rgba(81, 152, 173, 0.2)`,
-                      },
-                    },
                     label: {
-                      color: "#14262b",
+                      fontWeight: 400,
                     },
                   })}
+                  size="md"
                 />
               </Stack>
 
               <Button
                 type="submit"
+                size="md"
                 fw={400}
                 style={{ backgroundColor: "#1966D1" }}
               >
@@ -257,7 +244,8 @@ export default function LoginForm() {
 
               <Button
                 type="button"
-                variant="outline"
+                variant="light"
+                size="md"
                 leftSection={
                   <Image
                     src="/assets/icons/icon-google.png"
@@ -266,14 +254,14 @@ export default function LoginForm() {
                     height={20}
                   />
                 }
-                style={{ borderColor: "#1966D1", color: "#1966D1" }}
                 onClick={handleSigninWithGoogle}
               >
                 Login with Google
               </Button>
               <Button
                 type="button"
-                variant="outline"
+                variant="light"
+                size="md"
                 leftSection={
                   <Image
                     src="/assets/icons/icon-fb.png"
@@ -282,14 +270,14 @@ export default function LoginForm() {
                     height={20}
                   />
                 }
-                style={{ borderColor: "#1966D1", color: "#1966D1" }}
                 onClick={handleSigninWithFacebook}
               >
                 Login with Facebook
               </Button>
               <Button
                 type="button"
-                variant="outline"
+                variant="light"
+                size="md"
                 leftSection={
                   <Image
                     src="/assets/icons/azuer-logo.webp"
@@ -298,7 +286,6 @@ export default function LoginForm() {
                     height={20}
                   />
                 }
-                style={{ borderColor: "#1966D1", color: "#1966D1" }}
                 onClick={handleSigninWithAzure}
               >
                 Login with Azure

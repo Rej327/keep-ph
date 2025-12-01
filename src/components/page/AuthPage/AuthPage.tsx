@@ -10,7 +10,7 @@ export default function AuthPage() {
   const authRoute = pathname.includes("signup") ? "signup" : "login";
 
   return (
-    <Container>
+    <Container fluid>
       {authRoute === "login" ? <LoginForm /> : <SignupForm />}
     </Container>
   );

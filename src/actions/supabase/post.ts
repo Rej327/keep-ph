@@ -31,6 +31,36 @@ export const createUserAccount = async (userData: CreateUserAccountParams) => {
   }
 };
 
+type CreateUserProfileParams = {
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  avatar?: string;
+};
+
+export const createUserProfile = async (userData: CreateUserProfileParams) => {
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    const { data, error } = await supabase.rpc("create_user_profile" as never, {
+      input_data: {
+        user_id: userData.userId,
+        email: userData.email,
+        first_name: userData.firstName,
+        last_name: userData.lastName,
+        avatar_bucket_path: userData.avatar,
+      },
+    });
+
+    if (error) throw error;
+    return { data };
+  } catch (err) {
+    console.error("Error creating user profile:", err);
+    return { error: err as Error };
+  }
+};
+
 export type CreateMailboxWithAccountUpdateParams = {
   accountId: string;
   account: {
