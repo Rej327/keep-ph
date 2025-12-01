@@ -83,16 +83,16 @@ export async function updateSession(request: NextRequest) {
 
   // Redirect logic
   if ((isCustomerRoute || isAdminRoute) && !validUser) {
-    // Redirect to login if trying to access protected routes without authentication
+    // Redirect to unauthorized if trying to access protected routes without authentication
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = "/unauthorized";
     return NextResponse.redirect(url);
   }
 
   if (isAdminRoute && !isAdmin) {
     // Redirect non-admin users trying to access admin routes
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/unauthorized";
     return NextResponse.redirect(url);
   }
 
