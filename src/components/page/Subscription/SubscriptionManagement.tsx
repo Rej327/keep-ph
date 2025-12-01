@@ -262,8 +262,12 @@ export default function SubscriptionManagement({
         >
           ←
         </UnstyledButton>
-        <Text size="sm">Page {mailboxPage} of 25</Text>
-        <UnstyledButton onClick={() => setMailboxPage((p) => p + 1)}>
+        <Text size="sm">Page {mailboxPage} of 4</Text>
+        <UnstyledButton
+          onClick={() => setMailboxPage((p) => p + 1)}
+          disabled={mailboxPage === 4}
+          style={{ opacity: mailboxPage === 4 ? 0.5 : 1 }}
+        >
           →
         </UnstyledButton>
       </Group>

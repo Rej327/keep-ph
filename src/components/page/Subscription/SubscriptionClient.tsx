@@ -132,11 +132,6 @@ export default function SubscriptionClient({ user }: { user: User }) {
         subscriptionData as CreateUserSubscriptionAccount
       );
 
-      console.log(
-        "Subscription Payload: ",
-        subscriptionData as CreateUserSubscriptionAccount
-      );
-
       if (result.error) {
         notifications.show({
           message: "Error creating subscription",
@@ -150,7 +145,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
         message: "Subscription created successfully",
         color: "green",
       });
-      console.log("Subscription created successfully:", result.data);
+
       mutate(["user-full-details", user.id]);
       setSelectedMailboxIds([]);
       setIsModalOpen(false);
@@ -357,8 +352,12 @@ export default function SubscriptionClient({ user }: { user: User }) {
         >
           ←
         </UnstyledButton>
-        <Text size="sm">Page {mailboxPage} of 25</Text>
-        <UnstyledButton onClick={() => setMailboxPage((p) => p + 1)}>
+        <Text size="sm">Page {mailboxPage} of 4</Text>
+        <UnstyledButton
+          onClick={() => setMailboxPage((p) => p + 1)}
+          disabled={mailboxPage === 4}
+          style={{ opacity: mailboxPage === 4 ? 0.5 : 1 }}
+        >
           →
         </UnstyledButton>
       </Group>
