@@ -60,7 +60,7 @@ export async function updateSession(request: NextRequest) {
   ];
 
   // Subscription required routes
-  const subscriptionRequiredRoutes = ["/dashboard"];
+  const subscriptionRequiredRoutes = ["/dashboard", "/referral"];
 
   // Admin routes (authentication + admin role required)
   const adminRoutes = ["/admin"];
@@ -104,7 +104,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (requiresSubscription && validUser && !hasSubscription && !isAdmin) {
-    // Redirect users without subscription to referral page
+    // Redirect users without subscription to mailroom page
     const url = request.nextUrl.clone();
     url.pathname = "/mailroom";
     return NextResponse.redirect(url);
