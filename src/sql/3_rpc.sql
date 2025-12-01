@@ -880,3 +880,18 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
+-- Get user has account
+CREATE OR REPLACE FUNCTION get_user_has_account(input_user_id UUID)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM user_schema.account_table
+    WHERE account_user_id = input_user_id
+  );
+END;
+$$
+LANGUAGE plpgsql;

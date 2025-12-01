@@ -312,3 +312,17 @@ export const getAllDisposalRequests = async (filters?: {
 
   return data as DisposalRequestItem[];
 };
+
+export const getUserHasAccount = async (userId: string) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("get_user_has_account", {
+    input_user_id: userId,
+  });
+
+  if (error) {
+    console.error("Error knowing user has account");
+  }
+
+  return data as boolean;
+};
