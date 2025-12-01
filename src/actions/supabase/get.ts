@@ -43,45 +43,39 @@ export type UserFullDetails = {
     account_id: string;
     account_user_id: string;
     account_number: string;
-    account_area_code: string;
+    account_address_key: string;
     account_type: string;
     account_type_value: string;
     account_is_subscribed: boolean;
     account_max_quantity_storage: number;
     account_max_gb_storage: number;
     account_max_mailbox_access: number;
+    account_remaining_mailbox_access: number;
     account_subscription_ends_at: string | null;
     account_subscription_status_id: string;
     account_subscription_status_value: string;
   };
-  virtual_address: {
-    virtual_address_id: string;
-    virtual_address_account_id: string;
-    virtual_address_address: string;
-    virtual_address_street: string | null;
-    virtual_address_city: string;
-    virtual_address_province: string;
-    virtual_address_postal_code: string | null;
-    virtual_address_country: string;
-    virtual_address_area_code: string;
-    virtual_address_status_id: string;
-    virtual_address_status_value: string;
+  address: {
+    mailroom_address_id: string;
+    mailroom_address_key: string;
+    mailroom_address_value: string;
+    mailroom_address_link: string | null;
   };
 };
 
-// export const getUserFullDetails = async (userId: string) => {
-//   const supabase = createSupabaseBrowserClient();
+export const getUserFullDetails = async (userId: string) => {
+  const supabase = createSupabaseBrowserClient();
 
-//   const { data, error } = await supabase.rpc("get_user_full_details", {
-//     input_user_id: userId,
-//   });
+  const { data, error } = await supabase.rpc("get_user_full_details", {
+    input_user_id: userId,
+  });
 
-//   if (error) {
-//     throw new Error(error.message);
-//   }
-//   console.log(data);
-//   return data as UserFullDetails;
-// };
+  if (error) {
+    throw new Error(error.message);
+  }
+  console.log(data);
+  return data as UserFullDetails;
+};
 
 export type UserProfileDetail = {
   user_id: string;
@@ -116,6 +110,14 @@ export const getUser = async (userId: string) => {
   return userDetails;
 };
 
+export type UserMailAccessLimit = {
+  account_max_mailbox_access: number;
+  account_max_quantity_storage: number;
+  account_max_gb_storage: number;
+  account_max_parcel_handling: number;
+  account_duration_days: number;
+};
+
 export const getMailAccessLimit = async (userId: string, planId: string) => {
   const supabase = createSupabaseBrowserClient();
 
@@ -127,8 +129,8 @@ export const getMailAccessLimit = async (userId: string, planId: string) => {
   if (error) {
     throw new Error(error.message);
   }
-
-  return data as number;
+  console.log("Limit: ", data);
+  return data as UserMailAccessLimit;
 };
 
 export const filterExistingLabel = async () => {
@@ -325,4 +327,59 @@ export const getUserHasAccount = async (userId: string) => {
   }
 
   return data as boolean;
+};
+
+export type SubscriptionPlanFeature = {
+  feature_label: string;
+  display_text: string;
+  is_primary: boolean;
+  sort_order: number;
+};
+
+export type SubscriptionPlan = {
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+  popular: boolean;
+  button_text: string;
+  usage_note: string | null;
+  features: SubscriptionPlanFeature[];
+};
+
+export const getSubscriptionPlans = async () => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("get_subscription_plans", {
+    input_data: {},
+  });
+
+  if (error) {
+    console.error("Error fetching subscription plans:", error);
+    throw new Error(error.message);
+  }
+
+  return data as SubscriptionPlan[];
+};
+
+export type VirtualAddressLocation = {
+  mailroom_address_id: string;
+  mailroom_address_key: string;
+  mailroom_address_value: string;
+  mailroom_address_link?: string;
+};
+
+export const getVirtualAddressLocations = async () => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("get_active_addresses");
+
+  if (error) {
+    console.error("Error fetching virtual address locations:", error);
+    throw new Error(error.message);
+  }
+
+  console.log("Virtual Address: ", data);
+
+  return data as VirtualAddressLocation[];
 };

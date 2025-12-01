@@ -44,13 +44,6 @@ CREATE TABLE status_schema.mailbox_status_table (
     mailbox_status_sort_order INTEGER NOT NULL DEFAULT 0
 );
 
--- Insert default mailbox statuses
-INSERT INTO status_schema.mailbox_status_table (mailbox_status_id, mailbox_status_value, mailbox_status_sort_order) VALUES
-    ('MBS-ACTIVE', 'active', 1),
-    ('MBS-INACTIVE', 'inactive', 2),
-    ('MBS-FULL', 'full', 3),
-    ('MBS-MAINTENANCE', 'maintenance', 4);
-
 -- Mail Item Status Table
 CREATE TABLE status_schema.mail_item_status_table (
     mail_item_status_id TEXT PRIMARY KEY,
@@ -58,16 +51,6 @@ CREATE TABLE status_schema.mail_item_status_table (
     mail_item_status_is_active BOOLEAN NOT NULL DEFAULT TRUE,
     mail_item_status_sort_order INTEGER NOT NULL DEFAULT 0
 );
-
--- Insert default mail item statuses
-INSERT INTO status_schema.mail_item_status_table (mail_item_status_id, mail_item_status_value, mail_item_status_sort_order) VALUES
-    ('MIS-RECEIVED', 'received', 1),
-    ('MIS-RETRIEVAL', 'retrieval', 2),
-    ('MIS-SCANNED', 'scanned', 3),
-    ('MIS-RETRIEVED', 'retrieved', 4),
-    ('MIS-ARCHIVED', 'archived', 5),
-    ('MIS-DISPOSAL', 'disposal', 6);
-    ('MIS-DISPOSED', 'disposed', 7);
 
 -- Virtual Address Status Table
 CREATE TABLE status_schema.virtual_address_status_table (
@@ -77,12 +60,6 @@ CREATE TABLE status_schema.virtual_address_status_table (
     virtual_address_status_sort_order INTEGER NOT NULL DEFAULT 0
 );
 
--- Insert default virtual address statuses
-INSERT INTO status_schema.virtual_address_status_table (virtual_address_status_id, virtual_address_status_value, virtual_address_status_sort_order) VALUES
-    ('VAS-ACTIVE', 'active', 1),
-    ('VAS-INACTIVE', 'inactive', 2),
-    ('VAS-SUSPENDED', 'suspended', 3);
-
 -- Dispose Request Status Table
 CREATE TABLE status_schema.dispose_request_status_table (
     dispose_request_status_id TEXT PRIMARY KEY,
@@ -90,12 +67,6 @@ CREATE TABLE status_schema.dispose_request_status_table (
     dispose_request_status_is_active BOOLEAN NOT NULL DEFAULT TRUE,
     dispose_request_status_sort_order INTEGER NOT NULL DEFAULT 0
 );
-
--- Insert default dispose request statuses
-INSERT INTO status_schema.dispose_request_status_table (dispose_request_status_id, dispose_request_status_value, dispose_request_status_sort_order) VALUES
-    ('DRS-PENDING', 'pending', 1),
-    ('DRS-REJECTED', 'rejected', 2),
-    ('DRS-COMPLETED', 'completed', 3);
 
 -- Retrieval Request Status Table
 CREATE TABLE status_schema.retrieval_request_status_table (
@@ -105,14 +76,6 @@ CREATE TABLE status_schema.retrieval_request_status_table (
     retrieval_request_status_sort_order INTEGER NOT NULL DEFAULT 0
 );
 
--- Insert default retrieval request statuses
-INSERT INTO status_schema.retrieval_request_status_table (retrieval_request_status_id, retrieval_request_status_value, retrieval_request_status_sort_order) VALUES
-    ('RRS-PENDING', 'pending', 1),
-    ('RRS-APPROVED', 'approved', 2),
-    ('RRS-IN_TRANSIT', 'in_transit', 3),
-    ('RRS-DELIVERED', 'delivered', 4),
-    ('RRS-REJECTED', 'rejected', 5);
-
 -- Pickup Request Status Table
 CREATE TABLE status_schema.pickup_request_status_table (
     pickup_request_status_id TEXT PRIMARY KEY,
@@ -120,14 +83,6 @@ CREATE TABLE status_schema.pickup_request_status_table (
     pickup_request_status_is_active BOOLEAN NOT NULL DEFAULT TRUE,
     pickup_request_status_sort_order INTEGER NOT NULL DEFAULT 0
 );
-
--- Insert default pickup request statuses
-INSERT INTO status_schema.pickup_request_status_table (pickup_request_status_id, pickup_request_status_value, pickup_request_status_sort_order) VALUES
-    ('PRS-PENDING', 'pending', 1),
-    ('PRS-APPROVED', 'approved', 2),
-    ('PRS-READY', 'ready_for_pickup', 3),
-    ('PRS-COMPLETED', 'completed', 4),
-    ('PRS-REJECTED', 'rejected', 5);
 
 -- Scan Request Status Table
 CREATE TABLE status_schema.scan_request_status_table (
@@ -137,13 +92,6 @@ CREATE TABLE status_schema.scan_request_status_table (
     scan_request_status_sort_order INTEGER NOT NULL DEFAULT 0
 );
 
--- Insert default scan request statuses
-INSERT INTO status_schema.scan_request_status_table (scan_request_status_id, scan_request_status_value, scan_request_status_sort_order) VALUES
-    ('SRS-PENDING', 'pending', 1),
-    ('SRS-IN_PROGRESS', 'in_progress', 2),
-    ('SRS-COMPLETED', 'completed', 3),
-    ('SRS-REJECTED', 'rejected', 4);
-
 -- Referral Status Table
 CREATE TABLE status_schema.referral_status_table (
     referral_status_id TEXT PRIMARY KEY,
@@ -152,26 +100,12 @@ CREATE TABLE status_schema.referral_status_table (
     referral_status_sort_order INTEGER NOT NULL DEFAULT 0
 );
 
--- Insert default referral statuses
-INSERT INTO status_schema.referral_status_table (referral_status_id, referral_status_value, referral_status_sort_order) VALUES
-    ('RFS-PENDING', 'pending', 1),
-    ('RFS-ACCEPTED', 'accepted', 2),
-    ('RFS-REJECTED', 'rejected', 3),
-    ('RFS-EXPIRED', 'expired', 4);
-
 CREATE TABLE status_schema.subscription_status_table (
     subscription_status_id TEXT PRIMARY KEY,
     subscription_status_value TEXT NOT NULL UNIQUE,
     subscription_status_is_active BOOLEAN NOT NULL DEFAULT TRUE,
     subscription_status_sort_order INTEGER NOT NULL DEFAULT 0
 );
-
--- Insert default subscription statuses
-INSERT INTO status_schema.subscription_status_table (subscription_status_id, subscription_status_value, subscription_status_sort_order) VALUES
-    ('SST-NONSUB', 'non_subscriber', 1),
-    ('SST-ACTIVE', 'active', 2),
-    ('SST-SUSPENDED', 'suspended', 3),
-    ('SST-EXPIRED', 'expired', 4);
 
 -- Account Type Table
 CREATE TABLE user_schema.account_type_table (
@@ -180,16 +114,10 @@ CREATE TABLE user_schema.account_type_table (
     account_max_quantity_storage INTEGER NOT NULL DEFAULT 0,
     account_max_gb_storage INTEGER NOT NULL DEFAULT 0,
     account_max_mailbox_access INTEGER NOT NULL DEFAULT 1,
+    account_max_parcel_handling INTEGER NOT NULL DEFAULT 0,
     account_type_is_active BOOLEAN NOT NULL DEFAULT TRUE,
     account_type_sort_order INTEGER NOT NULL DEFAULT 0
 );
-
--- Insert default account types
-INSERT INTO user_schema.account_type_table (account_type_id, account_type_value, account_max_quantity_storage, account_max_gb_storage, account_max_mailbox_access, account_type_sort_order) VALUES
-    ('AT-FREE', 'free', 5, 1, 1, 1),
-    ('AT-DIGITAL', 'digital', 50, 5, 5, 2),
-    ('AT-PERSONAL', 'personal', 250, 20, 10, 3),
-    ('AT-BUSINESS', 'business', 500, 50, 20, 4);
 
 -- User Table
 CREATE TABLE user_schema.user_table (
@@ -209,7 +137,7 @@ CREATE TABLE user_schema.account_table (
     account_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     account_user_id UUID NOT NULL, -- FK to user_schema.user_table.user_id
     account_number TEXT NOT NULL UNIQUE, -- Q42025-0001
-    account_area_code TEXT NOT NULL, -- Derived from virtual_address_address (MNL, CEB, DVO, etc.)
+    account_address_key TEXT NOT NULL, -- Derived from virtual_address_address (Gold, Silver, Bronze.)
     account_type TEXT NOT NULL DEFAULT 'AT-FREE', -- FK to user_schema.account_type_table.account_type_id
     account_is_subscribed BOOLEAN NOT NULL DEFAULT FALSE,
     account_subscription_status_id TEXT NOT NULL DEFAULT 'SST-NONSUB', --fK to status_schema.subscription_status_table.subscription_status_id
@@ -228,7 +156,8 @@ CREATE TABLE mailroom_schema.mailbox_table (
     mailbox_account_id UUID NOT NULL, -- FK to user_schema.account_table.account_id
     mailbox_status_id TEXT NOT NULL, -- FK to status_schema.mailbox_status_table.mailbox_status_id
     mailbox_label TEXT,
-    mailbox_space_remaining SMALLINT DEFAULT 0,
+    mailbox_mail_remaining_space SMALLINT DEFAULT 0,
+    mailbox_package_remaining_space SMALLINT DEFAULT 0,
     mailbox_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     mailbox_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -257,20 +186,28 @@ CREATE TABLE mailroom_schema.mail_attachment_table (
     mail_attachment_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Address Table
+CREATE TABLE mailroom_schema.mailroom_address_table (
+    address_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    address_key TEXT NOT NULL UNIQUE, -- Gold, Silver, Bronze
+    address_full TEXT NOT NULL,
+    address_map_link TEXT,
+    address_is_active BOOLEAN DEFAULT TRUE,
+    address_created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+INSERT INTO mailroom_schema.mailroom_address_table (address_key, address_full, address_map_link) VALUES
+('Gold', 'Unit 115 Gold Building Condominium, No. 15 Annapolis Greenhills, San Juan Metro Manila', 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3860.885448295044!2d121.05270057468363!3d14.605600785881297!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397b7dde89ff1f1%3A0xc7d73c48077da697!2sGold%20Building%2C%2015%20Annapolis%20St%2C%20San%20Juan%20City%2C%20Metro%20Manila!5e0!3m2!1sen!2sph!4v1764580621479!5m2!1sen!2sph');
+
+
 -- Virtual Address Table
-CREATE TABLE mailroom_schema.virtual_address_table (
-    virtual_address_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    virtual_address_account_id UUID NOT NULL, -- FK to user_schema.account_table.account_id
-    virtual_address_address TEXT NOT NULL UNIQUE, -- Full address string
-    virtual_address_street TEXT, -- Street address
-    virtual_address_city TEXT NOT NULL, -- City/Municipality
-    virtual_address_province TEXT NOT NULL, -- Province/State
-    virtual_address_postal_code TEXT, -- ZIP/Postal code
-    virtual_address_country TEXT NOT NULL, -- Country
-    virtual_address_area_code TEXT NOT NULL, -- MNL, CEB, DVO, etc. (computed from city/province)
-    virtual_address_status_id TEXT NOT NULL, -- FK to status_schema.virtual_address_status_table.virtual_address_status_id
-    virtual_address_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    virtual_address_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE mailroom_schema.mailroom_user_virtual_address_table (
+    mailroom_user_virtual_address_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    mailroom_user_virtual_address_account_id UUID NOT NULL, -- FK to user_schema.account_table.account_id
+    mailroom_user_virtual_address_address_key TEXT NOT NULL, -- FK to mailroom_schema.mailroom_address_table.mailroom_address_key (Gold, Silver, Bronze)
+    mailroom_user_virtual_address_status_id TEXT NOT NULL, -- FK to status_schema.virtual_address_status_table.virtual_address_status_id
+    mailroom_user_virtual_address_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    mailroom_user_virtual_address_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Index for geographic queries
@@ -414,6 +351,45 @@ CREATE TABLE analytics_schema.error_table (
     error_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     error_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS subscription_schema.subscription_plan_table (
+    subscription_plan_id TEXT PRIMARY KEY,
+    subscription_plan_name TEXT NOT NULL,
+    subscription_plan_price NUMERIC NOT NULL,
+    subscription_plan_description TEXT,
+    subscription_plan_is_popular BOOLEAN DEFAULT false,
+    subscription_plan_button_text TEXT DEFAULT 'Choose Plan',
+    subscription_plan_usage_note TEXT,
+    subscription_plan_created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS subscription_schema.subscription_plan_storage_table (
+    subscription_plan_storage_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    subscription_plan_storage_plan_id TEXT REFERENCES subscription_schema.subscription_plan_table(subscription_plan_id) ON DELETE CASCADE,
+    subscription_plan_max_gb_storage NUMERIC NOT NULL DEFAULT 0,
+    subscription_plan_max_quantity_storage INTEGER NOT NULL DEFAULT 0,
+    subscription_plan_max_mailbox_access INTEGER DEFAULT NULL, -- NULL means unlimited
+    subscription_plan_type_sort_order INTEGER DEFAULT 0,
+    subscription_plan_storage_created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(subscription_plan_storage_plan_id)
+);
+
+CREATE TABLE IF NOT EXISTS subscription_schema.subscription_feature_table (
+    subscription_feature_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    subscription_feature_label TEXT NOT NULL UNIQUE, -- e.g. "Storage"
+    subscription_feature_created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS subscription_schema.subscription_plan_feature_table (
+    subscription_plan_feature_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    subscription_plan_feature_plan_id TEXT REFERENCES subscription_schema.subscription_plan_table(subscription_plan_id) ON DELETE CASCADE,
+    subscription_plan_feature_feature_id UUID REFERENCES subscription_schema.subscription_feature_table(subscription_feature_id) ON DELETE CASCADE,
+    subscription_plan_feature_display_text TEXT NOT NULL,
+    subscription_plan_feature_is_primary BOOLEAN DEFAULT true,
+    subscription_plan_feature_sort_order INTEGER DEFAULT 0,
+    subscription_plan_feature_created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 
 -- Grant permissions on public schema
 GRANT ALL ON ALL TABLES IN SCHEMA public TO public;

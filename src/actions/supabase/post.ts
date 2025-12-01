@@ -61,34 +61,35 @@ export const createUserProfile = async (userData: CreateUserProfileParams) => {
   }
 };
 
-export type CreateMailboxWithAccountUpdateParams = {
-  accountId: string;
+export type CreateUserSubscriptionAccount = {
+  userId: string;
   account: {
     account_type: string;
     account_is_subscribed: boolean;
     account_subscription_ends_at: string | null;
     account_remaining_mailbox_access: number;
     account_subscription_status_id: string;
+    account_address_key: string;
   };
   mailbox: Array<{
-    mailbox_account_id: string;
     mailbox_status_id: string;
     mailbox_label: string;
-    mailbox_space_remaining: number;
+    mailbox_mail_remaining_space: number;
+    mailbox_package_remaining_space: number;
   }>;
 };
 
-export const createMailboxWithAccountUpdate = async (
-  subscriptionData: CreateMailboxWithAccountUpdateParams
+export const createUserSubscriptionAccount = async (
+  subscriptionData: CreateUserSubscriptionAccount
 ) => {
   try {
     const supabase = await createSupabaseServerClient();
 
     const { data, error } = await supabase.rpc(
-      "create_mailbox_with_account_update" as never,
+      "create_user_subscription_account" as never,
       {
         input_data: {
-          account_id: subscriptionData.accountId,
+          user_id: subscriptionData.userId,
           account_type: subscriptionData.account.account_type,
           account_is_subscribed: subscriptionData.account.account_is_subscribed,
           account_subscription_ends_at:
@@ -97,6 +98,7 @@ export const createMailboxWithAccountUpdate = async (
             subscriptionData.account.account_remaining_mailbox_access,
           account_subscription_status_id:
             subscriptionData.account.account_subscription_status_id,
+          account_address_key: subscriptionData.account.account_address_key,
           mailbox: subscriptionData.mailbox,
         },
       }
@@ -143,6 +145,38 @@ export const createMailItem = async (params: CreateMailItemParams) => {
     return { data };
   } catch (err) {
     console.error("Error creating mail item:", err);
+    return { error: err as Error };
+  }
+};
+
+export type AddMailboxesParams = {
+  accountId: string;
+  mailboxes: Array<{
+    mailbox_status_id: string;
+    mailbox_label: string;
+    mailbox_mail_remaining_space: number;
+    mailbox_package_remaining_space: number;
+  }>;
+};
+
+export const addMailboxesToAccount = async (params: AddMailboxesParams) => {
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    const { data, error } = await supabase.rpc(
+      "add_mailboxes_to_account" as never,
+      {
+        input_data: {
+          account_id: params.accountId,
+          mailbox: params.mailboxes,
+        },
+      }
+    );
+
+    if (error) throw error;
+    return { data };
+  } catch (err) {
+    console.error("Error adding mailboxes to account:", err);
     return { error: err as Error };
   }
 };

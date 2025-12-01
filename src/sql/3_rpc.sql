@@ -147,62 +147,62 @@ $$
 LANGUAGE plpgsql;
 
 -- Get user full details for profile
--- CREATE OR REPLACE FUNCTION get_user_full_details(input_user_id UUID)
--- RETURNS JSON
--- SET search_path TO ''
--- AS $$
--- DECLARE
---   return_data JSON;
--- BEGIN
---   SELECT JSON_BUILD_OBJECT(
---     'user', (SELECT JSON_BUILD_OBJECT(
---       'user_id', u.user_id,
---       'user_username', u.user_username,
---       'user_email', u.user_email,
---       'user_first_name', u.user_first_name,
---       'user_last_name', u.user_last_name,
---       'user_is_admin', u.user_is_admin,
---       'user_avatar_bucket_path', u.user_avatar_bucket_path
---     ) FROM user_schema.user_table u WHERE u.user_id = input_user_id),
---     'account', (SELECT JSON_BUILD_OBJECT(
---       'account_id', a.account_id,
---       'account_user_id', a.account_user_id,
---       'account_number', a.account_number,
---       'account_area_code', a.account_area_code,
---       'account_type', a.account_type,
---       'account_type_value', at.account_type_value,
---       'account_is_subscribed', a.account_is_subscribed,
---       'account_max_quantity_storage', at.account_max_quantity_storage,
---       'account_max_gb_storage', at.account_max_gb_storage,
---       'account_max_mailbox_access', at.account_max_mailbox_access,
---       'account_subscription_status_id', a.account_subscription_status_id,
---       'account_subscription_status_value', ss.subscription_status_value,
---       'account_subscription_ends_at', a.account_subscription_ends_at
---     ) FROM user_schema.account_table a
---     JOIN user_schema.account_type_table at ON a.account_type = at.account_type_id
---     JOIN status_schema.subscription_status_table ss ON a.account_subscription_status_id = ss.subscription_status_id
---     WHERE a.account_user_id = input_user_id),
---     'virtual_address', (SELECT JSON_BUILD_OBJECT(
---       'virtual_address_id', v.virtual_address_id,
---       'virtual_address_account_id', v.virtual_address_account_id,
---       'virtual_address_address', v.virtual_address_address,
---       'virtual_address_street', v.virtual_address_street,
---       'virtual_address_city', v.virtual_address_city,
---       'virtual_address_province', v.virtual_address_province,
---       'virtual_address_postal_code', v.virtual_address_postal_code,
---       'virtual_address_country', v.virtual_address_country,
---       'virtual_address_area_code', v.virtual_address_area_code,
---       'virtual_address_status_id', v.virtual_address_status_id,
---       'virtual_address_status_value', vs.virtual_address_status_value
---     ) FROM mailroom_schema.virtual_address_table v
---     JOIN status_schema.virtual_address_status_table vs ON v.virtual_address_status_id = vs.virtual_address_status_id
---     WHERE v.virtual_address_account_id = (SELECT account_id FROM user_schema.account_table WHERE account_user_id = input_user_id))
---   ) INTO return_data;
+CREATE OR REPLACE FUNCTION get_user_full_details(input_user_id UUID)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  return_data JSON;
+BEGIN
+  SELECT JSON_BUILD_OBJECT(
+    'user', (SELECT JSON_BUILD_OBJECT(
+      'user_id', u.user_id,
+      'user_username', u.user_username,
+      'user_email', u.user_email,
+      'user_first_name', u.user_first_name,
+      'user_last_name', u.user_last_name,
+      'user_is_admin', u.user_is_admin,
+      'user_avatar_bucket_path', u.user_avatar_bucket_path
+    ) FROM user_schema.user_table u WHERE u.user_id = input_user_id),
+    'account', (SELECT JSON_BUILD_OBJECT(
+      'account_id', a.account_id,
+      'account_user_id', a.account_user_id,
+      'account_number', a.account_number,
+      'account_area_code', a.account_area_code,
+      'account_type', a.account_type,
+      'account_type_value', at.account_type_value,
+      'account_is_subscribed', a.account_is_subscribed,
+      'account_max_quantity_storage', at.account_max_quantity_storage,
+      'account_max_gb_storage', at.account_max_gb_storage,
+      'account_max_mailbox_access', at.account_max_mailbox_access,
+      'account_subscription_status_id', a.account_subscription_status_id,
+      'account_subscription_status_value', ss.subscription_status_value,
+      'account_subscription_ends_at', a.account_subscription_ends_at
+    ) FROM user_schema.account_table a
+    JOIN user_schema.account_type_table at ON a.account_type = at.account_type_id
+    JOIN status_schema.subscription_status_table ss ON a.account_subscription_status_id = ss.subscription_status_id
+    WHERE a.account_user_id = input_user_id),
+    'virtual_address', (SELECT JSON_BUILD_OBJECT(
+      'virtual_address_id', v.virtual_address_id,
+      'virtual_address_account_id', v.virtual_address_account_id,
+      'virtual_address_address', v.virtual_address_address,
+      'virtual_address_street', v.virtual_address_street,
+      'virtual_address_city', v.virtual_address_city,
+      'virtual_address_province', v.virtual_address_province,
+      'virtual_address_postal_code', v.virtual_address_postal_code,
+      'virtual_address_country', v.virtual_address_country,
+      'virtual_address_area_code', v.virtual_address_area_code,
+      'virtual_address_status_id', v.virtual_address_status_id,
+      'virtual_address_status_value', vs.virtual_address_status_value
+    ) FROM mailroom_schema.virtual_address_table v
+    JOIN status_schema.virtual_address_status_table vs ON v.virtual_address_status_id = vs.virtual_address_status_id
+    WHERE v.virtual_address_account_id = (SELECT account_id FROM user_schema.account_table WHERE account_user_id = input_user_id))
+  ) INTO return_data;
 
---   RETURN return_data;
--- END;
--- $$
--- LANGUAGE plpgsql;
+  RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;
 
 -- Get current user
 CREATE OR REPLACE FUNCTION get_user(input_user_id UUID)
@@ -231,38 +231,95 @@ LANGUAGE plpgsql;
 
 -- Get mail access limit
 CREATE OR REPLACE FUNCTION get_mail_access_limit(input_user_id UUID, input_plan_id TEXT)
-RETURNS INTEGER
+RETURNS JSON
 SET search_path TO ''
 AS $$
 DECLARE
-  var_account_type TEXT;
-  var_account_is_subscribed BOOLEAN;
-  var_account_remaining_mailbox_access SMALLINT;
-  var_account_max_mailbox_access INTEGER; -- Default to null
-  return_data INTEGER;
-BEGIN
-  -- Get user's current account state (if account exists)
-  SELECT
-    account_is_subscribed,
-    account_remaining_mailbox_access
-  INTO
-    var_account_is_subscribed,
-    var_account_remaining_mailbox_access
-  FROM user_schema.account_table
-  WHERE account_user_id = input_user_id;
+  -- Plan defaults
+  var_plan_max_mailbox_access INTEGER;
+  var_plan_max_quantity_storage INTEGER;
+  var_plan_max_gb_storage NUMERIC;
+  var_plan_max_parcel_handling INTEGER;
+  var_plan_duration_days INTEGER;
 
-  -- Get max mailbox access for the account type
+  -- User Account details
+  var_is_subscribed BOOLEAN;
+  var_account_id UUID;
+  var_current_account_type TEXT;
+  var_remaining_mailbox_access INTEGER;
+
+  -- Mailbox details
+  var_mailbox_mail_remaining_space INTEGER;
+  var_mailbox_package_remaining_space INTEGER;
+
+  return_data JSON;
+BEGIN
+  -- 1. Get Plan Defaults (Base)
   SELECT
-    account_max_mailbox_access INTO var_account_max_mailbox_access
+    account_max_mailbox_access,
+    account_max_quantity_storage,
+    account_max_gb_storage,
+    account_max_parcel_handling,
+    account_duration_days
+  INTO
+    var_plan_max_mailbox_access,
+    var_plan_max_quantity_storage,
+    var_plan_max_gb_storage,
+    var_plan_max_parcel_handling,
+    var_plan_duration_days
   FROM user_schema.account_type_table
   WHERE account_type_id = input_plan_id;
 
-  -- If user has no account (new user), default to free plan
-  IF var_account_remaining_mailbox_access IS NULL THEN return_data := var_account_max_mailbox_access;
-  ELSE
-    -- Return remaining access for existing subscribed users
-    return_data := var_account_remaining_mailbox_access;
+  -- 2. Get User Account Status
+  SELECT 
+    account_is_subscribed, 
+    account_id,
+    account_type,
+    account_remaining_mailbox_access
+  INTO 
+    var_is_subscribed, 
+    var_account_id,
+    var_current_account_type,
+    var_remaining_mailbox_access
+  FROM user_schema.account_table
+  WHERE account_user_id = input_user_id;
+
+  -- 3. Override if User is Subscribed and Plan Matches
+  IF var_is_subscribed IS TRUE AND var_current_account_type = input_plan_id THEN
+    -- Override Max Mailbox Access with Remaining Access
+    var_plan_max_mailbox_access := COALESCE(var_remaining_mailbox_access, var_plan_max_mailbox_access);
+
+    -- Fetch latest mailbox limits
+    SELECT 
+      mailbox_mail_remaining_space,
+      mailbox_package_remaining_space
+    INTO 
+      var_mailbox_mail_remaining_space,
+      var_mailbox_package_remaining_space
+    FROM mailroom_schema.mailbox_table
+    WHERE mailbox_account_id = var_account_id
+      AND mailbox_status_id = 'MBS-ACTIVE'
+    ORDER BY mailbox_created_at DESC
+    LIMIT 1;
+
+    -- Override Storage Limits if mailbox found
+    IF var_mailbox_mail_remaining_space IS NOT NULL THEN
+      var_plan_max_quantity_storage := var_mailbox_mail_remaining_space;
+    END IF;
+
+    IF var_mailbox_package_remaining_space IS NOT NULL THEN
+      var_plan_max_parcel_handling := var_mailbox_package_remaining_space;
+    END IF;
   END IF;
+
+  -- 4. Return Data
+  SELECT JSON_BUILD_OBJECT(
+    'account_max_mailbox_access', var_plan_max_mailbox_access,
+    'account_max_quantity_storage', var_plan_max_quantity_storage,
+    'account_max_gb_storage', var_plan_max_gb_storage,
+    'account_max_parcel_handling', var_plan_max_parcel_handling,
+    'account_duration_days', var_plan_duration_days
+  ) INTO return_data;
 
   RETURN return_data;
 END;
@@ -895,3 +952,204 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
+-- Get active addresses
+CREATE OR REPLACE FUNCTION get_active_addresses()
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+    result JSON;
+BEGIN
+    SELECT json_agg(
+        json_build_object(
+            'mailroom_address_id', address_id,
+            'mailroom_address_key', address_key,
+            'mailroom_address_value', address_full,
+            'mailroom_address_link', address_map_link
+        )
+    )
+    INTO result
+    FROM mailroom_schema.mailroom_address_table
+    WHERE address_is_active = TRUE;
+
+    RETURN coalesce(result, '[]'::json);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Subcription function
+CREATE OR REPLACE FUNCTION create_user_subscription_account(input_data JSON)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  -- Input variables
+  var_account_id UUID := gen_random_uuid();
+  input_user_id UUID := (input_data->>'user_id')::UUID;
+  input_account_type TEXT := COALESCE((input_data->>'account_type')::TEXT, 'AT-FREE');
+  input_account_is_subscribed BOOLEAN := COALESCE((input_data->>'account_is_subscribed')::BOOLEAN, FALSE);
+  input_account_subscription_ends_at TIMESTAMPTZ := (input_data->>'account_subscription_ends_at')::TIMESTAMPTZ;
+  input_account_remaining_mailbox_access SMALLINT := (input_data->>'account_remaining_mailbox_access')::SMALLINT;
+  input_account_subscription_status_id TEXT := COALESCE((input_data->>'account_subscription_status_id')::TEXT, 'SST-NONSUB');
+  input_mailbox_data JSON := COALESCE((input_data->'mailbox')::JSON, '[]'::JSON);
+  
+  -- Address Inputs
+  input_address_key TEXT := (input_data->>'account_address_key')::TEXT;
+
+  -- Function variables
+  var_account_number TEXT;
+  var_mailbox_item JSON;
+  var_mailbox_status_id TEXT;
+  var_mailbox_label TEXT;
+  var_mailbox_mail_remaining_space SMALLINT;
+  var_mailbox_package_remaining_space SMALLINT;
+  
+  -- Return variable
+  return_data JSON;
+BEGIN
+  -- 1. Generate account number (format: Q[Quarter][Year]-[Seq])
+  SELECT CONCAT('Q', EXTRACT(QUARTER FROM NOW()), EXTRACT(YEAR FROM NOW()), '-', 
+         LPAD((COUNT(*) + 1)::TEXT, 4, '0'))
+  INTO var_account_number
+  FROM user_schema.account_table;
+
+  -- 2. Create or update account subscription details
+  INSERT INTO user_schema.account_table (
+    account_id,
+    account_user_id,
+    account_number,
+    account_address_key,
+    account_type,
+    account_is_subscribed,
+    account_subscription_ends_at,
+    account_remaining_mailbox_access,
+    account_subscription_status_id,
+    account_created_at,
+    account_updated_at
+  ) VALUES (
+    var_account_id,
+    input_user_id,
+    var_account_number,
+    input_address_key,
+    input_account_type,
+    input_account_is_subscribed,
+    input_account_subscription_ends_at,
+    input_account_remaining_mailbox_access,
+    input_account_subscription_status_id,
+    NOW(),
+    NOW()
+  ) ON CONFLICT (account_id) DO UPDATE SET
+    account_type = EXCLUDED.account_type,
+    account_is_subscribed = EXCLUDED.account_is_subscribed,
+    account_subscription_ends_at = EXCLUDED.account_subscription_ends_at,
+    account_remaining_mailbox_access = EXCLUDED.account_remaining_mailbox_access,
+    account_subscription_status_id = EXCLUDED.account_subscription_status_id,
+    account_updated_at = NOW();
+
+  -- 3. Insert mailboxes
+  FOR var_mailbox_item IN SELECT * FROM json_array_elements(input_mailbox_data)
+  LOOP
+    var_mailbox_status_id := (var_mailbox_item->>'mailbox_status_id')::TEXT;
+    var_mailbox_label := (var_mailbox_item->>'mailbox_label')::TEXT;
+    var_mailbox_mail_remaining_space := (var_mailbox_item->>'mailbox_mail_remaining_space')::SMALLINT;
+    var_mailbox_package_remaining_space := (var_mailbox_item->>'mailbox_package_remaining_space')::SMALLINT;
+
+    INSERT INTO mailroom_schema.mailbox_table (
+      mailbox_account_id,
+      mailbox_status_id,
+      mailbox_label,
+      mailbox_mail_remaining_space,
+      mailbox_package_remaining_space
+    ) VALUES (
+      var_account_id,
+      var_mailbox_status_id,
+      var_mailbox_label,
+      var_mailbox_mail_remaining_space,
+      var_mailbox_package_remaining_space
+    );
+  END LOOP;
+
+  -- 5. Build return data
+  SELECT JSON_BUILD_OBJECT(
+    'success', TRUE,
+    'message', 'Account updated and mailboxes created successfully',
+    'account_id', var_account_id,
+    'account_number', var_account_number,
+    'mailbox_count', json_array_length(input_mailbox_data)
+  ) INTO return_data;
+
+  RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Get active address
+CREATE OR REPLACE FUNCTION get_active_addresses()
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+    result JSON;
+BEGIN
+    SELECT json_agg(
+        json_build_object(
+            'mailroom_address_id', address_id,
+            'mailroom_address_key', address_key,
+            'mailroom_address_value', address_full,
+            'mailroom_address_link', address_map_link
+        )
+    )
+    INTO result
+    FROM mailroom_schema.mailroom_address_table
+    WHERE address_is_active = TRUE;
+
+    RETURN coalesce(result, '[]'::json);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Get Subscription Plan
+CREATE OR REPLACE FUNCTION get_subscription_plans(input_data JSON DEFAULT '{}'::json)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+DECLARE
+    return_data JSON;
+BEGIN
+    return_data := (
+        SELECT json_agg(
+            json_build_object(
+                'id', p.subscription_plan_id,
+                'name', p.subscription_plan_name,
+                'price', p.subscription_plan_price,
+                'description', p.subscription_plan_description,
+                'popular', p.subscription_plan_is_popular,
+                'button_text', p.subscription_plan_button_text,
+                'usage_note', p.subscription_plan_usage_note,
+                'storage_gb', s.subscription_plan_max_gb_storage,
+                'quantity_storage', s.subscription_plan_max_quantity_storage,
+                'max_mailbox_access', s.subscription_plan_max_mailbox_access,
+                'sort_order', s.subscription_plan_type_sort_order,
+                'features', (
+                    SELECT json_agg(
+                        json_build_object(
+                            'feature_label', f.subscription_feature_label,
+                            'display_text', pf.subscription_plan_feature_display_text,
+                            'is_primary', pf.subscription_plan_feature_is_primary,
+                            'sort_order', pf.subscription_plan_feature_sort_order
+                        ) ORDER BY pf.subscription_plan_feature_sort_order ASC
+                    )
+                    FROM subscription_schema.subscription_plan_feature_table pf
+                    JOIN subscription_schema.subscription_feature_table f ON f.subscription_feature_id = pf.subscription_plan_feature_feature_id
+                    WHERE pf.subscription_plan_feature_plan_id = p.subscription_plan_id
+                )
+            ) ORDER BY s.subscription_plan_type_sort_order ASC
+        )
+        FROM subscription_schema.subscription_plan_table p
+        LEFT JOIN subscription_schema.subscription_plan_storage_table s ON s.subscription_plan_storage_plan_id = p.subscription_plan_id
+    );
+
+    RETURN return_data;
+END;
+$$;

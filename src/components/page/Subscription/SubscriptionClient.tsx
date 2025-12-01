@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { User } from "@supabase/supabase-js";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import {
   getUserFullDetails,
   getMailAccessLimit,
@@ -11,6 +11,7 @@ import {
   getVirtualAddressLocations,
   SubscriptionPlan,
   VirtualAddressLocation,
+  UserMailAccessLimit,
 } from "@/actions/supabase/get";
 import {
   Container,
@@ -38,10 +39,10 @@ import {
   createUserSubscriptionAccount,
   CreateUserSubscriptionAccount,
 } from "@/actions/supabase/post";
-
-// Removed Plan type and PLANS constant as they are now fetched from DB
+import SubscriptionManagement from "./SubscriptionManagement";
 
 export default function SubscriptionClient({ user }: { user: User }) {
+  const { mutate } = useSWRConfig();
   const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(
     null
@@ -49,13 +50,13 @@ export default function SubscriptionClient({ user }: { user: User }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedMailboxIds, setSelectedMailboxIds] = useState<string[]>([]);
   const [mailboxPage, setMailboxPage] = useState(1);
-  const [mailAccessLimit, setMailAccessLimit] = useState<number>(0);
+  const [mailAccessLimit, setMailAccessLimit] = useState<UserMailAccessLimit>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [selectedLocation, setSelectedLocation] =
     useState<VirtualAddressLocation | null>(null);
 
-  const { data: userDetails, isLoading } = useSWR(
+  const { data: userDetails, isLoading: userDetailsLoading } = useSWR(
     user ? ["user-full-details", user.id] : null,
     ([, userId]) => getUserFullDetails(userId)
   );
@@ -80,9 +81,11 @@ export default function SubscriptionClient({ user }: { user: User }) {
   ) => {
     setIsSubmitting(true);
 
-    if (mailboxes.length > mailAccessLimit) {
+    if (mailboxes.length > (mailAccessLimit?.account_max_mailbox_access ?? 0)) {
       notifications.show({
-        message: `You can only select up to ${mailAccessLimit} mailboxes for your plan.`,
+        message: `You can only select up to ${
+          mailAccessLimit?.account_max_mailbox_access ?? 0
+        } mailboxes for your plan.`,
         color: "red",
       });
       setIsSubmitting(false);
@@ -96,32 +99,41 @@ export default function SubscriptionClient({ user }: { user: User }) {
     );
     const locationToUse = selectedLocation || defaultLocation;
 
+    const now = new Date();
+    const subscriptionEndsAt = new Date();
+    subscriptionEndsAt.setDate(
+      now.getDate() + (mailAccessLimit?.account_duration_days ?? 0)
+    );
+
     const subscriptionData = {
       userId: user.id,
       account: {
         account_type: plan.id,
         account_is_subscribed: true,
-        account_subscription_ends_at: null,
+        account_subscription_ends_at: subscriptionEndsAt.toISOString(),
         account_remaining_mailbox_access:
-          mailAccessLimit - availableMailboxCount,
+          (mailAccessLimit?.account_max_mailbox_access ?? 0) -
+          availableMailboxCount,
         account_subscription_status_id: "SST-ACTIVE",
+        account_address_key: locationToUse?.mailroom_address_key,
       },
       mailbox: mailboxes.map((mailroom) => ({
         mailbox_status_id: "MBS-ACTIVE",
         mailbox_label: mailroom,
-        mailbox_space_remaining:
-          userDetails?.account.account_max_quantity_storage || 0,
+        mailbox_mail_remaining_space:
+          mailAccessLimit?.account_max_quantity_storage || 0,
+        mailbox_package_remaining_space:
+          mailAccessLimit?.account_max_parcel_handling,
       })),
-      virtual_address: {
-        key: locationToUse?.mailroom_address_key || "Gold",
-        address:
-          locationToUse?.mailroom_address_value ||
-          "15 Annapolis St., Greenhills, Gold Building",
-      },
     };
 
     try {
       const result = await createUserSubscriptionAccount(
+        subscriptionData as CreateUserSubscriptionAccount
+      );
+
+      console.log(
+        "Subscription Payload: ",
         subscriptionData as CreateUserSubscriptionAccount
       );
 
@@ -139,6 +151,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
         color: "green",
       });
       console.log("Subscription created successfully:", result.data);
+      mutate(["user-full-details", user.id]);
       setSelectedMailboxIds([]);
       setIsModalOpen(false);
       setIsSubmitting(false);
@@ -174,7 +187,13 @@ export default function SubscriptionClient({ user }: { user: User }) {
       }
     } catch (error) {
       console.error("Error fetching plan mail access limit:", error);
-      setMailAccessLimit(1); // Default fallback
+      setMailAccessLimit({
+        account_max_mailbox_access: 1,
+        account_max_quantity_storage: 0,
+        account_max_gb_storage: 0,
+        account_max_parcel_handling: 0,
+        account_duration_days: 0,
+      }); // Default fallback
       // Still open modal or try process if free?
       // If error on free plan limit fetch, maybe safer not to auto-create?
       // But assuming it works:
@@ -192,7 +211,9 @@ export default function SubscriptionClient({ user }: { user: User }) {
     setSelectedMailboxIds((prev) => {
       if (prev.includes(id)) {
         return prev.filter((mailboxId) => mailboxId !== id);
-      } else if (prev.length < mailAccessLimit) {
+      } else if (
+        prev.length < (mailAccessLimit?.account_max_mailbox_access ?? 0)
+      ) {
         return [...prev, id];
       }
       return prev;
@@ -210,8 +231,20 @@ export default function SubscriptionClient({ user }: { user: User }) {
     }
   };
 
-  if (isLoading || plansLoading) {
+  const isSubscribed = userDetails?.account?.account_is_subscribed;
+
+  if (userDetailsLoading || plansLoading) {
     return <CustomLoader />;
+  }
+
+  if (isSubscribed && userDetails) {
+    return (
+      <SubscriptionManagement
+        user={user}
+        userDetails={userDetails}
+        plans={plans}
+      />
+    );
   }
 
   const loadingOverlay = loading ? (
@@ -224,20 +257,26 @@ export default function SubscriptionClient({ user }: { user: User }) {
     <Stack align="center" gap="md" w="100%">
       <Title order={4}>Select Your Mailbox IDs</Title>
       <Text c="dimmed" size="sm" ta="center">
-        Choose up to {mailAccessLimit} mailboxes.
+        Choose up to {mailAccessLimit?.account_max_mailbox_access ?? 0}{" "}
+        mailboxes.
       </Text>
 
       <Group justify="center" gap="xs">
         <Text size="sm" fw={500}>
-          Selected: {selectedMailboxIds.length} / {mailAccessLimit}
+          Selected: {selectedMailboxIds.length} /{" "}
+          {mailAccessLimit?.account_max_mailbox_access ?? 0}
         </Text>
         <Badge
           color={
-            selectedMailboxIds.length === mailAccessLimit ? "green" : "blue"
+            selectedMailboxIds.length ===
+            (mailAccessLimit?.account_max_mailbox_access ?? 0)
+              ? "green"
+              : "blue"
           }
           size="sm"
         >
-          {selectedMailboxIds.length === mailAccessLimit
+          {selectedMailboxIds.length ===
+          (mailAccessLimit?.account_max_mailbox_access ?? 0)
             ? "Complete"
             : "Select More"}
         </Badge>
@@ -251,7 +290,9 @@ export default function SubscriptionClient({ user }: { user: User }) {
             const id = `${letter}${number}`;
             const isSelected = selectedMailboxIds.includes(id);
             const isDisabled =
-              (!isSelected && selectedMailboxIds.length >= mailAccessLimit) ||
+              (!isSelected &&
+                selectedMailboxIds.length >=
+                  (mailAccessLimit?.account_max_mailbox_access ?? 0)) ||
               (existingMailbox &&
                 existingMailbox.some(
                   (mailbox) => mailbox.mailbox_label === id
@@ -497,121 +538,6 @@ export default function SubscriptionClient({ user }: { user: User }) {
       </Stack>
     </Modal>
   );
-
-  // if (isSubscribed) {
-  //   return (
-  //     <Container size="lg" py="xl">
-  //       <Stack gap="lg">
-  //         <div>
-  //           <Title order={2}>Subscription Management</Title>
-  //           <Text c="dimmed">
-  //             View and manage your current subscription plan and billing
-  //             details.
-  //           </Text>
-  //         </div>
-
-  //         <Card withBorder radius="md" p="xl">
-  //           <Stack gap="xs">
-  //             <Stack gap={"xs"}>
-  //               <Text c="dimmed" size="sm">
-  //                 Current Plan
-  //               </Text>
-  //               <Group>
-  //                 <Title order={3}>
-  //                   {getPlanDisplayName(
-  //                     userDetails?.account.account_type_value
-  //                   )}
-  //                 </Title>
-  //                 <Badge color="green" variant="light">
-  //                   Active
-  //                 </Badge>
-  //               </Group>
-  //               <Text c="dimmed" size="sm">
-  //                 Your plan expires on{" "}
-  //                 {userDetails?.account.account_subscription_ends_at
-  //                   ? new Date(
-  //                       userDetails.account.account_subscription_ends_at
-  //                     ).toLocaleDateString()
-  //                   : "N/A"}
-  //                 .
-  //               </Text>
-  //             </Stack>
-  //             <Stack mt="md" justify="flex-end">
-  //               <Button
-  //                 variant="default"
-  //                 color={colors.background}
-  //                 onClick={() => {
-  //                   const currentPlan = PLANS.find(
-  //                     (p) => p.id === userDetails.account.account_type
-  //                   );
-  //                   if (currentPlan) {
-  //                     handleChoosePlan(currentPlan);
-  //                   }
-  //                 }}
-  //               >
-  //                 Get More Storage
-  //               </Button>
-  //               {/* <Button variant="default">Change Plan</Button> */}
-  //             </Stack>
-  //           </Stack>
-  //         </Card>
-
-  //         <Card withBorder radius="md" p="xl">
-  //           <Stack gap="md">
-  //             <div>
-  //               <Title order={4}>Billing Details</Title>
-  //               <Text c="dimmed" size="sm">
-  //                 Manage your payment methods and view your invoice history.
-  //               </Text>
-  //             </div>
-
-  //             <Divider />
-
-  //             <Group justify="space-between">
-  //               <Text size="sm">Payment Method</Text>
-  //               <Group>
-  //                 <IconCreditCard size={20} />
-  //                 <Text size="sm">Visa ending in 1234</Text>
-  //                 <Text size="sm" c="blue" style={{ cursor: "pointer" }}>
-  //                   Update
-  //                 </Text>
-  //               </Group>
-  //             </Group>
-
-  //             <Divider />
-
-  //             <Group justify="space-between">
-  //               <Text size="sm">Invoice History</Text>
-  //               <Text size="sm" c="blue" style={{ cursor: "pointer" }}>
-  //                 View Invoices
-  //               </Text>
-  //             </Group>
-  //           </Stack>
-  //         </Card>
-
-  //         <Alert
-  //           color="red"
-  //           title="Cancel Subscription"
-  //           variant="light"
-  //           radius="md"
-  //         >
-  //           <Stack gap="xs">
-  //             <Text size="sm">
-  //               Cancelling your subscription will result in the loss of access
-  //               to your digital mailbox and all associated services at the end
-  //               of your billing cycle. This action cannot be undone.
-  //             </Text>
-  //             <Button color="red" w="fit-content">
-  //               Cancel Subscription
-  //             </Button>
-  //           </Stack>
-  //         </Alert>
-  //       </Stack>
-  //       {mailboxSelectionModal}
-  //       {loadingOverlay}
-  //     </Container>
-  //   );
-  // }
 
   return (
     <Container size="xl" py="xl">

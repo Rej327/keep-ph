@@ -103,16 +103,22 @@ ALTER TABLE user_schema.account_table
     REFERENCES user_schema.account_type_table(account_type_id)
     ON DELETE RESTRICT;
 
+ALTER TABLE user_schema.account_table
+    ADD CONSTRAINT fk_account_address_key
+    FOREIGN KEY (account_address_key)
+    REFERENCES mailroom_schema.mailroom_address_table(address_key)
+    ON DELETE CASCADE;
+
 -- Virtual Address Foreign Keys
-ALTER TABLE mailroom_schema.virtual_address_table
-    ADD CONSTRAINT fk_virtual_address_account
-    FOREIGN KEY (virtual_address_account_id)
+ALTER TABLE mailroom_schema.mailroom_user_virtual_address_table
+    ADD CONSTRAINT fk_mailroom_user_virtual_address_account
+    FOREIGN KEY (mailroom_user_virtual_address_account_id)
     REFERENCES user_schema.account_table(account_id)
     ON DELETE CASCADE;
 
-ALTER TABLE mailroom_schema.virtual_address_table
-    ADD CONSTRAINT fk_virtual_address_status
-    FOREIGN KEY (virtual_address_status_id)
+ALTER TABLE mailroom_schema.mailroom_user_virtual_address_table
+    ADD CONSTRAINT fk_mailroom_user_virtual_address_status
+    FOREIGN KEY (mailroom_user_virtual_address_status_id)
     REFERENCES status_schema.virtual_address_status_table(virtual_address_status_id)
     ON DELETE RESTRICT;
 
