@@ -22,6 +22,7 @@ export const config = {
     "/mailbox/:path*",
     "/subscription/:path*",
     "/notifications/:path*",
+    "/referral/:path*",
     "/admin/:path*",
 
     // Include auth routes
