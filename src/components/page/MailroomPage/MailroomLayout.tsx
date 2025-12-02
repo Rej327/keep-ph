@@ -7,29 +7,35 @@ import { getUserHasAccount, isAccountFree } from "@/actions/supabase/get";
 import MailroomClient from "./MailroomClient";
 import MailroomService from "./MailroomService";
 import { useShallow } from "zustand/shallow";
+import CustomLoader from "@/components/common/CustomLoader";
 
 export default function MailroomLayout() {
   const user = useAuthStore(useShallow((state) => state.user));
 
-  console.log("User id", user?.id);
-
-  const { data: userHasAccount } = useSWR(
+  const { data: userHasAccount, isLoading: isLoadingAccount } = useSWR(
     user ? ["user-has-account", user.id] : null,
     ([, userId]) => getUserHasAccount(userId)
   );
 
-  const { data: useIsFreePlan, error } = useSWR(
-    user ? ["user-is=free-plan", user.id] : null,
-    ([, userId]) => isAccountFree(userId)
+  const {
+    data: useIsFreePlan,
+    error,
+    isLoading: isLoadingPlan,
+  } = useSWR(user ? ["user-is-free-plan", user.id] : null, ([, userId]) =>
+    isAccountFree(userId)
   );
 
   console.log("User Plan", useIsFreePlan);
   console.log("Error fetching plan", error);
 
-  const accessMailService = useIsFreePlan?.account_type !== "AT-FREE";
-  const accessAccount = useIsFreePlan?.account_status !== "SST-ACTIVE";
+  const isPaidPlan = useIsFreePlan?.account_type !== "AT-FREE";
+  const isActiveAccount = useIsFreePlan?.account_status === "SST-ACTIVE";
 
-  if (userHasAccount && accessMailService && accessAccount)
+  if (isLoadingAccount || isLoadingPlan) {
+    return <CustomLoader />;
+  }
+
+  if (userHasAccount && isPaidPlan && isActiveAccount)
     return <MailroomClient />;
 
   return <MailroomService />;
