@@ -21,7 +21,7 @@ import { getStatusFormat, replaceUnderscore } from "@/utils/function";
 export type CustomerApiResponse = {
   account_id: string;
   account_number: string;
-  account_area_code: string;
+  account_address_key: string;
   account_type: string;
   account_type_value: string;
   account_subscription_status_id: string;
@@ -62,11 +62,11 @@ export default function CustomersClient() {
 
   const columns = [
     {
-      accessor: "area_code",
-      title: "AREA CODE",
+      accessor: "address_key",
+      title: "KEY",
       render: (record: CustomerApiResponse) => (
         <Text size="sm" fw={600}>
-          {record.account_area_code}
+          {record.account_address_key}
         </Text>
       ),
     },
