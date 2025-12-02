@@ -1,5 +1,6 @@
 "use client";
 
+import useAuthStore from "@/zustand/stores/useAuthStore";
 import {
   Container,
   Grid,
@@ -11,73 +12,32 @@ import {
   TextInput,
   Button,
   CopyButton,
-  Progress,
-  Table,
-  Avatar,
   Badge,
-  ActionIcon,
-  ThemeIcon,
+  // ActionIcon,
   rem,
 } from "@mantine/core";
 import {
   IconCopy,
   IconCheck,
-  IconMail,
-  IconMessageCircle,
-  IconShare,
-  IconTrophy,
-  IconAward,
+  // IconMail,
+  // IconMessageCircle,
+  // IconShare,
 } from "@tabler/icons-react";
-
-const MOCK_REFERRALS = [
-  {
-    email: "fr**@email.com",
-    status: "Complete",
-    date: "2023-10-25",
-    reward: "$10 Credit",
-  },
-  {
-    email: "ja**@email.com",
-    status: "Complete",
-    date: "2023-10-22",
-    reward: "$10 Credit",
-  },
-  {
-    email: "al**@email.com",
-    status: "Signed Up",
-    date: "2023-10-20",
-    reward: "Pending",
-  },
-  {
-    email: "mi**@email.com",
-    status: "Invited",
-    date: "2023-10-15",
-    reward: "-",
-  },
-];
-
-const TOP_REFERRERS = [
-  { rank: 1, name: "Olivia R.", count: 24, avatar: null },
-  { rank: 2, name: "Noah L.", count: 19, avatar: null },
-  { rank: 3, name: "Emma P.", count: 15, avatar: null },
-  { rank: 4, name: "Liam K.", count: 11, avatar: null },
-  { rank: 5, name: "You", count: 5, avatar: null, isMe: true },
-];
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case "Complete":
-      return "green";
-    case "Signed Up":
-      return "yellow";
-    default:
-      return "gray";
-  }
-};
+import { useShallow } from "zustand/shallow";
+import useSWR from "swr";
+import { getUserReferrals } from "@/actions/supabase/get";
+import { CustomDataTable } from "@/components/common/CustomDataTable";
+import { getStatusFormat, replaceUnderscore } from "@/utils/function";
 
 export default function ReferralClient() {
   // In a real app, we'd fetch the user's referral code
-  const referralLink = "https://keepph.com/ref/daniel-smith";
+  const user = useAuthStore(useShallow((state) => state.user));
+  const referralLink = user?.email as string;
+
+  const { data: referrals, isLoading } = useSWR(
+    user ? ["user-referrals", user.id] : null,
+    ([, userId]) => getUserReferrals(userId)
+  );
 
   return (
     <Container size="xl" py="xl">
@@ -90,8 +50,7 @@ export default function ReferralClient() {
         </div>
 
         <Grid>
-          {/* Left Column */}
-          <Grid.Col span={{ base: 12, md: 8 }}>
+          <Grid.Col span={12}>
             <Stack gap="md">
               {/* Share Link Section */}
               <Card withBorder radius="md" p="xl">
@@ -133,7 +92,7 @@ export default function ReferralClient() {
                     </CopyButton>
                   </Group>
 
-                  <Group gap="xs">
+                  {/* <Group gap="xs">
                     <Text size="sm" c="dimmed">
                       Share via:
                     </Text>
@@ -146,113 +105,10 @@ export default function ReferralClient() {
                     <ActionIcon variant="light" color="gray" radius="xl">
                       <IconShare style={{ width: rem(18) }} />
                     </ActionIcon>
-                  </Group>
-                </Stack>
-              </Card>
-
-              {/* Rewards Section */}
-              <Card withBorder radius="md" p="xl">
-                <Stack gap="md">
-                  <Title order={4}>Unlock Your Rewards</Title>
-                  <Grid>
-                    <Grid.Col span={{ base: 12, sm: 6 }}>
-                      <Card bg="blue.0" radius="md" p="md">
-                        <Stack gap="xs">
-                          <ThemeIcon variant="light" size="lg" radius="md">
-                            <IconAward />
-                          </ThemeIcon>
-                          <Text size="xs" c="dimmed" fw={500}>
-                            Current Tier
-                          </Text>
-                          <Text fw={700}>Pro Referrer</Text>
-                          <Text size="sm" c="dimmed">
-                            5 Referrals
-                          </Text>
-                        </Stack>
-                      </Card>
-                    </Grid.Col>
-                    <Grid.Col span={{ base: 12, sm: 6 }}>
-                      <Card withBorder radius="md" p="md">
-                        <Stack gap="xs">
-                          <ThemeIcon
-                            variant="light"
-                            color="gray"
-                            size="lg"
-                            radius="md"
-                          >
-                            <IconTrophy />
-                          </ThemeIcon>
-                          <Text size="xs" c="dimmed" fw={500}>
-                            Next Tier
-                          </Text>
-                          <Text fw={700}>Expert Referrer</Text>
-                          <Text size="sm" c="dimmed">
-                            10 Referrals
-                          </Text>
-                        </Stack>
-                      </Card>
-                    </Grid.Col>
-                  </Grid>
-
-                  <Stack gap="xs">
-                    <Group justify="space-between">
-                      <Text size="sm" fw={500}>
-                        Progress
-                      </Text>
-                      <Text size="sm" c="dimmed">
-                        5/10 Referrals to next tier
-                      </Text>
-                    </Group>
-                    <Progress value={50} size="lg" radius="xl" />
-                  </Stack>
+                  </Group> */}
                 </Stack>
               </Card>
             </Stack>
-          </Grid.Col>
-
-          {/* Right Column - Top Referrers */}
-          <Grid.Col span={{ base: 12, md: 4 }}>
-            <Card withBorder radius="md" p="xl" h="100%">
-              <Stack gap="md">
-                <Title order={4}>Top Referrers</Title>
-                <Stack gap="sm">
-                  {TOP_REFERRERS.map((referrer) => (
-                    <Card
-                      key={referrer.rank}
-                      withBorder={referrer.isMe}
-                      bg={referrer.isMe ? "blue.0" : "transparent"}
-                      radius="md"
-                      p="sm"
-                      style={{
-                        border: referrer.isMe
-                          ? "1px solid var(--mantine-color-blue-filled)"
-                          : "none",
-                      }}
-                    >
-                      <Group justify="space-between">
-                        <Group gap="sm">
-                          <Avatar src={referrer.avatar} radius="xl" />
-                          <Text fw={500} size="sm">
-                            {referrer.rank}. {referrer.name}
-                          </Text>
-                        </Group>
-                        <Group gap={4}>
-                          {referrer.rank === 1 && (
-                            <IconTrophy
-                              size={14}
-                              color="var(--mantine-color-yellow-6)"
-                            />
-                          )}
-                          <Text fw={600} size="sm">
-                            {referrer.count}
-                          </Text>
-                        </Group>
-                      </Group>
-                    </Card>
-                  ))}
-                </Stack>
-              </Stack>
-            </Card>
           </Grid.Col>
         </Grid>
 
@@ -266,41 +122,70 @@ export default function ReferralClient() {
               </Text>
             </div>
 
-            <Table verticalSpacing="sm">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>INVITEE&apos;S EMAIL</Table.Th>
-                  <Table.Th>STATUS</Table.Th>
-                  <Table.Th>DATE</Table.Th>
-                  <Table.Th>REWARD EARNED</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {MOCK_REFERRALS.map((referral) => (
-                  <Table.Tr key={referral.email}>
-                    <Table.Td>{referral.email}</Table.Td>
-                    <Table.Td>
-                      <Badge
-                        variant="light"
-                        color={getStatusColor(referral.status)}
-                      >
-                        {referral.status}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td c="dimmed">{referral.date}</Table.Td>
-                    <Table.Td fw={500}>
-                      {referral.reward === "Pending" ? (
-                        <Text c="dimmed" size="sm">
+            <CustomDataTable
+              records={referrals || []}
+              idAccessor="referral_id"
+              isRecordLoading={isLoading}
+              columns={[
+                {
+                  accessor: "invitee_email",
+                  title: "INVITEE'S EMAIL",
+                  render: ({ invitee_email }) => {
+                    if (!invitee_email) return "-";
+                    const emailStr = invitee_email as string;
+                    const [name, domain] = emailStr.split("@");
+                    return `${name.slice(0, 2)}**@${domain}`;
+                  },
+                },
+                {
+                  accessor: "status",
+                  title: "STATUS",
+                  render: ({ status }) => (
+                    <Badge
+                      variant="light"
+                      color={getStatusFormat((status as string) || "")}
+                    >
+                      {replaceUnderscore((status as string) || "Pending")}
+                    </Badge>
+                  ),
+                },
+                {
+                  accessor: "account_type_value",
+                  title: "PLAN",
+                  render: ({ account_type_value }) => (
+                    <Badge variant="outline" color="blue">
+                      {replaceUnderscore(account_type_value as string) ||
+                        "NO SUBSCRIPTION"}
+                    </Badge>
+                  ),
+                },
+                {
+                  accessor: "account_updated_at",
+                  title: "DATE",
+                  render: ({ account_updated_at }) =>
+                    account_updated_at
+                      ? new Date(
+                          account_updated_at as string
+                        ).toLocaleDateString()
+                      : "-",
+                },
+                {
+                  accessor: "reward",
+                  title: "REWARD EARNED",
+                  render: ({ status }) => (
+                    <Text fw={500}>
+                      {status === "active" ? (
+                        "Not implemented"
+                      ) : (
+                        <Text c="dimmed" size="sm" span>
                           Pending
                         </Text>
-                      ) : (
-                        referral.reward
                       )}
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
+                    </Text>
+                  ),
+                },
+              ]}
+            />
           </Stack>
         </Card>
       </Stack>

@@ -131,7 +131,7 @@ END;
 $$
 LANGUAGE plpgsql;
 
--- Check if account is subscribed
+-- Check if account is business plan
 CREATE OR REPLACE FUNCTION is_account_business(input_account_user_id UUID)
 RETURNS BOOLEAN
 SET search_path TO ''
@@ -142,6 +142,26 @@ BEGIN
     FROM user_schema.account_table at
     WHERE at.account_user_id = input_account_user_id AND at.account_is_subscribed = TRUE AND at.account_type = 'AT-BUSINESS'
   );
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Check if account is free plan
+CREATE OR REPLACE FUNCTION is_account_free(input_account_user_id UUID)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  return_data JSON;
+BEGIN
+  SELECT JSON_BUILD_OBJECT(
+    'account_type', at.account_type,
+    'account_status', at.account_subscription_status_id
+  ) INTO return_data
+  FROM user_schema.account_table at
+  WHERE at.account_user_id = input_account_user_id;
+
+  RETURN return_data;
 END;
 $$
 LANGUAGE plpgsql;
@@ -995,9 +1015,11 @@ DECLARE
   
   -- Address Inputs
   input_address_key TEXT := (input_data->>'account_address_key')::TEXT;
+  input_referral_email VARCHAR(254) := (input_data->>'referral_email')::VARCHAR;
 
   -- Function variables
   var_account_number TEXT;
+  var_referrer_id UUID;
   var_mailbox_item JSON;
   var_mailbox_status_id TEXT;
   var_mailbox_label TEXT;
@@ -1014,6 +1036,32 @@ BEGIN
   FROM user_schema.account_table;
 
   -- 2. Create or update account subscription details
+  IF input_referral_email IS NOT NULL AND input_referral_email <> '' THEN
+    -- Get referrer user id
+    SELECT user_id INTO var_referrer_id
+    FROM user_schema.user_table
+    WHERE user_email = input_referral_email;
+
+    IF var_referrer_id IS NOT NULL THEN
+      -- Update user referral email
+      UPDATE user_schema.user_table
+      SET user_referral_email = input_referral_email,
+          user_updated_at = NOW()
+      WHERE user_id = input_user_id;
+
+      -- Insert into referral table if not self-referral
+      IF var_referrer_id <> input_user_id THEN
+        INSERT INTO referral_schema.referral_invitation_table (
+          referral_owner_user_id,
+          referral_redeemed_by_user_id
+        ) VALUES (
+          var_referrer_id,
+          input_user_id
+        );
+      END IF;
+    END IF;
+  END IF;
+
   INSERT INTO user_schema.account_table (
     account_id,
     account_user_id,
@@ -1153,3 +1201,63 @@ BEGIN
     RETURN return_data;
 END;
 $$;
+
+-- Get free subscriber list as a referral list
+CREATE OR REPLACE FUNCTION get_all_free_subscriber()
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+return_data JSON;
+BEGIN
+    SELECT
+        COALESCE(JSON_AGG(
+            JSON_BUILD_OBJECT(
+                'account_user_id', a.account_user_id,
+                'user_email', u.user_email
+            )
+        ), '[]'::json) INTO return_data
+    FROM user_schema.account_table a
+    JOIN user_schema.user_table u ON a.account_user_id = u.user_id
+    WHERE a.account_type = 'AT-FREE' AND a.account_is_subscribed = true;
+
+    return_data := JSON_BUILD_OBJECT(
+        'referral_user', return_data
+    );
+
+    RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Get user referrals
+CREATE OR REPLACE FUNCTION get_user_referrals(input_user_id UUID)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+    return_data JSON;
+BEGIN
+    SELECT 
+        COALESCE(JSON_AGG(
+            JSON_BUILD_OBJECT(
+                'referral_id', r.referral_invitation_id,
+                'invitee_email', u.user_email,
+                'account_address_key', a.account_address_key,
+                'status', s.subscription_status_value,
+                'account_type', a.account_type,
+                'account_type_value', at.account_type_value,
+                'account_updated_at', TO_CHAR(a.account_updated_at, 'YYYY-MM-DD HH24:MI:SS')
+            )
+        ), '[]'::json) INTO return_data
+    FROM referral_schema.referral_invitation_table r
+    JOIN user_schema.user_table u ON r.referral_redeemed_by_user_id = u.user_id
+    LEFT JOIN user_schema.account_table a ON u.user_id = a.account_user_id
+    LEFT JOIN status_schema.subscription_status_table s ON a.account_subscription_status_id = s.subscription_status_id
+    LEFT JOIN user_schema.account_type_table at ON a.account_type = at.account_type_id
+    WHERE r.referral_owner_user_id = input_user_id;
+
+    RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;

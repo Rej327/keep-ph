@@ -43,6 +43,27 @@ export const isAccountBusiness = async (userId: string): Promise<boolean> => {
   return data as boolean;
 };
 
+export type IsAcccountFree = {
+  account_type: string;
+  account_status: string;
+};
+
+export const isAccountFree = async (userId: string) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("is_account_free", {
+    input_account_user_id: userId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  console.log("isAccountFree", data);
+
+  return data as IsAcccountFree;
+};
+
 export type UserFullDetails = {
   user: {
     user_id: string;
@@ -337,7 +358,8 @@ export const getUserHasAccount = async (userId: string) => {
   });
 
   if (error) {
-    console.error("Error knowing user has account");
+    console.error("Error checking if user has account:", error);
+    throw new Error(error.message);
   }
 
   return data as boolean;
@@ -396,4 +418,51 @@ export const getVirtualAddressLocations = async () => {
   console.log("Virtual Address: ", data);
 
   return data as VirtualAddressLocation[];
+};
+
+export type FreeSubscriber = {
+  account_user_id: string;
+  user_email: string;
+};
+
+export const getAllFreeSubscribers = async () => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("get_all_free_subscriber");
+
+  if (error) {
+    console.error("Error fetching free subscribers:", error);
+    throw new Error(error.message);
+  }
+
+  console.log("Free Subscribers: ", data);
+
+  return data.referral_user as FreeSubscriber[];
+};
+
+export type UserReferral = {
+  referral_id: string;
+  invitee_email: string;
+  account_address_key: string | null;
+  status: string | null;
+  account_type: string | null;
+  account_type_value: string | null;
+  account_updated_at: string | null;
+};
+
+export const getUserReferrals = async (userId: string) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("get_user_referrals", {
+    input_user_id: userId,
+  });
+
+  if (error) {
+    console.error("Error fetching user referrals:", error);
+    throw new Error(error.message);
+  }
+
+  console.log("User Referrals: ", data);
+
+  return data as UserReferral[];
 };

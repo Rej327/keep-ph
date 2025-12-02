@@ -175,6 +175,7 @@ INSERT INTO status_schema.subscription_status_table (subscription_status_id, sub
     ('SST-ACTIVE', 'active', 2),
     ('SST-SUSPENDED', 'suspended', 3),
     ('SST-EXPIRED', 'expired', 4);
+    ('SST-PENDING', 'pending', 5);
 
 -- Insert default account types
 INSERT INTO user_schema.account_type_table (account_type_id, account_type_value, account_max_quantity_storage, account_max_gb_storage, account_max_mailbox_access, account_max_parcel_handling, account_type_sort_order) VALUES

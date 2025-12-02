@@ -149,6 +149,40 @@ export default function SubscriptionManagement({
     });
   };
 
+  const handleAutoSelect = () => {
+    const maxAccess =
+      userDetails?.account.account_remaining_mailbox_access ?? 0;
+    const currentSelected = selectedMailboxIds.length;
+    const needed = maxAccess - currentSelected;
+
+    if (needed <= 0) return;
+
+    const newSelection = [...selectedMailboxIds];
+    let addedCount = 0;
+
+    // Iterate through pages 1-4 to find available mailboxes
+    for (let page = 1; page <= 4; page++) {
+      if (addedCount >= needed) break;
+      const letter = String.fromCharCode(65 + (page - 1));
+      for (let i = 1; i <= 15; i++) {
+        if (addedCount >= needed) break;
+        const id = `${letter}${i}`;
+
+        // Check if already selected
+        if (newSelection.includes(id)) continue;
+
+        // Check if occupied
+        const isOccupied = existingMailbox?.some((m) => m.mailbox_label === id);
+        if (isOccupied) continue;
+
+        newSelection.push(id);
+        addedCount++;
+      }
+    }
+
+    setSelectedMailboxIds(newSelection);
+  };
+
   const loadingOverlay = loading ? (
     <Overlay>
       <CustomLoader />
@@ -184,6 +218,19 @@ export default function SubscriptionManagement({
             : "Select More"}
         </Badge>
       </Group>
+
+      <Button
+        variant="light"
+        size="xs"
+        onClick={handleAutoSelect}
+        disabled={
+          selectedMailboxIds.length >=
+            (userDetails?.account.account_remaining_mailbox_access ?? 0) ||
+          existingMailboxLoading
+        }
+      >
+        Auto Select
+      </Button>
 
       <Box w="100%">
         <SimpleGrid cols={5} spacing="xs">

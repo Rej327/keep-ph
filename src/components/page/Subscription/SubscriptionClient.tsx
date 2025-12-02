@@ -9,6 +9,7 @@ import {
   filterExistingLabel,
   getSubscriptionPlans,
   getVirtualAddressLocations,
+  getAllFreeSubscribers,
   SubscriptionPlan,
   VirtualAddressLocation,
   UserMailAccessLimit,
@@ -30,6 +31,7 @@ import {
   Title,
   Overlay,
   Loader,
+  Select,
 } from "@mantine/core";
 import { IconCheck, IconMapPin } from "@tabler/icons-react";
 import CustomLoader from "@/components/common/CustomLoader";
@@ -48,6 +50,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
     null
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFreeModalOpen, setIsFreeModalOpen] = useState(false);
   const [selectedMailboxIds, setSelectedMailboxIds] = useState<string[]>([]);
   const [mailboxPage, setMailboxPage] = useState(1);
   const [mailAccessLimit, setMailAccessLimit] = useState<UserMailAccessLimit>();
@@ -55,6 +58,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
   const [activeStep, setActiveStep] = useState(0);
   const [selectedLocation, setSelectedLocation] =
     useState<VirtualAddressLocation | null>(null);
+  const [selectedReferral, setSelectedReferral] = useState<string | null>(null);
 
   const { data: userDetails, isLoading: userDetailsLoading } = useSWR(
     user ? ["user-full-details", user.id] : null,
@@ -73,6 +77,11 @@ export default function SubscriptionClient({ user }: { user: User }) {
   const { data: addressLocations, isLoading: addressLocationsLoading } = useSWR(
     "virtual-address-locations",
     getVirtualAddressLocations
+  );
+
+  const { data: freeSubscribers, isLoading: freeSubscribersLoading } = useSWR(
+    "free-subscribers",
+    getAllFreeSubscribers
   );
 
   const processSubscription = async (
@@ -107,6 +116,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
 
     const subscriptionData = {
       userId: user.id,
+      referralEmail: selectedReferral,
       account: {
         account_type: plan.id,
         account_is_subscribed: true,
@@ -149,7 +159,9 @@ export default function SubscriptionClient({ user }: { user: User }) {
       mutate(["user-full-details", user.id]);
       setSelectedMailboxIds([]);
       setIsModalOpen(false);
+      setIsFreeModalOpen(false);
       setIsSubmitting(false);
+      setSelectedReferral(null);
       // TODO: Redirect to success page or update UI
     } catch (error) {
       setIsSubmitting(false);
@@ -176,7 +188,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
 
       if (plan.id === "AT-FREE") {
         // Immediate creation for AT-FREE
-        await processSubscription(plan, []);
+        setIsFreeModalOpen(true);
       } else {
         setIsModalOpen(true);
       }
@@ -193,7 +205,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
       // If error on free plan limit fetch, maybe safer not to auto-create?
       // But assuming it works:
       if (plan.id === "AT-FREE") {
-        await processSubscription(plan, []);
+        setIsFreeModalOpen(true);
       } else {
         setIsModalOpen(true);
       }
@@ -216,7 +228,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
   };
 
   const nextStep = () =>
-    setActiveStep((current) => (current < 2 ? current + 1 : current));
+    setActiveStep((current) => (current < 3 ? current + 1 : current));
   const prevStep = () =>
     setActiveStep((current) => (current > 0 ? current - 1 : current));
 
@@ -248,6 +260,39 @@ export default function SubscriptionClient({ user }: { user: User }) {
     </Overlay>
   ) : null;
 
+  const handleAutoSelect = () => {
+    const maxAccess = mailAccessLimit?.account_max_mailbox_access ?? 0;
+    const currentSelected = selectedMailboxIds.length;
+    const needed = maxAccess - currentSelected;
+
+    if (needed <= 0) return;
+
+    const newSelection = [...selectedMailboxIds];
+    let addedCount = 0;
+
+    // Iterate through pages 1-4 to find available mailboxes
+    for (let page = 1; page <= 4; page++) {
+      if (addedCount >= needed) break;
+      const letter = String.fromCharCode(65 + (page - 1));
+      for (let i = 1; i <= 15; i++) {
+        if (addedCount >= needed) break;
+        const id = `${letter}${i}`;
+
+        // Check if already selected
+        if (newSelection.includes(id)) continue;
+
+        // Check if occupied
+        const isOccupied = existingMailbox?.some((m) => m.mailbox_label === id);
+        if (isOccupied) continue;
+
+        newSelection.push(id);
+        addedCount++;
+      }
+    }
+
+    setSelectedMailboxIds(newSelection);
+  };
+
   const renderMailboxSelection = () => (
     <Stack align="center" gap="md" w="100%">
       <Title order={4}>Select Your Mailbox IDs</Title>
@@ -276,6 +321,19 @@ export default function SubscriptionClient({ user }: { user: User }) {
             : "Select More"}
         </Badge>
       </Group>
+
+      <Button
+        variant="light"
+        size="xs"
+        onClick={handleAutoSelect}
+        disabled={
+          selectedMailboxIds.length >=
+            (mailAccessLimit?.account_max_mailbox_access ?? 0) ||
+          existingMailboxLoading
+        }
+      >
+        Auto Select
+      </Button>
 
       <Box w="100%">
         <SimpleGrid cols={5} spacing="xs">
@@ -436,6 +494,37 @@ export default function SubscriptionClient({ user }: { user: User }) {
     </Stack>
   );
 
+  const renderReferralSelection = () => (
+    <Stack align="center" gap="md" w="100%">
+      <Title order={4}>Referral (Optional)</Title>
+      <Text c="dimmed" size="sm" ta="center">
+        If you were referred by an existing user, please select their email
+        below.
+      </Text>
+      {freeSubscribersLoading ? (
+        <Loader size="sm" />
+      ) : (
+        <Select
+          label="Referred by"
+          placeholder="Select a referrer"
+          data={
+            freeSubscribers?.map((s) => ({
+              value: s.user_email,
+              label: s.user_email,
+            })) || []
+          }
+          value={selectedReferral}
+          onChange={setSelectedReferral}
+          searchable
+          clearable
+          nothingFoundMessage="No users found"
+          w="100%"
+          maxDropdownHeight={200}
+        />
+      )}
+    </Stack>
+  );
+
   const renderSummary = () => (
     <Stack align="center" gap="md" w="100%">
       <Title order={4}>Subscription Summary</Title>
@@ -470,9 +559,67 @@ export default function SubscriptionClient({ user }: { user: User }) {
               ))}
             </Group>
           </Group>
+          <Group justify="space-between">
+            <Text c="dimmed">Referral</Text>
+            <Text fw={600}>{selectedReferral || "None"}</Text>
+          </Group>
         </Stack>
       </Card>
     </Stack>
+  );
+
+  const handleConfirmFreePlan = async () => {
+    if (selectedPlan) {
+      await processSubscription(selectedPlan, []);
+    }
+  };
+
+  const freePlanModal = (
+    <Modal
+      opened={isFreeModalOpen}
+      onClose={() => setIsFreeModalOpen(false)}
+      centered
+      radius="lg"
+    >
+      <Stack align="center" gap="md">
+        <Title order={3}>Confirm Subscription</Title>
+        <Text c="dimmed" ta="center">
+          You are about to subscribe to the{" "}
+          <Text span fw={700}>
+            {selectedPlan?.name} Plan
+          </Text>
+        </Text>
+        {selectedPlan?.features.map((feature) => (
+          <Group
+            key={feature.feature_label}
+            justify="start"
+            gap="xs"
+            wrap="nowrap"
+          >
+            <ThemeIcon size={20} radius="xl" color="green" variant="light">
+              <IconCheck size={12} stroke={3} />
+            </ThemeIcon>
+            <Text size="sm">{feature.display_text}</Text>
+          </Group>
+        ))}
+        <Group w="100%" my="md">
+          <Button
+            variant="default"
+            flex={1}
+            onClick={() => setIsFreeModalOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            flex={1}
+            onClick={handleConfirmFreePlan}
+            loading={isSubmitting}
+          >
+            Confirm
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
   );
 
   const mailboxSelectionModal = (
@@ -489,16 +636,17 @@ export default function SubscriptionClient({ user }: { user: User }) {
         <Stack gap="xs">
           <Group justify="space-between">
             <Text size="sm" fw={500}>
-              Step {activeStep + 1} of 3
+              Step {activeStep + 1} of 4
             </Text>
             <Text size="sm" c="dimmed">
               {activeStep === 0 && "Select Mailbox"}
               {activeStep === 1 && "Select Address"}
-              {activeStep === 2 && "Review Summary"}
+              {activeStep === 2 && "Select Referral"}
+              {activeStep === 3 && "Review Summary"}
             </Text>
           </Group>
           <Progress
-            value={((activeStep + 1) / 3) * 100}
+            value={((activeStep + 1) / 4) * 100}
             size="lg"
             radius="xl"
           />
@@ -507,7 +655,8 @@ export default function SubscriptionClient({ user }: { user: User }) {
         <Box py="md">
           {activeStep === 0 && renderMailboxSelection()}
           {activeStep === 1 && renderVirtualAddressSelection()}
-          {activeStep === 2 && renderSummary()}
+          {activeStep === 2 && renderReferralSelection()}
+          {activeStep === 3 && renderSummary()}
         </Box>
 
         <Group justify="space-between" mt="md">
@@ -518,7 +667,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
           >
             Back
           </Button>
-          {activeStep < 2 ? (
+          {activeStep < 3 ? (
             <Button
               onClick={nextStep}
               disabled={
@@ -526,7 +675,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
                 (activeStep === 1 && !selectedLocation)
               }
             >
-              Next
+              {activeStep === 2 ? "Skip / Next" : "Next"}
             </Button>
           ) : (
             <Button onClick={handleConfirmSelection} loading={isSubmitting}>
@@ -631,6 +780,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
       </SimpleGrid>
 
       {mailboxSelectionModal}
+      {freePlanModal}
       {loadingOverlay}
     </Container>
   );

@@ -128,6 +128,7 @@ CREATE TABLE user_schema.user_table (
     user_last_name VARCHAR(254),
     user_is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     user_avatar_bucket_path VARCHAR(256),
+    user_referral_email VARCHAR(254),
     user_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     user_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -272,24 +273,13 @@ CREATE TABLE request_schema.scan_request_table (
 -- Referral Invitation Table
 CREATE TABLE referral_schema.referral_invitation_table (
     referral_invitation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    referral_invitation_sender_user_id UUID NOT NULL, -- FK to user_schema.user_table.user_id
-    referral_invitation_recipient_email TEXT NOT NULL, -- Email address of the invitee
-    referral_invitation_status_id TEXT NOT NULL DEFAULT 'RFS-PENDING', -- FK to status_schema.referral_status_table.referral_status_id
-    referral_invitation_accepted_user_id UUID, -- FK to user_schema.user_table.user_id (nullable, set when they sign up)
-    referral_invitation_expires_at TIMESTAMPTZ, -- When the invitation expires
+    referral_owner_user_id UUID NOT NULL, -- Fk to user_schema.user_table.user_id
+    referral_redeemed_by_user_id UUID NOT NULL, -- Fk to user_schema.user_table.user_id
     referral_invitation_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     referral_invitation_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
--- Referral Reward Table
-CREATE TABLE referral_schema.referral_reward_table (
-    referral_reward_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    referral_reward_invitation_id UUID NOT NULL, -- FK to referral_schema.referral_invitation_table.referral_invitation_id
-    referral_reward_type TEXT NOT NULL, -- 'subscription_extension', 'free_month', etc.
-    referral_reward_description TEXT, -- Human-readable description
-    referral_reward_applied_at TIMESTAMPTZ, -- When the reward was applied
-    referral_reward_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    referral_reward_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    CONSTRAINT referral_no_self_referral
+        CHECK (referral_owner_user_id <> referral_redeemed_by_user_id)
 );
 
 -- Visitor Analytics Table (Combined approach - no redundancy)

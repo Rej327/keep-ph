@@ -150,28 +150,16 @@ ALTER TABLE request_schema.scan_request_table
 
 -- Referral Foreign Keys
 ALTER TABLE referral_schema.referral_invitation_table
-    ADD CONSTRAINT fk_referral_invitation_sender_user
-    FOREIGN KEY (referral_invitation_sender_user_id)
+    ADD CONSTRAINT fk_referral_owner_user_id
+    FOREIGN KEY (referral_owner_user_id)
     REFERENCES user_schema.user_table(user_id)
-    ON DELETE CASCADE;
-
-ALTER TABLE referral_schema.referral_invitation_table
-    ADD CONSTRAINT fk_referral_invitation_accepted_user
-    FOREIGN KEY (referral_invitation_accepted_user_id)
-    REFERENCES user_schema.user_table(user_id)
-    ON DELETE SET NULL;
-
-ALTER TABLE referral_schema.referral_invitation_table
-    ADD CONSTRAINT fk_referral_invitation_status
-    FOREIGN KEY (referral_invitation_status_id)
-    REFERENCES status_schema.referral_status_table(referral_status_id)
     ON DELETE RESTRICT;
 
-ALTER TABLE referral_schema.referral_reward_table
-    ADD CONSTRAINT fk_referral_reward_invitation
-    FOREIGN KEY (referral_reward_invitation_id)
-    REFERENCES referral_schema.referral_invitation_table(referral_invitation_id)
-    ON DELETE CASCADE;
+ALTER TABLE referral_schema.referral_invitation_table
+    ADD CONSTRAINT fk_referral_redeemed_by_user_id
+    FOREIGN KEY (referral_redeemed_by_user_id)
+    REFERENCES user_schema.user_table(user_id)
+    ON DELETE RESTRICT;
 
 -- Account table - Subscription_status_id
 ALTER TABLE user_schema.account_table

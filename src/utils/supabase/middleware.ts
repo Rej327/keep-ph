@@ -120,7 +120,7 @@ export async function updateSession(request: NextRequest) {
   if (requiresSubscription && validUser && !hasSubscription && !isAdmin) {
     // Redirect users without subscription to mailroom page
     const url = request.nextUrl.clone();
-    url.pathname = "/mailroom";
+    url.pathname = "/unauthrozied";
     return NextResponse.redirect(url);
   }
 
