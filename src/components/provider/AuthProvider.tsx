@@ -4,6 +4,7 @@
 import { createSupabaseBrowserClient } from "@/utils/supabase/browserClient";
 import useAuthStore from "@/zustand/stores/useAuthStore";
 import { useEffect } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 export default function AuthProvider({
   children,
@@ -11,13 +12,20 @@ export default function AuthProvider({
   children: React.ReactNode;
 }) {
   const supabase = createSupabaseBrowserClient();
-  const setUser = useAuthStore((state) => state.setUser);
+  const { setUser, setIsLoading, isLoading } = useAuthStore(
+    useShallow((state) => ({
+      setUser: state.setUser,
+      setIsLoading: state.setIsLoading,
+      isLoading: state.isLoading,
+    }))
+  );
 
   useEffect(() => {
     // Fetch the current session when component mounts
     const fetchUser = async () => {
       const { data } = await supabase.auth.getUser();
       setUser(data.user ?? null);
+      setIsLoading(false);
     };
     fetchUser();
 
@@ -32,7 +40,11 @@ export default function AuthProvider({
     return () => {
       listener.subscription.unsubscribe();
     };
-  }, [supabase, setUser]);
+  }, [supabase, setUser, setIsLoading]);
+
+  if (isLoading) {
+    return <div>Loading...</div>; // Or a proper loading component
+  }
 
   return <>{children}</>;
 }

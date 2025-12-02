@@ -15,10 +15,13 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import Link from "next/link";
 import { IconMail } from "@tabler/icons-react";
+import useAuthStore from "@/zustand/stores/useAuthStore";
+import { useShallow } from "zustand/react/shallow";
 
 export function LandingHeader() {
   const [drawerOpened, { toggle: toggleDrawer, close: closeDrawer }] =
     useDisclosure(false);
+  const user = useAuthStore(useShallow((state) => state.user));
 
   return (
     <Box>
@@ -63,20 +66,45 @@ export function LandingHeader() {
                 </Text>
               </Link>
             </Group>
+            {/* {user ? (
+              <Group visibleFrom="sm">
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  component={Link}
+                  href="/login"
+                >
+                  Login
+                </Button>
+                <Button color="#1966D1" component={Link} href="/signup">
+                  Get Started
+                </Button>
+              </Group>
+            ) : (
+              <Button color="#1966D1" component={Link} href="/dashboard">
+                Dashboard
+              </Button>
+            )} */}
 
-            <Group visibleFrom="sm">
-              <Button
-                variant="subtle"
-                color="gray"
-                component={Link}
-                href="/login"
-              >
-                Login
+            {user ? (
+              <Button color="#1966D1" component={Link} href="/dashboard">
+                Dashboard
               </Button>
-              <Button color="#1966D1" component={Link} href="/signup">
-                Get Started
-              </Button>
-            </Group>
+            ) : (
+              <Group visibleFrom="sm">
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  component={Link}
+                  href="/login"
+                >
+                  Login
+                </Button>
+                <Button color="#1966D1" component={Link} href="/signup">
+                  Get Started
+                </Button>
+              </Group>
+            )}
 
             <Burger
               opened={drawerOpened}
