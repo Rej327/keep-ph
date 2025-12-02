@@ -208,9 +208,12 @@ export default function LoginForm() {
                   <Text fw={600} size="md">
                     Password
                   </Text>
-                  <Text c="#1a67d2" size="md">
+                  <Link
+                    href="/forgot-password"
+                    style={{ color: "#1a67d2", textDecoration: "none" }}
+                  >
                     Forgot Password?
-                  </Text>
+                  </Link>
                 </Group>
                 <PasswordInput
                   placeholder="Enter your password"
