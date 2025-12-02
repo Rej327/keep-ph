@@ -120,7 +120,7 @@ export async function updateSession(request: NextRequest) {
   if (requiresSubscription && validUser && !hasSubscription && !isAdmin) {
     // Redirect users without subscription to mailroom page
     const url = request.nextUrl.clone();
-    url.pathname = "/unauthrozied";
+    url.pathname = "/mailroom";
     return NextResponse.redirect(url);
   }
 
@@ -134,7 +134,7 @@ export async function updateSession(request: NextRequest) {
   if (isPublicAuthRoute && validUser) {
     // Redirect logged-in users away from auth pages
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/mailroom";
     return NextResponse.redirect(url);
   }
   // IMPORTANT: You *must* return the supabaseResponse object as it is.
