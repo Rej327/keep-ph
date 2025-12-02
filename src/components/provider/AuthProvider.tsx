@@ -3,8 +3,10 @@
 
 import { createSupabaseBrowserClient } from "@/utils/supabase/browserClient";
 import useAuthStore from "@/zustand/stores/useAuthStore";
+import { Center } from "@mantine/core";
 import { useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
+import CustomLoader from "../common/CustomLoader";
 
 export default function AuthProvider({
   children,
@@ -43,7 +45,11 @@ export default function AuthProvider({
   }, [supabase, setUser, setIsLoading]);
 
   if (isLoading) {
-    return <div>Loading...</div>; // Or a proper loading component
+    return (
+      <Center h={"100vh"}>
+        <CustomLoader />
+      </Center>
+    );
   }
 
   return <>{children}</>;
