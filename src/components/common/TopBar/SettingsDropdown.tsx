@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, ActionIcon, Text, Avatar, rem } from "@mantine/core";
+import { Menu, ActionIcon, Text, Avatar, rem, Box } from "@mantine/core";
 import {
   IconSettings,
   IconUser,
@@ -42,6 +42,12 @@ export function SettingsDropdown({
     }
   };
 
+  const handleRouteProfile = () => {
+    topLoader.start();
+    router.push(type ? "/admin/profile" : "/profile");
+    topLoader.remove();
+  };
+
   return (
     <Menu shadow="md" width={250} position="bottom-end">
       <Menu.Target>
@@ -55,39 +61,28 @@ export function SettingsDropdown({
           leftSection={
             <Avatar
               src={userDetails?.user_avatar_bucket_path}
-              alt="John Doe"
+              alt={`${userDetails?.user_first_name} ${userDetails?.user_last_name} profile picture`}
               radius="xl"
               size="md"
             />
           }
           style={{ padding: "12px" }}
         >
-          <div>
+          <Box>
             <Text size="sm" fw={500}>
               {userDetails?.user_first_name}
             </Text>
             <Text size="xs" c="dimmed">
               {userDetails?.user_email}
             </Text>
-            {/* <Text size="xs" c="dimmed">
-              {userDetails?.account.account_area_code}-
-              {userDetails?.account.account_number}
-            </Text>
-            <Text size="xs" c="dimmed">
-              {userDetails?.account.account_type_value.toUpperCase()}
-            </Text> */}
-          </div>
+          </Box>
         </Menu.Item>
 
         <Menu.Divider />
 
         <Menu.Item
-          leftSection={
-            <IconUser
-              style={{ width: rem(16), height: rem(16) }}
-              href={type ? "/admin/profile" : "/profile"}
-            />
-          }
+          leftSection={<IconUser style={{ width: rem(16), height: rem(16) }} />}
+          onClick={handleRouteProfile}
         >
           My Profile
         </Menu.Item>

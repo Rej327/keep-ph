@@ -118,8 +118,10 @@ export type UserProfileDetail = {
   user_email: string;
   user_first_name: string | null;
   user_last_name: string | null;
+  user_phone: string | null;
   user_is_admin: boolean;
   user_avatar_bucket_path: string | null;
+  user_referral_email: string | null;
 };
 
 export const getUser = async (userId: string) => {
@@ -133,7 +135,7 @@ export const getUser = async (userId: string) => {
     throw new Error(error.message);
   }
 
-  const userDetails = data as UserProfileDetail;
+  const userDetails = data.user as UserProfileDetail;
   if (userDetails.user_avatar_bucket_path) {
     const { data: publicUrlData } = supabase.storage
       .from("USER-AVATARS")
@@ -465,4 +467,34 @@ export const getUserReferrals = async (userId: string) => {
   console.log("User Referrals: ", data);
 
   return data as UserReferral[];
+};
+
+export type UserPhysicalAddress = {
+  user_address_id: string;
+  user_address_user_id: string;
+  user_address_label: string | null;
+  user_address_line1: string;
+  user_address_line2: string | null;
+  user_address_city: string;
+  user_address_province: string;
+  user_address_postal_code: string;
+  user_address_country: string;
+  user_address_is_default: boolean;
+};
+
+export const getUserPhysicalAddresses = async (userId: string) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("get_user_physical_addresses", {
+    input_data: {
+      user_id: userId,
+    },
+  });
+
+  if (error) {
+    console.error("Error fetching user physical addresses:", error);
+    throw new Error(error.message);
+  }
+
+  return (data || []) as UserPhysicalAddress[];
 };

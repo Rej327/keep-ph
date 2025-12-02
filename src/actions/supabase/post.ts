@@ -182,3 +182,41 @@ export const addMailboxesToAccount = async (params: AddMailboxesParams) => {
     return { error: err as Error };
   }
 };
+
+export type AddUserAddressParams = {
+  userId: string;
+  label?: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  province: string;
+  postalCode: string;
+  country?: string;
+  isDefault?: boolean;
+};
+
+export const addUserPhysicalAddress = async (params: AddUserAddressParams) => {
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    const { data, error } = await supabase.rpc("add_user_physical_address", {
+      input_data: {
+        user_id: params.userId,
+        address_label: params.label,
+        address_line1: params.addressLine1,
+        address_line2: params.addressLine2,
+        city: params.city,
+        province: params.province,
+        postal_code: params.postalCode,
+        country: params.country,
+        is_default: params.isDefault,
+      },
+    });
+
+    if (error) throw error;
+    return { data };
+  } catch (err) {
+    console.error("Error adding user physical address:", err);
+    return { error: err as Error };
+  }
+};

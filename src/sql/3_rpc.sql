@@ -1261,3 +1261,216 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
+-- Update get_user to include phone and referral email
+CREATE OR REPLACE FUNCTION get_user(input_user_id UUID)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  return_data JSON;
+BEGIN
+  SELECT JSON_BUILD_OBJECT(
+    'user', (SELECT JSON_BUILD_OBJECT(
+      'user_id', u.user_id,
+      'user_username', u.user_username,
+      'user_email', u.user_email,
+      'user_first_name', u.user_first_name,
+      'user_last_name', u.user_last_name,
+      'user_phone', u.user_phone,
+      'user_is_admin', u.user_is_admin,
+      'user_avatar_bucket_path', u.user_avatar_bucket_path,
+      'user_referral_email', u.user_referral_email
+    ) FROM user_schema.user_table u WHERE u.user_id = input_user_id)
+  ) INTO return_data;
+
+  RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Update User Profile RPC
+CREATE OR REPLACE FUNCTION update_user_profile(input_data JSON)
+RETURNS JSON
+SET search_path TO ''
+SECURITY DEFINER
+AS $$
+DECLARE
+  input_user_id UUID := (input_data->>'user_id')::UUID;
+  input_username VARCHAR(30) := (input_data->>'username')::VARCHAR;
+  input_first_name VARCHAR(254) := (input_data->>'first_name')::VARCHAR;
+  input_last_name VARCHAR(254) := (input_data->>'last_name')::VARCHAR;
+  input_phone VARCHAR(50) := (input_data->>'phone')::VARCHAR;
+  input_avatar_path VARCHAR(256) := (input_data->>'avatar_path')::VARCHAR;
+  
+  return_data JSON;
+BEGIN
+  UPDATE user_schema.user_table
+  SET
+    user_username = input_username,
+    user_first_name = input_first_name,
+    user_last_name = input_last_name,
+    user_phone = input_phone,
+    user_avatar_bucket_path = COALESCE(input_avatar_path, user_avatar_bucket_path),
+    user_updated_at = NOW()
+  WHERE user_id = input_user_id;
+
+  SELECT JSON_BUILD_OBJECT(
+    'success', TRUE
+  ) INTO return_data;
+
+  RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Get User Physical Addresses
+CREATE OR REPLACE FUNCTION get_user_physical_addresses(input_data JSON)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  -- Input variables
+  input_user_id UUID := (input_data->>'user_id')::UUID;
+  -- Return variable
+  return_data JSON;
+BEGIN
+  return_data := (
+    SELECT JSON_AGG(t)
+    FROM (
+      SELECT * FROM user_schema.user_address_table AS uat
+      WHERE uat.user_address_user_id = input_user_id
+      ORDER BY uat.user_address_is_default DESC, uat.user_address_created_at DESC
+    ) AS t
+  );
+  RETURN return_data;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Add User Physical Address
+CREATE OR REPLACE FUNCTION add_user_physical_address(input_data JSON)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  -- Input variables
+  input_user_id UUID := (input_data->>'user_id')::UUID;
+  input_address_label TEXT := (input_data->>'address_label')::TEXT;
+  input_address_line1 TEXT := (input_data->>'address_line1')::TEXT;
+  input_address_line2 TEXT := (input_data->>'address_line2')::TEXT;
+  input_city TEXT := (input_data->>'city')::TEXT;
+  input_province TEXT := (input_data->>'province')::TEXT;
+  input_postal_code TEXT := (input_data->>'postal_code')::TEXT;
+  input_country TEXT := (input_data->>'country')::TEXT;
+  input_is_default BOOLEAN := COALESCE((input_data->>'is_default')::BOOLEAN, FALSE);
+  -- Function variables
+  var_should_be_default BOOLEAN;
+  var_new_id UUID;
+  -- Return variable
+  return_data JSON;
+BEGIN
+  var_should_be_default := input_is_default;
+  -- If this is the first address, make it default forcedly
+  IF NOT EXISTS (SELECT 1 FROM user_schema.user_address_table AS uat WHERE uat.user_address_user_id = input_user_id) THEN
+    var_should_be_default := TRUE;
+  END IF;
+  -- If setting as default, unset others
+  IF var_should_be_default THEN
+    UPDATE user_schema.user_address_table AS uat
+    SET user_address_is_default = FALSE
+    WHERE uat.user_address_user_id = input_user_id;
+  END IF;
+  INSERT INTO user_schema.user_address_table AS uat (
+    user_address_user_id,
+    user_address_label,
+    user_address_line1,
+    user_address_line2,
+    user_address_city,
+    user_address_province,
+    user_address_postal_code,
+    user_address_country,
+    user_address_is_default
+  ) VALUES (
+    input_user_id,
+    input_address_label,
+    input_address_line1,
+    input_address_line2,
+    input_city,
+    input_province,
+    input_postal_code,
+    COALESCE(input_country, 'Philippines'),
+    var_should_be_default
+  ) RETURNING user_address_id INTO var_new_id;
+  return_data := JSON_BUILD_OBJECT('user_address_id', var_new_id);
+  RETURN return_data;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Update User Physical Address
+CREATE OR REPLACE FUNCTION update_user_physical_address(input_data JSON)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  -- Input variables
+  input_user_address_id UUID := (input_data->>'user_address_id')::UUID;
+  input_user_id UUID := (input_data->>'user_id')::UUID;
+  input_address_label TEXT := (input_data->>'address_label')::TEXT;
+  input_address_line1 TEXT := (input_data->>'address_line1')::TEXT;
+  input_address_line2 TEXT := (input_data->>'address_line2')::TEXT;
+  input_city TEXT := (input_data->>'city')::TEXT;
+  input_province TEXT := (input_data->>'province')::TEXT;
+  input_postal_code TEXT := (input_data->>'postal_code')::TEXT;
+  input_country TEXT := (input_data->>'country')::TEXT;
+  input_is_default BOOLEAN := (input_data->>'is_default')::BOOLEAN;
+  -- Function variables
+  var_target_user_id UUID;
+  var_should_be_default BOOLEAN;
+  -- Return variable
+  return_data JSON;
+BEGIN
+  var_target_user_id := input_user_id;
+  var_should_be_default := input_is_default;
+  -- If setting as default, unset others
+  IF var_should_be_default THEN
+    UPDATE user_schema.user_address_table AS uat
+    SET user_address_is_default = FALSE
+    WHERE uat.user_address_user_id = var_target_user_id;
+  END IF;
+  UPDATE user_schema.user_address_table AS uat
+  SET
+    user_address_label = COALESCE(input_address_label, uat.user_address_label),
+    user_address_line1 = COALESCE(input_address_line1, uat.user_address_line1),
+    user_address_line2 = COALESCE(input_address_line2, uat.user_address_line2),
+    user_address_city = COALESCE(input_city, uat.user_address_city),
+    user_address_province = COALESCE(input_province, uat.user_address_province),
+    user_address_postal_code = COALESCE(input_postal_code, uat.user_address_postal_code),
+    user_address_country = COALESCE(input_country, uat.user_address_country),
+    user_address_is_default = COALESCE(var_should_be_default, uat.user_address_is_default),
+    user_address_updated_at = NOW()
+  WHERE uat.user_address_id = input_user_address_id
+  AND uat.user_address_user_id = var_target_user_id;
+  return_data := JSON_BUILD_OBJECT('success', true);
+  RETURN return_data;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Delete User Physical Address
+CREATE OR REPLACE FUNCTION delete_user_physical_address(input_data JSON)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  -- Input variables
+  input_user_address_id UUID := (input_data->>'user_address_id')::UUID;
+  input_user_id UUID := (input_data->>'user_id')::UUID;
+  -- Return variable
+  return_data JSON;
+BEGIN
+  DELETE FROM user_schema.user_address_table AS uat
+  WHERE uat.user_address_id = input_user_address_id
+  AND uat.user_address_user_id = input_user_id;
+  return_data := JSON_BUILD_OBJECT('success', true);
+  RETURN return_data;
+END;
+$$ LANGUAGE plpgsql;

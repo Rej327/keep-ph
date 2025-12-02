@@ -126,6 +126,7 @@ CREATE TABLE user_schema.user_table (
     user_email VARCHAR(254) NOT NULL UNIQUE,
     user_first_name VARCHAR(254),
     user_last_name VARCHAR(254),
+    user_phone VARCHAR(50),
     user_is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     user_avatar_bucket_path VARCHAR(256),
     user_referral_email VARCHAR(254),
@@ -146,6 +147,22 @@ CREATE TABLE user_schema.account_table (
     account_remaining_mailbox_access SMALLINT DEFAULT NULL,
     account_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     account_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Create User Address Table
+CREATE TABLE user_schema.user_address_table (
+    user_address_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_address_user_id UUID NOT NULL REFERENCES user_schema.user_table(user_id) ON DELETE CASCADE,
+    user_address_label VARCHAR(50), -- e.g. "Home", "Office"
+    user_address_line1 VARCHAR(255) NOT NULL,
+    user_address_line2 VARCHAR(255),
+    user_address_city VARCHAR(100) NOT NULL,
+    user_address_province VARCHAR(100) NOT NULL,
+    user_address_postal_code VARCHAR(20) NOT NULL,
+    user_address_country VARCHAR(100) DEFAULT 'Philippines',
+    user_address_is_default BOOLEAN DEFAULT FALSE,
+    user_address_created_at TIMESTAMPTZ DEFAULT NOW(),
+    user_address_updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Index for geographic queries

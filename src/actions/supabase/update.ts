@@ -109,3 +109,68 @@ export const updateDisposalRequestStatus = async (
 
   return data as boolean;
 };
+
+export type UpdateUserProfileParams = {
+  user_id: string;
+  username: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  avatar_path?: string | null;
+};
+
+export const updateUserProfile = async (params: UpdateUserProfileParams) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("update_user_profile", {
+    input_data: params,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+};
+
+export type UpdateUserAddressParams = {
+  userAddressId: string;
+  userId: string;
+  label?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
+  country?: string;
+  isDefault?: boolean;
+};
+
+export const updateUserPhysicalAddress = async (
+  params: UpdateUserAddressParams
+) => {
+  try {
+    const supabase = await createSupabaseBrowserClient();
+
+    const { data, error } = await supabase.rpc("update_user_physical_address", {
+      input_data: {
+        user_address_id: params.userAddressId,
+        user_id: params.userId,
+        address_label: params.label,
+        address_line1: params.addressLine1,
+        address_line2: params.addressLine2,
+        city: params.city,
+        province: params.province,
+        postal_code: params.postalCode,
+        country: params.country,
+        is_default: params.isDefault,
+      },
+    });
+
+    if (error) throw error;
+    return { data };
+  } catch (err) {
+    console.error("Error updating user physical address:", err);
+    return { error: err as Error };
+  }
+};
