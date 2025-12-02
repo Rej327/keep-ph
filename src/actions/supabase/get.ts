@@ -29,6 +29,20 @@ export const isAccountSubscribed = async (userId: string): Promise<boolean> => {
   return data as boolean;
 };
 
+export const isAccountBusiness = async (userId: string): Promise<boolean> => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("is_account_business", {
+    input_account_user_id: userId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as boolean;
+};
+
 export type UserFullDetails = {
   user: {
     user_id: string;

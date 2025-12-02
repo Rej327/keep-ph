@@ -1,7 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { isAccountSubscribed, isUserAdmin } from "@/actions/supabase/get";
+import {
+  isAccountBusiness,
+  isAccountSubscribed,
+  isUserAdmin,
+} from "@/actions/supabase/get";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -61,6 +65,7 @@ export async function updateSession(request: NextRequest) {
 
   // Subscription required routes
   const subscriptionRequiredRoutes = ["/dashboard", "/referral"];
+  const subsciptionBusinessRoutes = ["/dashboard"];
 
   // Admin routes (authentication + admin role required)
   const adminRoutes = ["/admin"];
@@ -73,12 +78,21 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith(route)
   );
 
+  const requireBusinessPlan = subsciptionBusinessRoutes.some((route) =>
+    pathname.startsWith(route)
+  );
+
   const isAdminRoute = adminRoutes.some((route) => pathname.startsWith(route));
   const isAdmin = validUser ? await isUserAdmin(validUser.sub) : false;
 
   // Check if user has an active subscription
   const hasSubscription = validUser
     ? await isAccountSubscribed(validUser.sub)
+    : false;
+
+  // Check if user has business subscription
+  const hasBusinessPlan = validUser
+    ? await isAccountBusiness(validUser.sub)
     : false;
 
   // Redirect logic
@@ -105,6 +119,13 @@ export async function updateSession(request: NextRequest) {
 
   if (requiresSubscription && validUser && !hasSubscription && !isAdmin) {
     // Redirect users without subscription to mailroom page
+    const url = request.nextUrl.clone();
+    url.pathname = "/mailroom";
+    return NextResponse.redirect(url);
+  }
+
+  if (requireBusinessPlan && validUser && !hasBusinessPlan && !isAdmin) {
+    // Redirect users in mailroom if not business plan
     const url = request.nextUrl.clone();
     url.pathname = "/mailroom";
     return NextResponse.redirect(url);

@@ -132,7 +132,7 @@ $$
 LANGUAGE plpgsql;
 
 -- Check if account is subscribed
-CREATE OR REPLACE FUNCTION is_account_subscribed(input_account_user_id UUID)
+CREATE OR REPLACE FUNCTION is_account_business(input_account_user_id UUID)
 RETURNS BOOLEAN
 SET search_path TO ''
 AS $$
@@ -140,7 +140,7 @@ BEGIN
   RETURN EXISTS (
     SELECT 1
     FROM user_schema.account_table at
-    WHERE at.account_user_id = input_account_user_id AND at.account_is_subscribed = TRUE
+    WHERE at.account_user_id = input_account_user_id AND at.account_is_subscribed = TRUE AND at.account_type = 'AT-BUSINESS'
   );
 END;
 $$
