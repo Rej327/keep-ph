@@ -20,6 +20,7 @@ export const config = {
     "/dashboard/:path*",
     "/profile/:path*",
     "/mailbox/:path*",
+    "/mailroom/:path*",
     "/subscription/:path*",
     "/notifications/:path*",
     "/referral/:path*",

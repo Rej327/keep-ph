@@ -70,6 +70,7 @@ const adminLinks: LinksGroupProps[] = [
 
 const customerLinks: LinksGroupProps[] = [
   // { label: "Dashboard", icon: IconLayoutDashboard, link: "/dashboard" },
+  { label: "All mails", icon: IconMail, link: "/mails" },
   { label: "Mailroom", icon: IconMail, link: "/mailroom" },
   // {
   //   label: "Disposal Request",

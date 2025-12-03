@@ -4,12 +4,12 @@ import useAuthStore from "@/zustand/stores/useAuthStore";
 import React from "react";
 import useSWR from "swr";
 import { getUserHasAccount, isAccountFree } from "@/actions/supabase/get";
-import MailroomClient from "./MailroomClient";
-import MailroomService from "./MailroomService";
+import MailClient from "./MailClient";
+import MailService from "./MailService";
 import { useShallow } from "zustand/shallow";
 import CustomLoader from "@/components/common/CustomLoader";
 
-export default function MailroomLayout() {
+export default function MailLayout() {
   const user = useAuthStore(useShallow((state) => state.user));
 
   const { data: userHasAccount, isLoading: isLoadingAccount } = useSWR(
@@ -35,8 +35,7 @@ export default function MailroomLayout() {
     return <CustomLoader />;
   }
 
-  if (userHasAccount && isPaidPlan && isActiveAccount)
-    return <MailroomClient />;
+  if (userHasAccount && isPaidPlan && isActiveAccount) return <MailClient />;
 
-  return <MailroomService />;
+  return <MailService />;
 }

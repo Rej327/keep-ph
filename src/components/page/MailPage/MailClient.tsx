@@ -62,7 +62,7 @@ import { CustomDataTable } from "@/components/common/CustomDataTable";
 import { DataTableColumn } from "mantine-datatable";
 import { getStatusFormat } from "@/utils/function";
 
-export default function MailroomClient() {
+export default function MailClient() {
   const user = useAuthStore((state) => state.user);
   const [selectedItem, setSelectedItem] = useState<MailItem | null>(null);
   const [searchTerm, setSearchTerm] = useState("");

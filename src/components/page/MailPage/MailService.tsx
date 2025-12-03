@@ -158,7 +158,7 @@ const comparisonData = {
   ],
 };
 
-export default function MailroomService() {
+export default function MailService() {
   const [showComparison, setShowComparison] = useState(false);
 
   const renderCell = (value: boolean | string | null) => {

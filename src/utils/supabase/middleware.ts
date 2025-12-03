@@ -57,6 +57,8 @@ export async function updateSession(request: NextRequest) {
     "/dashboard",
     "/profile",
     "/mailroom",
+    "/mailbox",
+    "/mails",
     "/disposal",
     "/subscription",
     "/notifications",
@@ -64,8 +66,9 @@ export async function updateSession(request: NextRequest) {
   ];
 
   // Subscription required routes
-  const subscriptionRequiredRoutes = ["/dashboard", "/referral"];
+  const subscriptionRequiredRoutes = ["/referral"];
   const subsciptionBusinessRoutes = ["/dashboard"];
+  const subscriptionNotForFreeRoutes = ["/mailroom"];
 
   // Admin routes (authentication + admin role required)
   const adminRoutes = ["/admin"];
@@ -79,6 +82,10 @@ export async function updateSession(request: NextRequest) {
   );
 
   const requireBusinessPlan = subsciptionBusinessRoutes.some((route) =>
+    pathname.startsWith(route)
+  );
+
+  const requireNotFreePlan = subscriptionNotForFreeRoutes.some((route) =>
     pathname.startsWith(route)
   );
 
@@ -120,14 +127,21 @@ export async function updateSession(request: NextRequest) {
   if (requiresSubscription && validUser && !hasSubscription && !isAdmin) {
     // Redirect users without subscription to mailroom page
     const url = request.nextUrl.clone();
-    url.pathname = "/mailroom";
+    url.pathname = "/mails";
     return NextResponse.redirect(url);
   }
 
   if (requireBusinessPlan && validUser && !hasBusinessPlan && !isAdmin) {
     // Redirect users in mailroom if not business plan
     const url = request.nextUrl.clone();
-    url.pathname = "/mailroom";
+    url.pathname = "/mails";
+    return NextResponse.redirect(url);
+  }
+
+  if (requireNotFreePlan && validUser && !hasSubscription && !isAdmin) {
+    // Redirect users without subscription to mailroom page
+    const url = request.nextUrl.clone();
+    url.pathname = "/mails";
     return NextResponse.redirect(url);
   }
 
@@ -138,7 +152,7 @@ export async function updateSession(request: NextRequest) {
     }
     // Redirect logged-in users away from auth pages
     const url = request.nextUrl.clone();
-    url.pathname = "/mailroom";
+    url.pathname = "/mails";
     return NextResponse.redirect(url);
   }
   // IMPORTANT: You *must* return the supabaseResponse object as it is.
