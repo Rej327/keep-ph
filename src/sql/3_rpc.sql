@@ -190,6 +190,7 @@ BEGIN
       'account_number', a.account_number,
       'account_address_key', a.account_address_key,
       'account_type', a.account_type,
+      'account_type_sort_order', at.account_type_sort_order,
       'account_type_value', at.account_type_value,
       'account_is_subscribed', a.account_is_subscribed,
       'account_max_quantity_storage', at.account_max_quantity_storage,

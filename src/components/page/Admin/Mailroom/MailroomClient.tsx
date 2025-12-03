@@ -122,7 +122,7 @@ export default function MailroomClient() {
             size={70}
             thickness={8}
             value={percent}
-            label={`${Math.round(percent)}%`}
+            label={`${value === 0 ? "0" : Math.round(percent)}%`}
             labelPosition="center"
           />
         );
@@ -151,7 +151,7 @@ export default function MailroomClient() {
             size={70}
             thickness={8}
             value={percent}
-            label={`${Math.round(percent)}%`}
+            label={`${value === 0 ? "0" : Math.round(percent)}%`}
             labelPosition="center"
           />
         );

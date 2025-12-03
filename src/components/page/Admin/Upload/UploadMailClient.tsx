@@ -53,7 +53,7 @@ export default function UploadMailClient() {
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [uploadType, setUploadType] = useState<"mail" | "package">("mail");
-  // const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -130,7 +130,7 @@ export default function UploadMailClient() {
       return;
     }
 
-    // setUploading(true);
+    setUploading(true);
     try {
       setIsSubmitting(true);
       const { data: uploadData } = await uploadAttachmentfile(
@@ -164,7 +164,8 @@ export default function UploadMailClient() {
       });
       setIsSubmitting(false);
     } finally {
-      // setUploading(false);
+      setUploading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -469,7 +470,7 @@ export default function UploadMailClient() {
                     </Button>
                     <Button
                       onClick={handleFileUpload}
-                      // loading={uploading}
+                      loading={uploading}
                       size="sm"
                       disabled={isSubmitting}
                     >

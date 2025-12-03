@@ -80,6 +80,7 @@ export type UserFullDetails = {
     account_number: string;
     account_address_key: string;
     account_type: string;
+    account_type_sort_order: number;
     account_type_value: string;
     account_is_subscribed: boolean;
     account_max_quantity_storage: number;
