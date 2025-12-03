@@ -1,5 +1,5 @@
 import { createSupabaseBrowserClient } from "@/utils/supabase/browserClient";
-import { MailroomData } from "@/components/page/MailroomPage/data";
+import { MailroomData } from "@/components/page/MailroomPage/types";
 
 export const getMailroomData = async (
   accountId: string

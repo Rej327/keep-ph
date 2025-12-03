@@ -9,7 +9,6 @@ import {
   Button,
   Group,
   Alert,
-  Select,
   Text,
   SegmentedControl,
   Modal,
@@ -24,6 +23,7 @@ import {
   IconPackage,
   IconArrowRight,
   IconArrowsMove,
+  IconMenu,
 } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import useSWR from "swr";
@@ -34,12 +34,13 @@ import {
   updateMailItemLocations,
   MailItemMove,
 } from "@/actions/supabase/mailroom";
-import { MailroomData } from "./data";
+import { MailroomData } from "./types";
 import MailroomColumn from "./MailroomColumn";
 
 export default function MailroomBoard() {
   const user = useAuthStore((state) => state.user);
   const [data, setData] = useState<MailroomData | null>(null);
+  const [filterType, setFilterType] = useState<string>("All");
   const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [selectedMoveItemId, setSelectedMoveItemId] = useState<string | null>(
     null
@@ -388,17 +389,44 @@ export default function MailroomBoard() {
     <Container fluid p="md">
       {/* Header */}
       <Group justify="space-between" align="center" mb="lg">
-        <Group>
+        <Group align="center">
           <Title order={2}>Mailroom</Title>
           <SegmentedControl
-            data={["All", "Mail", "Packages"]}
-            defaultValue="All"
-          />
-          <Select
-            placeholder="All Status"
-            data={["All Status", "Received", "Processing", "Shipped"]}
-            defaultValue="All Status"
-            w={150}
+            value={filterType}
+            onChange={setFilterType}
+            data={[
+              {
+                label: (
+                  <Center>
+                    <IconMenu size={20} style={{ marginRight: 10 }} />
+                    <span>All</span>
+                  </Center>
+                ),
+                value: "All",
+              },
+              {
+                label: (
+                  <Center>
+                    <IconMail size={20} style={{ marginRight: 10 }} />
+                    <span>Mail</span>
+                  </Center>
+                ),
+                value: "Mail",
+              },
+              {
+                label: (
+                  <Center>
+                    <IconPackage size={20} style={{ marginRight: 10 }} />
+                    <span>Packages</span>
+                  </Center>
+                ),
+                value: "Packages",
+              },
+            ]}
+            // size="sm"
+            // radius="md"
+            // bg="gray.1"
+            // withItemsBorders={false}
           />
         </Group>
         <Group>
@@ -445,7 +473,16 @@ export default function MailroomBoard() {
         <Grid gutter="md">
           {data.columnOrder.map((columnId) => {
             const column = data.columns[columnId];
-            const items = column.itemIds.map((itemId) => data.items[itemId]);
+            const items = column.itemIds
+              .map((itemId) => data.items[itemId])
+              .filter((item) => {
+                if (filterType === "All") return true;
+                if (filterType === "Mail")
+                  return item.mail_item_type === "MAIL";
+                if (filterType === "Packages")
+                  return item.mail_item_type === "PACKAGE";
+                return true;
+              });
 
             return (
               <Grid.Col key={column.id} span={{ base: 12, md: 6, lg: 3 }}>

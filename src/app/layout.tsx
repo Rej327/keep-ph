@@ -29,7 +29,7 @@ export default function RootLayout({
       <head>
         <ColorSchemeScript defaultColorScheme="auto" />
       </head>
-      <body>
+      <body suppressHydrationWarning={true}>
         <MantineProvider
           theme={{
             fontFamily:

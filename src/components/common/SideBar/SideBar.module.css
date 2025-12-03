@@ -31,19 +31,21 @@
 }
 
 .linksInner {
-  padding-top: 1rem;
-  padding-bottom: 1rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .mainLinkWrapper {
   cursor: pointer;
-  padding: 0.6rem 1rem;
+  padding: 0.75rem 1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   transition: background 0.3s, color 0.3s;
   color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-0));
-  border-left: 3px solid transparent;
+  border-radius: var(--mantine-radius-md);
 }
 
 .link,
@@ -59,28 +61,30 @@
 
 .link:hover,
 .mainLinkWrapper:hover {
-  /* background-color: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6)); */
-  color: var(--mantine-color-blue-6);
+  background-color: light-dark(
+    var(--mantine-color-gray-0),
+    var(--mantine-color-dark-6)
+  );
+  /* color: var(--mantine-color-blue-6); */
 }
 
 .active {
   font-weight: 600;
-  color: var(--mantine-color-blue-6);
-  background-color: light-dark(
-    var(--mantine-color-blue-0),
-    var(--mantine-color-dark-5)
-  );
-  border-left-color: var(--mantine-color-blue-6);
-  border-top-right-radius: 8px;
-  border-bottom-right-radius: 8px;
+  color: var(--mantine-color-white);
+  background-color: var(--mantine-color-blue-6);
+}
+
+.active:hover {
+  background-color: var(--mantine-color-blue-7);
+  color: var(--mantine-color-white);
 }
 
 .icon {
-  color: var(--mantine-color-gray-7);
+  color: var(--mantine-color-gray-6);
 }
 
 .active .icon {
-  color: var(--mantine-color-blue-6);
+  color: var(--mantine-color-white);
 }
 
 .chevronWrapper {

@@ -29,6 +29,7 @@ import {
   IconCreditCard,
   IconUpload,
   IconTruckDelivery,
+  IconServer,
   // IconPlus,
 } from "@tabler/icons-react";
 import classes from "./SideBar.module.css";
@@ -71,7 +72,7 @@ const adminLinks: LinksGroupProps[] = [
 const customerLinks: LinksGroupProps[] = [
   // { label: "Dashboard", icon: IconLayoutDashboard, link: "/dashboard" },
   { label: "All mails", icon: IconMail, link: "/mails" },
-  { label: "Mailroom", icon: IconMail, link: "/mailroom" },
+  { label: "Mailroom", icon: IconServer, link: "/mailroom" },
   // {
   //   label: "Disposal Request",
   //   icon: IconArrowsMaximize,
@@ -180,7 +181,7 @@ export function SideBar({
   const renderHeader = () => {
     if (type) {
       return (
-        <Group className={classes.header} p="md" mb="md">
+        <Group className={classes.header} p="md">
           <ThemeIcon size="lg" variant="light" color="blue">
             <IconMail size={24} color="#1966D1" />
           </ThemeIcon>
@@ -197,7 +198,7 @@ export function SideBar({
     }
 
     return (
-      <Group className={classes.header} p="md" mb="md">
+      <Group className={classes.header} p="md">
         <Avatar src={user?.user_metadata?.avatar_url} radius="xl" />
         <Stack gap={0}>
           <Text fw={700} size="sm" lh={1.2}>

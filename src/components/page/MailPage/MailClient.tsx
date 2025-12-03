@@ -24,7 +24,9 @@ import {
   Modal,
   Textarea,
   Select,
+  Drawer,
 } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import {
   IconSearch,
   IconFilter,
@@ -341,8 +343,22 @@ export default function MailClient() {
                 record.mail_item_status_value?.toLowerCase() !== "disposed"
                   ? "pointer"
                   : "not-allowed",
+              position: "relative",
             }}
           >
+            {!record.mail_item_is_read && (
+              <Box
+                style={{
+                  position: "absolute",
+                  top: -10,
+                  right: 0,
+                  width: 8,
+                  height: 8,
+                  backgroundColor: "var(--mantine-color-red-6)",
+                  borderRadius: "50%",
+                }}
+              />
+            )}
             <Group justify="space-between" wrap="nowrap">
               <Text fw={600} truncate>
                 {record.mail_item_name || "Unknown Name"}
@@ -397,6 +413,188 @@ export default function MailClient() {
     mutate();
   };
 
+  const isMobile = useMediaQuery("(max-width: 48em)");
+
+  const detailsContent = selectedItem && (
+    <>
+      <Group justify="space-between" mb="md" align="flex-start">
+        <Box>
+          <Title order={3}>
+            {selectedItem.mail_item_name || "Unknown Item"}
+          </Title>
+          <Text size="sm" c="dimmed">
+            Sender: {selectedItem.mail_item_sender || "Unknown Sender"}
+          </Text>
+          <Text size="sm" c="dimmed">
+            Received on{" "}
+            {new Date(selectedItem.mail_item_received_at).toLocaleDateString()}
+          </Text>
+          <Badge
+            mt="xs"
+            color={getStatusFormat(selectedItem.mail_item_status_value)}
+          >
+            {selectedItem.mail_item_status_value}
+          </Badge>
+        </Box>
+        <Group>
+          <Tooltip label="Close">
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              onClick={() => setSelectedItem(null)}
+            >
+              <IconX size={20} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+      </Group>
+
+      <Divider my="md" />
+
+      {/* Image Preview Switch */}
+      {selectedItem.mail_item_type === "MAIL" && (
+        <Group justify="center" mb="md">
+          <SegmentedControl
+            value={viewContentMode}
+            onChange={(value) =>
+              setViewContentMode(value as "unopened" | "opened")
+            }
+            data={[
+              { label: "Unopened Scan", value: "unopened" },
+              {
+                label: "Opened Content",
+                value: "opened",
+                disabled: !selectedItem.mail_attachment_item_scan_file_path,
+              },
+            ]}
+            size="md"
+          />
+        </Group>
+      )}
+
+      {/* Image Preview */}
+      <Box
+        bg="gray.1"
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: 400,
+          borderRadius: 8,
+          overflow: "hidden",
+        }}
+        mb="xl"
+      >
+        {(() => {
+          const path =
+            viewContentMode === "opened"
+              ? selectedItem.mail_attachment_item_scan_file_path
+              : selectedItem.mail_attachment_unopened_scan_file_path;
+
+          return path ? (
+            <Image
+              src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/KEEP-PH-ATTACHMENTS/${path}`}
+              alt="Mail Scan"
+              fit="contain"
+              style={{ maxHeight: 500 }}
+            />
+          ) : (
+            <Stack align="center" c="dimmed">
+              <IconMail size={48} />
+              <Text>No preview available</Text>
+            </Stack>
+          );
+        })()}
+      </Box>
+
+      {/* Actions */}
+      <Text fw={500} mb="xs">
+        Actions
+      </Text>
+      <Group>
+        <Button
+          variant="default"
+          fw={500}
+          leftSection={<IconMail size={16} />}
+          onClick={handleReadStatus}
+          loading={actionLoading}
+          disabled={actionLoading}
+        >
+          Mark as {selectedItem.mail_item_is_read ? "unread" : "read"}
+        </Button>
+
+        <Button
+          variant="default"
+          fw={500}
+          leftSection={<IconRestore size={16} />}
+          onClick={
+            selectedItem.mail_item_status_value == "archived"
+              ? () => handleSetArchive(false)
+              : () => handleSetArchive(true)
+          }
+          loading={actionLoading}
+          disabled={actionLoading}
+        >
+          {selectedItem.mail_item_status_value == "archived"
+            ? "Unarchive"
+            : "Archive"}
+        </Button>
+
+        {selectedItem.mail_item_type === "MAIL" && (
+          <Button
+            variant="default"
+            fw={500}
+            leftSection={<IconScan size={16} />}
+            onClick={() => setScanModalOpen(true)}
+            loading={actionLoading}
+            disabled={
+              actionLoading ||
+              loadingRequestActions ||
+              requestActions?.has_request_scan
+            }
+          >
+            {requestActions?.has_request_scan
+              ? "Scan Requested"
+              : "Request Scan"}
+          </Button>
+        )}
+
+        <Button
+          variant="default"
+          fw={500}
+          leftSection={<IconFileShredder size={16} />}
+          onClick={() => setDisposalModalOpen(true)}
+          loading={actionLoading}
+          disabled={
+            actionLoading ||
+            loadingRequestActions ||
+            requestActions?.has_request_disposal
+          }
+        >
+          {requestActions?.has_request_disposal
+            ? "Disposal Requested"
+            : "Request Disposal"}
+        </Button>
+        <Button
+          variant="default"
+          fw={500}
+          leftSection={<IconTruckDelivery size={16} />}
+          onClick={openRetrievalModal}
+          loading={actionLoading}
+          disabled={
+            actionLoading ||
+            loadingRequestActions ||
+            requestActions?.has_request_retrieval
+          }
+        >
+          {requestActions?.has_request_retrieval
+            ? "Retrieval Requested"
+            : "Request Retrieval"}
+        </Button>
+      </Group>
+    </>
+  );
+
   if (loadingDetails || (loadingMail && !mailItems)) {
     return (
       <Center h={"100%"}>
@@ -428,7 +626,7 @@ export default function MailClient() {
 
       <Grid gutter="md">
         {/* Mail List Column */}
-        <Grid.Col span={selectedItem ? 5 : 12}>
+        <Grid.Col span={!isMobile && selectedItem ? 5 : 12}>
           <Paper withBorder p="md" radius="md">
             {/* Filters */}
             <Group mb="md" justify="space-between">
@@ -498,191 +696,26 @@ export default function MailClient() {
         </Grid.Col>
 
         {/* Detail Column */}
-        {selectedItem && (
+        {!isMobile && selectedItem && (
           <Grid.Col span={7}>
             <Paper withBorder p="lg" radius="md" h="100%">
-              <Group justify="space-between" mb="md" align="flex-start">
-                <Box>
-                  <Title order={3}>
-                    {selectedItem.mail_item_name || "Unknown Item"}
-                  </Title>
-                  <Text size="sm" c="dimmed">
-                    Sender: {selectedItem.mail_item_sender || "Unknown Sender"}
-                  </Text>
-                  <Text size="sm" c="dimmed">
-                    Received on{" "}
-                    {new Date(
-                      selectedItem.mail_item_received_at
-                    ).toLocaleDateString()}
-                  </Text>
-                  <Badge
-                    mt="xs"
-                    color={getStatusFormat(selectedItem.mail_item_status_value)}
-                  >
-                    {selectedItem.mail_item_status_value}
-                  </Badge>
-                </Box>
-                <Group>
-                  <Tooltip label="Close">
-                    <ActionIcon
-                      variant="subtle"
-                      color="gray"
-                      onClick={() => setSelectedItem(null)}
-                    >
-                      <IconX size={20} />
-                    </ActionIcon>
-                  </Tooltip>
-                </Group>
-              </Group>
-
-              <Divider my="md" />
-
-              {/* Image Preview Switch */}
-              {selectedItem.mail_item_type === "MAIL" && (
-                <Group justify="center" mb="md">
-                  <SegmentedControl
-                    value={viewContentMode}
-                    onChange={(value) =>
-                      setViewContentMode(value as "unopened" | "opened")
-                    }
-                    data={[
-                      { label: "Unopened Scan", value: "unopened" },
-                      {
-                        label: "Opened Content",
-                        value: "opened",
-                        disabled:
-                          !selectedItem.mail_attachment_item_scan_file_path,
-                      },
-                    ]}
-                    size="md"
-                  />
-                </Group>
-              )}
-
-              {/* Image Preview */}
-              <Box
-                bg="gray.1"
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  minHeight: 400,
-                  borderRadius: 8,
-                  overflow: "hidden",
-                }}
-                mb="xl"
-              >
-                {(() => {
-                  const path =
-                    viewContentMode === "opened"
-                      ? selectedItem.mail_attachment_item_scan_file_path
-                      : selectedItem.mail_attachment_unopened_scan_file_path;
-
-                  return path ? (
-                    <Image
-                      src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/KEEP-PH-ATTACHMENTS/${path}`}
-                      alt="Mail Scan"
-                      fit="contain"
-                      style={{ maxHeight: 500 }}
-                    />
-                  ) : (
-                    <Stack align="center" c="dimmed">
-                      <IconMail size={48} />
-                      <Text>No preview available</Text>
-                    </Stack>
-                  );
-                })()}
-              </Box>
-
-              {/* Actions */}
-              <Text fw={500} mb="xs">
-                Actions
-              </Text>
-              <Group>
-                <Button
-                  variant="light"
-                  leftSection={<IconMail size={16} />}
-                  onClick={handleReadStatus}
-                  loading={actionLoading}
-                  disabled={actionLoading}
-                  color={selectedItem.mail_item_is_read ? "gray" : "blue"}
-                >
-                  Mark as {selectedItem.mail_item_is_read ? "unread" : "read"}
-                </Button>
-
-                <Button
-                  variant="light"
-                  color="orange"
-                  leftSection={<IconRestore size={16} />}
-                  onClick={
-                    selectedItem.mail_item_status_value == "archived"
-                      ? () => handleSetArchive(false)
-                      : () => handleSetArchive(true)
-                  }
-                  loading={actionLoading}
-                  disabled={actionLoading}
-                >
-                  {selectedItem.mail_item_status_value == "archived"
-                    ? "Unarchive"
-                    : "Archive"}
-                </Button>
-
-                {selectedItem.mail_item_type === "MAIL" && (
-                  <Button
-                    variant="light"
-                    color="grape"
-                    leftSection={<IconScan size={16} />}
-                    onClick={() => setScanModalOpen(true)}
-                    loading={actionLoading}
-                    disabled={
-                      actionLoading ||
-                      loadingRequestActions ||
-                      requestActions?.has_request_scan
-                    }
-                  >
-                    {requestActions?.has_request_scan
-                      ? "Scan Requested"
-                      : "Request Scan"}
-                  </Button>
-                )}
-
-                <Button
-                  variant="light"
-                  color="red"
-                  leftSection={<IconFileShredder size={16} />}
-                  onClick={() => setDisposalModalOpen(true)}
-                  loading={actionLoading}
-                  disabled={
-                    actionLoading ||
-                    loadingRequestActions ||
-                    requestActions?.has_request_disposal
-                  }
-                >
-                  {requestActions?.has_request_disposal
-                    ? "Disposal Requested"
-                    : "Request Disposal"}
-                </Button>
-                <Button
-                  variant="filled"
-                  color="blue"
-                  leftSection={<IconTruckDelivery size={16} />}
-                  onClick={openRetrievalModal}
-                  loading={actionLoading}
-                  disabled={
-                    actionLoading ||
-                    loadingRequestActions ||
-                    requestActions?.has_request_retrieval
-                  }
-                >
-                  {requestActions?.has_request_retrieval
-                    ? "Retrieval Requested"
-                    : "Request Retrieval"}
-                </Button>
-              </Group>
+              {detailsContent}
             </Paper>
           </Grid.Col>
         )}
       </Grid>
+
+      {/* Mobile Drawer */}
+      <Drawer
+        opened={!!selectedItem && !!isMobile}
+        onClose={() => setSelectedItem(null)}
+        position="bottom"
+        size="90%"
+        withCloseButton={false}
+        padding="md"
+      >
+        {detailsContent}
+      </Drawer>
 
       {/* Disposal Modal */}
       <Modal

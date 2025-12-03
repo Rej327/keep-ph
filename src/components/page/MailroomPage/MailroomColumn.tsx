@@ -2,7 +2,7 @@ import React from "react";
 import { Droppable } from "@hello-pangea/dnd";
 import { Box, Text, Group, Paper } from "@mantine/core";
 import { IconMail, IconPackage } from "@tabler/icons-react";
-import { MailroomColumn as ColumnType, MailItem } from "./data";
+import { MailroomColumn as ColumnType, MailItem } from "./types";
 import MailroomCard from "./MailroomCard";
 import { UserFullDetails } from "@/actions/supabase/get";
 
