@@ -273,9 +273,12 @@ export type MailroomItem = {
   mailbox_label: string | null;
   mailbox_status_id: string;
   mailbox_status_value: string;
-  mailbox_remaining_space: number;
-  account_area_code: string;
+  mailbox_mail_remaining_space: number;
+  mailbox_package_remaining_space: number;
+  account_address_key: string;
   account_remaining_mailbox_access: number;
+  account_max_quantity_storage: number;
+  account_max_parcel_handling: number;
   account_id: string;
   account_number: string;
   user_id: string;

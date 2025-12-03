@@ -84,7 +84,7 @@ export default function MailroomClient() {
       render: (record: MailroomItem) => (
         <Stack gap={0}>
           <Text size="sm" fw={500}>
-            {record.account_area_code}-{record.account_number}
+            {record.account_address_key}-{record.account_number}
           </Text>
           <Text size="xs" c="dimmed">
             {record.user_email}
@@ -101,10 +101,39 @@ export default function MailroomClient() {
     },
     {
       accessor: "remaining_mailbox_access",
-      title: "REMAINING ACCESS",
+      title: "REMAINING SPACE",
       render: (record: MailroomItem) => {
-        const value = record.mailbox_remaining_space || 0;
-        const percent = (value / 5) * 100;
+        const value = record.mailbox_mail_remaining_space || 0;
+        const percent = (value / record.account_max_quantity_storage) * 100;
+
+        let color = "gray";
+        if (percent >= 90) color = "green";
+        else if (percent >= 30) color = "yellow";
+        else if (percent >= 10) color = "red";
+        else color = "red";
+
+        return (
+          <SemiCircleProgress
+            fillDirection="left-to-right"
+            transitionDuration={250}
+            styles={{ label: { fontSize: 10 } }}
+            orientation="up"
+            filledSegmentColor={color}
+            size={70}
+            thickness={8}
+            value={percent}
+            label={`${Math.round(percent)}%`}
+            labelPosition="center"
+          />
+        );
+      },
+    },
+    {
+      accessor: "mailbox_package_remaining_space",
+      title: "PACKAGE SPACE",
+      render: (record: MailroomItem) => {
+        const value = record.mailbox_package_remaining_space || 0;
+        const percent = (value / record.account_max_parcel_handling) * 100;
 
         let color = "gray";
         if (percent >= 90) color = "green";

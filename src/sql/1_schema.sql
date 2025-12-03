@@ -166,7 +166,7 @@ CREATE TABLE user_schema.user_address_table (
 );
 
 -- Index for geographic queries
--- CREATE INDEX idx_account_area_code ON user_schema.account_table(account_area_code);
+-- CREATE INDEX idx_account_address_key ON user_schema.account_table(account_address_key);
 
 -- Mailbox Table
 CREATE TABLE mailroom_schema.mailbox_table (

@@ -60,7 +60,7 @@ BEGIN
   INSERT INTO user_schema.account_table (
     account_user_id,
     account_number,
-    account_area_code,
+    account_address_key,
     account_type,
     account_subscription_status_id,
     account_subscription_ends_at,
@@ -188,7 +188,7 @@ BEGIN
       'account_id', a.account_id,
       'account_user_id', a.account_user_id,
       'account_number', a.account_number,
-      'account_area_code', a.account_area_code,
+      'account_address_key', a.account_address_key,
       'account_type', a.account_type,
       'account_type_value', at.account_type_value,
       'account_is_subscribed', a.account_is_subscribed,
@@ -366,7 +366,7 @@ DECLARE
   var_mailbox_account_id UUID;
   var_mailbox_status_id TEXT;
   var_mailbox_label TEXT;
-  var_mailbox_space_remaining SMALLINT;
+  var_mailbox_mail_remaining_space SMALLINT;
 
   -- Return variable
   return_data JSON;
@@ -388,7 +388,7 @@ BEGIN
     var_mailbox_account_id := (var_mailbox_item->>'mailbox_account_id')::UUID;
     var_mailbox_status_id := (var_mailbox_item->>'mailbox_status_id')::TEXT;
     var_mailbox_label := (var_mailbox_item->>'mailbox_label')::TEXT;
-    var_mailbox_space_remaining := (var_mailbox_item->>'mailbox_space_remaining')::SMALLINT;
+    var_mailbox_mail_remaining_space := (var_mailbox_item->>'mailbox_mail_remaining_space')::SMALLINT;
 
     INSERT INTO mailroom_schema.mailbox_table (
       mailbox_account_id,
@@ -440,7 +440,7 @@ DECLARE
   return_data JSON;
 BEGIN
   -- 1. Check current space remaining
-  SELECT mailbox_space_remaining INTO var_current_space
+  SELECT mailbox_mail_remaining_space INTO var_current_space
   FROM mailroom_schema.mailbox_table
   WHERE mailbox_id = input_mailbox_id;
 
@@ -454,7 +454,7 @@ BEGIN
 
   -- 2. Decrement space
   UPDATE mailroom_schema.mailbox_table
-  SET mailbox_space_remaining = mailbox_space_remaining - 1,
+  SET mailbox_mail_remaining_space= mailbox_mail_remaining_space - 1,
       mailbox_updated_at = NOW()
   WHERE mailbox_id = input_mailbox_id;
 
@@ -520,7 +520,7 @@ BEGIN
       JSON_BUILD_OBJECT(
         'account_id', a.account_id,
         'account_number', a.account_number,
-        'account_area_code', a.account_area_code,
+        'account_address_key', a.account_address_key,
         'account_type', a.account_type,
         'account_type_value', at.account_type_value,
         'account_subscription_status_id', a.account_subscription_status_id,
@@ -768,10 +768,10 @@ BEGIN
                 'mailbox_label', mb.mailbox_label,
                 'mailbox_status_id', mb.mailbox_status_id,
                 'mailbox_status_value', mst.mailbox_status_value,
-                'mailbox_remaining_space', mb.mailbox_space_remaining,
+                'mailbox_mail_remaining_space', mb.mailbox_mail_remaining_space,
                 'account_id', acc.account_id,
                 'account_number', acc.account_number,
-								'account_area_code', acc.account_area_code,
+								'account_address_key', acc.account_address_key,
                 'user_id', u.user_id,
                 'user_full_name', CONCAT_WS(' ', u.user_first_name, u.user_last_name),
                 'user_email', u.user_email,
