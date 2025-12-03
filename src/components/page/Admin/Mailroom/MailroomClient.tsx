@@ -104,12 +104,13 @@ export default function MailroomClient() {
       title: "REMAINING SPACE",
       render: (record: MailroomItem) => {
         const value = record.mailbox_mail_remaining_space || 0;
-        const percent = (value / record.account_max_quantity_storage) * 100;
+        const maxCapacity = record.account_max_quantity_storage || 0;
+        const percent = maxCapacity > 0 ? (value / maxCapacity) * 100 : 0;
 
         let color = "gray";
         if (percent >= 90) color = "green";
         else if (percent >= 30) color = "yellow";
-        else if (percent >= 10) color = "red";
+        else if (percent >= 10) color = "orange";
         else color = "red";
 
         return (
@@ -133,12 +134,13 @@ export default function MailroomClient() {
       title: "PACKAGE SPACE",
       render: (record: MailroomItem) => {
         const value = record.mailbox_package_remaining_space || 0;
-        const percent = (value / record.account_max_parcel_handling) * 100;
+        const maxCapacity = record.account_max_parcel_handling || 0;
+        const percent = maxCapacity > 0 ? (value / maxCapacity) * 100 : 0;
 
         let color = "gray";
         if (percent >= 90) color = "green";
         else if (percent >= 30) color = "yellow";
-        else if (percent >= 10) color = "red";
+        else if (percent >= 10) color = "orange";
         else color = "red";
 
         return (

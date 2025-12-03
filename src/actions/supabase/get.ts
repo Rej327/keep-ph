@@ -333,6 +333,10 @@ export type DisposalRequestItem = {
   user_id: string;
   user_full_name: string;
   user_email: string;
+  account_address_key: string;
+  account_account_number: string;
+  account_type: string;
+  account_type_value: string;
 };
 
 export const getAllDisposalRequests = async (filters?: {
@@ -356,6 +360,8 @@ export const getAllDisposalRequests = async (filters?: {
     console.error("Error fetching disposal requests:", error);
     throw new Error(error.message);
   }
+
+  console.log("disposal req: ", data);
 
   return data as DisposalRequestItem[];
 };

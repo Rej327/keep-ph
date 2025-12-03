@@ -10,6 +10,7 @@ import {
   Stack,
   Anchor,
   TextInput,
+  Box,
 } from "@mantine/core";
 import { CustomDataTable } from "@/components/common/CustomDataTable";
 import { getAllCustomers } from "@/actions/supabase/get";
@@ -150,23 +151,10 @@ export default function CustomersClient() {
     <Container fluid py="xl">
       <Stack gap="lg">
         <Group justify="space-between" align="flex-end">
-          <div>
+          <Box>
             <Title order={2}>All Customers</Title>
             <Text c="dimmed">Manage all customer accounts in the system.</Text>
-          </div>
-          <Select
-            placeholder="All Statuses"
-            data={[
-              { value: "", label: "All Statuses" },
-              { value: "active", label: "Active" },
-              { value: "suspended", label: "Suspended" },
-              { value: "pending", label: "Pending" },
-              { value: "expired", label: "Expired" },
-            ]}
-            value={statusFilter}
-            onChange={(value) => setStatusFilter(value || "")}
-            w={200}
-          />
+          </Box>
         </Group>
 
         <Group gap="md">
@@ -188,6 +176,19 @@ export default function CustomersClient() {
             value={typeFilter}
             onChange={(value) => setTypeFilter(value || "")}
             w={150}
+          />
+          <Select
+            placeholder="All Statuses"
+            data={[
+              { value: "", label: "All Statuses" },
+              { value: "active", label: "Active" },
+              { value: "suspended", label: "Suspended" },
+              { value: "pending", label: "Pending" },
+              { value: "expired", label: "Expired" },
+            ]}
+            value={statusFilter}
+            onChange={(value) => setStatusFilter(value || "")}
+            w={200}
           />
           <Select
             placeholder="Sort Order"

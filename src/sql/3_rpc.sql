@@ -881,13 +881,19 @@ BEGIN
         'mail_item_sender', mi.mail_item_sender,
         'user_id', u.user_id,
         'user_full_name', CONCAT_WS(' ', u.user_first_name, u.user_last_name),
-        'user_email', u.user_email
+        'user_email', u.user_email,
+        'account_address_key', acc.account_address_key,
+        'account_account_number', acc.account_number,
+        'account_type', acc.account_type,
+        'account_type_value',act.account_type_value
+
       ) as request_data
     FROM request_schema.dispose_request_table dr
     JOIN status_schema.dispose_request_status_table drs ON dr.dispose_request_status_id = drs.dispose_request_status_id
     JOIN mailroom_schema.mail_item_table mi ON dr.dispose_request_mail_item_id = mi.mail_item_id
     JOIN user_schema.account_table acc ON dr.dispose_request_account_id = acc.account_id
     JOIN user_schema.user_table u ON acc.account_user_id = u.user_id
+    JOIN user_schema.account_type_table act ON acc.account_type = act.account_type_id
     WHERE 
       (input_search IS NULL OR input_search = '' OR 
        LOWER(u.user_first_name || ' ' || u.user_last_name) LIKE LOWER('%' || input_search || '%') OR
