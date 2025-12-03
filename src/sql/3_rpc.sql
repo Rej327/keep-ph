@@ -195,6 +195,7 @@ BEGIN
       'account_max_quantity_storage', at.account_max_quantity_storage,
       'account_max_gb_storage', at.account_max_gb_storage,
       'account_max_mailbox_access', at.account_max_mailbox_access,
+      'account_remaining_mailbox_access', a.account_remaining_mailbox_access,
       'account_subscription_status_id', a.account_subscription_status_id,
       'account_subscription_status_value', ss.subscription_status_value,
       'account_subscription_ends_at', a.account_subscription_ends_at
@@ -202,21 +203,14 @@ BEGIN
     JOIN user_schema.account_type_table at ON a.account_type = at.account_type_id
     JOIN status_schema.subscription_status_table ss ON a.account_subscription_status_id = ss.subscription_status_id
     WHERE a.account_user_id = input_user_id),
-    'virtual_address', (SELECT JSON_BUILD_OBJECT(
-      'virtual_address_id', v.virtual_address_id,
-      'virtual_address_account_id', v.virtual_address_account_id,
-      'virtual_address_address', v.virtual_address_address,
-      'virtual_address_street', v.virtual_address_street,
-      'virtual_address_city', v.virtual_address_city,
-      'virtual_address_province', v.virtual_address_province,
-      'virtual_address_postal_code', v.virtual_address_postal_code,
-      'virtual_address_country', v.virtual_address_country,
-      'virtual_address_area_code', v.virtual_address_area_code,
-      'virtual_address_status_id', v.virtual_address_status_id,
-      'virtual_address_status_value', vs.virtual_address_status_value
-    ) FROM mailroom_schema.virtual_address_table v
-    JOIN status_schema.virtual_address_status_table vs ON v.virtual_address_status_id = vs.virtual_address_status_id
-    WHERE v.virtual_address_account_id = (SELECT account_id FROM user_schema.account_table WHERE account_user_id = input_user_id))
+    'address', (SELECT JSON_BUILD_OBJECT(
+      'mailroom_address_id', addr.address_id,
+      'mailroom_address_key', addr.address_key,
+      'mailroom_address_value', addr.address_full,
+      'mailroom_address_link', addr.address_map_link
+    ) FROM user_schema.account_table a
+    JOIN mailroom_schema.mailroom_address_table addr ON a.account_address_key = addr.address_key
+    WHERE a.account_user_id = input_user_id)
   ) INTO return_data;
 
   RETURN return_data;
@@ -930,7 +924,6 @@ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION create_user_profile(input_data JSON)
 RETURNS JSON
 SET search_path TO ''
-SECURITY DEFINER
 AS $$
 DECLARE
   -- Input variables
@@ -938,7 +931,7 @@ DECLARE
   input_email VARCHAR(254) := (input_data->>'email')::VARCHAR;
   input_first_name VARCHAR(254) := (input_data->>'first_name')::VARCHAR;
   input_last_name VARCHAR(254) := (input_data->>'last_name')::VARCHAR;
-  input_avatar VARCHAR(254) := (input_data->>'avatar_bucket_path')::VARCHAR;
+  input_avatar TEXT := (input_data->>'avatar_bucket_path')::TEXT;
   
   -- Return variable
   return_data JSON;
@@ -1490,3 +1483,25 @@ BEGIN
   RETURN return_data;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Function to delete a user profile
+CREATE OR REPLACE FUNCTION delete_user_profile(input_data JSON)
+RETURNS JSON AS $$
+DECLARE
+  input_user_id UUID := (input_data->>'user_id')::UUID;
+  return_data JSON;
+BEGIN
+  -- Verify the user exists
+  IF NOT EXISTS (SELECT 1 FROM user_schema.user_table WHERE user_id = input_user_id) THEN
+    RETURN json_build_object('error', 'User not found');
+  END IF;
+
+  DELETE FROM user_schema.user_address_table WHERE user_address_user_id = input_user_id;
+  DELETE FROM user_schema.account_table WHERE account_user_id = input_user_id;
+  DELETE FROM user_schema.user_table WHERE user_id = input_user_id;
+  
+  return_data := json_build_object('success', true, 'message', 'User profile deleted successfully');
+  
+  RETURN return_data;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

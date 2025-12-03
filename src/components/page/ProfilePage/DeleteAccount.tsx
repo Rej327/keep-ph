@@ -29,32 +29,34 @@ export default function DeleteAccount({ email, userId }: Props) {
   const [opened, { open, close }] = useDisclosure(false);
   const [confirmEmail, setConfirmEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
   const supabase = createSupabaseBrowserClient();
+  const router = useRouter();
 
   const handleDelete = async () => {
     if (confirmEmail !== email) return;
 
     setIsLoading(true);
     try {
-      // 1. Delete from Auth (Server Action)
+      // Delete user account (this calls the API route and handles signOut)
       const result = await deleteUserFromAuth(userId);
-      if (result.error) throw result.error;
 
-      // 2. Sign out locally
-      await supabase.auth.signOut();
+      if (result.error) {
+        throw result.error;
+      }
 
       notifications.show({
         title: "Account Deleted",
         message: "Your account has been permanently deleted.",
         color: "blue",
       });
-
+      await supabase.auth.signOut();
       router.push("/login");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to delete account";
       notifications.show({
         title: "Error",
-        message: error.message || "Failed to delete account",
+        message: errorMessage,
         color: "red",
       });
       setIsLoading(false);

@@ -132,6 +132,10 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (isPublicAuthRoute && validUser) {
+    // Do not redirect Server Actions or POST requests
+    if (request.method === "POST") {
+      return supabaseResponse;
+    }
     // Redirect logged-in users away from auth pages
     const url = request.nextUrl.clone();
     url.pathname = "/mailroom";

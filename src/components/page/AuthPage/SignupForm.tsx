@@ -119,7 +119,7 @@ export default function SignupForm() {
   };
 
   const validateStep1 = async () => {
-    const result = await trigger(["firstName", "lastName", "phone", "terms"]);
+    const result = await trigger(["firstName", "lastName", "terms"]);
     if (result) {
       const terms = watch("terms");
       if (!terms) {
@@ -185,7 +185,10 @@ export default function SignupForm() {
             avatar: avatarPath,
           });
 
-          if (result.error) throw result.error;
+          if (result.error) {
+            console.error("Server Action failed:", result.error);
+            throw new Error(result.error.message || "Unknown server error");
+          }
 
           if (avatarFile && avatarPath) {
             const { error: uploadError } = await supabase.storage
@@ -210,7 +213,7 @@ export default function SignupForm() {
 
       setShowSignupSuccess(true);
     } catch (err) {
-      console.error(err);
+      console.log(err);
       notifications.show({
         message: "There was a problem on our end. Please try again later.",
         color: "red",

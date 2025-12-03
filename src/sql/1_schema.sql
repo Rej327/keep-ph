@@ -128,7 +128,7 @@ CREATE TABLE user_schema.user_table (
     user_last_name VARCHAR(254),
     user_phone VARCHAR(50),
     user_is_admin BOOLEAN NOT NULL DEFAULT FALSE,
-    user_avatar_bucket_path VARCHAR(256),
+    user_avatar_bucket_path TEXT,
     user_referral_email VARCHAR(254),
     user_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     user_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -452,3 +452,7 @@ GRANT ALL ON ALL TABLES IN SCHEMA analytics_schema TO public;
 GRANT ALL ON ALL TABLES IN SCHEMA analytics_schema TO postgres;
 GRANT ALL ON SCHEMA analytics_schema TO postgres;
 GRANT ALL ON SCHEMA analytics_schema TO public;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION delete_user_profile TO authenticated;
+GRANT EXECUTE ON FUNCTION delete_user_profile TO service_role;

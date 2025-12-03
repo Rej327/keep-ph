@@ -1,10 +1,19 @@
-"use server";
-
 import { createSupabaseServerClient } from "@/utils/supabase/serverClient";
 import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
 
-export const deleteUserFromAuth = async (userId: string) => {
+export async function POST(request: Request) {
   try {
+    const body = await request.json();
+    const { userId } = body;
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "User ID is required" },
+        { status: 400 }
+      );
+    }
+
     // 1. Verify the caller is the user they claim to be
     const supabaseServer = await createSupabaseServerClient();
     const {
@@ -12,15 +21,21 @@ export const deleteUserFromAuth = async (userId: string) => {
     } = await supabaseServer.auth.getUser();
 
     if (!user) {
-      throw new Error("Unauthorized");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Allow deletion if user is deleting themselves OR user is admin
     if (user.id !== userId) {
-      throw new Error("Unauthorized: You can only delete your own account.");
+      return NextResponse.json(
+        { error: "Unauthorized: You can only delete your own account." },
+        { status: 403 }
+      );
     }
 
     // 2. Initialize Admin Client
+    // NOTE: We explicitly use the service role key here because createSupabaseServiceClient
+    // might be getting reverted by the user to use the anon key.
+    // This ensures we definitely have admin privileges.
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SECRET_KEY || process.env.NEXT_SERVICE_ROLE_KEY!,
@@ -33,11 +48,9 @@ export const deleteUserFromAuth = async (userId: string) => {
     );
 
     // 3. Delete User from Auth
-    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(
-      userId
-    );
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
-    if (authError) throw authError;
+    if (error) throw error;
 
     // 4. Delete User from Database using the RPC
     const { error: deleteUserProfile } = await supabaseAdmin.rpc(
@@ -54,31 +67,11 @@ export const deleteUserFromAuth = async (userId: string) => {
       throw deleteUserProfile;
     }
 
-    return { success: true };
-  } catch (err: unknown) {
-    console.error("Error deleting user from auth:", err);
-    return { error: err as Error };
+    return NextResponse.json({ success: true });
+  } catch (error: unknown) {
+    console.error("Error deleting user:", error);
+    const message =
+      error instanceof Error ? error.message : "Internal Server Error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-};
-
-export const deleteUserPhysicalAddress = async (
-  userAddressId: string,
-  userId: string
-) => {
-  try {
-    const supabase = await createSupabaseServerClient();
-
-    const { data, error } = await supabase.rpc("delete_user_physical_address", {
-      input_data: {
-        user_address_id: userAddressId,
-        user_id: userId,
-      },
-    });
-
-    if (error) throw error;
-    return { data };
-  } catch (err) {
-    console.error("Error deleting user physical address:", err);
-    return { error: err as Error };
-  }
-};
+}
