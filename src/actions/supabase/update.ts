@@ -14,6 +14,20 @@ export const markMailItemAsUnread = async (mailItemId: string) => {
   return data as boolean;
 };
 
+export const markMailItemAsRead = async (mailItemId: string) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("mark_mail_item_as_read", {
+    input_mail_item_id: mailItemId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as boolean;
+};
+
 export const setMailItemArchiveStatus = async (
   mailItemId: string,
   isArchived: boolean
@@ -65,6 +79,26 @@ export const requestMailItemRetrieval = async (
     input_account_id: accountId,
     input_address: address,
     input_notes: notes || null,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+};
+
+export const requestMailItemScan = async (
+  mailItemId: string,
+  accountId: string,
+  instructions?: string
+) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("request_mail_item_scan", {
+    input_mail_item_id: mailItemId,
+    input_account_id: accountId,
+    input_instructions: instructions || null,
   });
 
   if (error) {

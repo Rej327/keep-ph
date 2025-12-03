@@ -119,12 +119,14 @@ END $$;
 -- Insert default mail item statuses
 INSERT INTO status_schema.mail_item_status_table (mail_item_status_id, mail_item_status_value, mail_item_status_sort_order) VALUES
     ('MIS-RECEIVED', 'received', 1),
-    ('MIS-RETRIEVAL', 'retrieval', 2),
-    ('MIS-SCANNED', 'scanned', 3),
-    ('MIS-RETRIEVED', 'retrieved', 4),
-    ('MIS-ARCHIVED', 'archived', 5),
-    ('MIS-DISPOSAL', 'disposal', 6);
-    ('MIS-DISPOSED', 'disposed', 7);
+    ('MIS-READ', 'read', 2),
+    ('MIS-RETRIEVAL', 'retrieval', 3),
+    ('MIS-SCANNING', 'scanning', 4),
+    ('MIS-SCANNED', 'scanned', 5),
+    ('MIS-RETRIEVED', 'retrieved', 6),
+    ('MIS-ARCHIVED', 'archived', 7),
+    ('MIS-DISPOSAL', 'disposal', 8),
+    ('MIS-DISPOSED', 'disposed', 9);
 
 -- Insert default virtual address statuses
 INSERT INTO status_schema.virtual_address_status_table (virtual_address_status_id, virtual_address_status_value, virtual_address_status_sort_order) VALUES

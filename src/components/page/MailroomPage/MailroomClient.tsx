@@ -23,6 +23,7 @@ import {
   SegmentedControl,
   Modal,
   Textarea,
+  Select,
 } from "@mantine/core";
 import {
   IconSearch,
@@ -35,6 +36,9 @@ import {
   IconFileShredder,
   IconRefresh,
   IconRestore,
+  IconAlertTriangle,
+  IconMapPin,
+  IconScan,
 } from "@tabler/icons-react";
 import useSWR from "swr";
 import useAuthStore from "@/zustand/stores/useAuthStore";
@@ -42,12 +46,16 @@ import {
   getUserFullDetails,
   getMailItemsByUser,
   MailItem,
+  getUserAddresses,
+  getMailHasRequestAction,
 } from "@/actions/supabase/get";
 import {
   markMailItemAsUnread,
   setMailItemArchiveStatus,
   requestMailItemDisposal,
   requestMailItemRetrieval,
+  markMailItemAsRead,
+  requestMailItemScan,
 } from "@/actions/supabase/update";
 import { notifications } from "@mantine/notifications";
 import { CustomDataTable } from "@/components/common/CustomDataTable";
@@ -68,10 +76,12 @@ export default function MailroomClient() {
   // Modal States
   const [disposalModalOpen, setDisposalModalOpen] = useState(false);
   const [retrievalModalOpen, setRetrievalModalOpen] = useState(false);
+  const [scanModalOpen, setScanModalOpen] = useState(false);
 
   // Retrieval Form State
   const [retrievalAddress, setRetrievalAddress] = useState("");
   const [retrievalNotes, setRetrievalNotes] = useState("");
+  const [scanInstructions, setScanInstructions] = useState("");
 
   // Fetch User Details
   const { data: userDetails, isLoading: loadingDetails } = useSWR(
@@ -79,7 +89,33 @@ export default function MailroomClient() {
     () => getUserFullDetails(user!.id)
   );
 
-  // Fetch Mail Items
+  // Fetch User Addresses (only when retrieval modal is open)
+  const { data: userAddresses, isLoading: loadingAddresses } = useSWR(
+    retrievalModalOpen && user?.id ? ["user-addresses", user.id] : null,
+    () => getUserAddresses(user!.id)
+  );
+
+  const addressOptions = useMemo(() => {
+    const options: { value: string; label: string }[] = [];
+
+    // Add user's saved addresses
+    if (userAddresses && userAddresses.length > 0) {
+      userAddresses.forEach((addr) => {
+        options.push({
+          value: addr.address_value,
+          label: addr.address_label
+            ? `${addr.address_label} (${
+                addr.address_is_default ? "Default" : "Secondary"
+              })`
+            : addr.address_value.substring(0, 50) +
+              (addr.address_value.length > 50 ? "..." : ""),
+        });
+      });
+    }
+
+    return options;
+  }, [userAddresses]);
+
   const {
     data: mailItems,
     isLoading: loadingMail,
@@ -91,12 +127,41 @@ export default function MailroomClient() {
     () => getMailItemsByUser(user!.id, userDetails!.account.account_number)
   );
 
-  const handleMarkAsUnread = async () => {
+  // Fetch Request Actions for selected item
+  console.log("Selected Item ID:", selectedItem?.mail_item_id);
+
+  const {
+    data: requestActions,
+    isLoading: loadingRequestActions,
+    error: requestError,
+  } = useSWR(
+    selectedItem?.mail_item_id
+      ? ["request-actions", selectedItem.mail_item_id]
+      : null,
+    ([, mailItemId]: [string, string]) => {
+      console.log("Fetching actions for:", mailItemId);
+      return getMailHasRequestAction(mailItemId);
+    }
+  );
+
+  console.log("Has Request: ", requestActions);
+  if (requestError) console.error("Request Actions SWR Error:", requestError);
+
+  const handleReadStatus = async () => {
     if (!selectedItem) return;
     setActionLoading(true);
     try {
-      await markMailItemAsUnread(selectedItem.mail_item_id);
-      notifications.show({ message: "Marked as unread", color: "green" });
+      if (selectedItem.mail_item_is_read) {
+        await markMailItemAsUnread(selectedItem.mail_item_id);
+      } else {
+        await markMailItemAsRead(selectedItem.mail_item_id);
+      }
+      notifications.show({
+        message: `Marked as ${
+          selectedItem.mail_item_is_read ? "unread" : "read"
+        }`,
+        color: "green",
+      });
       mutate();
     } catch {
       notifications.show({
@@ -192,11 +257,33 @@ export default function MailroomClient() {
     }
   };
 
+  const handleRequestScan = async () => {
+    if (!selectedItem || !userDetails?.account.account_id) return;
+
+    setActionLoading(true);
+    try {
+      await requestMailItemScan(
+        selectedItem.mail_item_id,
+        userDetails.account.account_id,
+        scanInstructions
+      );
+      notifications.show({ message: "Scan requested", color: "green" });
+      mutate();
+      setScanModalOpen(false);
+      setScanInstructions("");
+    } catch {
+      notifications.show({
+        message: "Failed to request scan",
+        color: "red",
+      });
+    } finally {
+      setActionLoading(false);
+      setSelectedItem(null);
+    }
+  };
+
   // Set initial address when opening retrieval modal
   const openRetrievalModal = () => {
-    if (userDetails?.virtual_address?.virtual_address_address) {
-      setRetrievalAddress(userDetails.virtual_address.virtual_address_address);
-    }
     setRetrievalModalOpen(true);
   };
 
@@ -223,19 +310,28 @@ export default function MailroomClient() {
         ),
       },
       {
-        accessor: "mail_item_sender",
+        accessor: "mail_item_name",
         title: "Mail Details",
         render: (record) => (
           <Box
             onClick={
               record.mail_item_status_value?.toLowerCase() !== "disposed"
-                ? () => {
+                ? async () => {
                     setSelectedItem(record);
-                    // Reset view mode based on availability
+
                     if (record.mail_attachment_item_scan_file_path) {
                       setViewContentMode("opened");
                     } else {
                       setViewContentMode("unopened");
+                    }
+
+                    if (!record.mail_item_is_read) {
+                      try {
+                        await markMailItemAsRead(record.mail_item_id);
+                        mutate();
+                      } catch (error) {
+                        console.error("Failed to mark as read", error);
+                      }
                     }
                   }
                 : undefined
@@ -249,7 +345,7 @@ export default function MailroomClient() {
           >
             <Group justify="space-between" wrap="nowrap">
               <Text fw={600} truncate>
-                {record.mail_item_sender || "Unknown Sender"}
+                {record.mail_item_name || "Unknown Name"}
               </Text>
               <Badge
                 size="sm"
@@ -396,6 +492,7 @@ export default function MailroomClient() {
               idAccessor="mail_item_id"
               columns={renderValue}
               pageSize={10}
+              selectedRecordId={selectedItem?.mail_item_id}
             />
           </Paper>
         </Grid.Col>
@@ -407,8 +504,11 @@ export default function MailroomClient() {
               <Group justify="space-between" mb="md" align="flex-start">
                 <Box>
                   <Title order={3}>
-                    {selectedItem.mail_item_sender || "Unknown Sender"}
+                    {selectedItem.mail_item_name || "Unknown Item"}
                   </Title>
+                  <Text size="sm" c="dimmed">
+                    Sender: {selectedItem.mail_item_sender || "Unknown Sender"}
+                  </Text>
                   <Text size="sm" c="dimmed">
                     Received on{" "}
                     {new Date(
@@ -438,24 +538,26 @@ export default function MailroomClient() {
               <Divider my="md" />
 
               {/* Image Preview Switch */}
-              <Group justify="center" mb="md">
-                <SegmentedControl
-                  value={viewContentMode}
-                  onChange={(value) =>
-                    setViewContentMode(value as "unopened" | "opened")
-                  }
-                  data={[
-                    { label: "Unopened Scan", value: "unopened" },
-                    {
-                      label: "Opened Content",
-                      value: "opened",
-                      disabled:
-                        !selectedItem.mail_attachment_item_scan_file_path,
-                    },
-                  ]}
-                  size="md"
-                />
-              </Group>
+              {selectedItem.mail_item_type === "MAIL" && (
+                <Group justify="center" mb="md">
+                  <SegmentedControl
+                    value={viewContentMode}
+                    onChange={(value) =>
+                      setViewContentMode(value as "unopened" | "opened")
+                    }
+                    data={[
+                      { label: "Unopened Scan", value: "unopened" },
+                      {
+                        label: "Opened Content",
+                        value: "opened",
+                        disabled:
+                          !selectedItem.mail_attachment_item_scan_file_path,
+                      },
+                    ]}
+                    size="md"
+                  />
+                </Group>
+              )}
 
               {/* Image Preview */}
               <Box
@@ -500,11 +602,12 @@ export default function MailroomClient() {
                 <Button
                   variant="light"
                   leftSection={<IconMail size={16} />}
-                  onClick={handleMarkAsUnread}
+                  onClick={handleReadStatus}
                   loading={actionLoading}
                   disabled={actionLoading}
+                  color={selectedItem.mail_item_is_read ? "gray" : "blue"}
                 >
-                  Mark as Unread
+                  Mark as {selectedItem.mail_item_is_read ? "unread" : "read"}
                 </Button>
 
                 <Button
@@ -524,15 +627,40 @@ export default function MailroomClient() {
                     : "Archive"}
                 </Button>
 
+                {selectedItem.mail_item_type === "MAIL" && (
+                  <Button
+                    variant="light"
+                    color="grape"
+                    leftSection={<IconScan size={16} />}
+                    onClick={() => setScanModalOpen(true)}
+                    loading={actionLoading}
+                    disabled={
+                      actionLoading ||
+                      loadingRequestActions ||
+                      requestActions?.has_request_scan
+                    }
+                  >
+                    {requestActions?.has_request_scan
+                      ? "Scan Requested"
+                      : "Request Scan"}
+                  </Button>
+                )}
+
                 <Button
                   variant="light"
                   color="red"
                   leftSection={<IconFileShredder size={16} />}
                   onClick={() => setDisposalModalOpen(true)}
                   loading={actionLoading}
-                  disabled={actionLoading}
+                  disabled={
+                    actionLoading ||
+                    loadingRequestActions ||
+                    requestActions?.has_request_disposal
+                  }
                 >
-                  Request Disposal
+                  {requestActions?.has_request_disposal
+                    ? "Disposal Requested"
+                    : "Request Disposal"}
                 </Button>
                 <Button
                   variant="filled"
@@ -540,9 +668,15 @@ export default function MailroomClient() {
                   leftSection={<IconTruckDelivery size={16} />}
                   onClick={openRetrievalModal}
                   loading={actionLoading}
-                  disabled={actionLoading}
+                  disabled={
+                    actionLoading ||
+                    loadingRequestActions ||
+                    requestActions?.has_request_retrieval
+                  }
                 >
-                  Request Retrieval
+                  {requestActions?.has_request_retrieval
+                    ? "Retrieval Requested"
+                    : "Request Retrieval"}
                 </Button>
               </Group>
             </Paper>
@@ -554,22 +688,48 @@ export default function MailroomClient() {
       <Modal
         opened={disposalModalOpen}
         onClose={() => setDisposalModalOpen(false)}
-        title="Request Disposal"
+        title={
+          <Group gap="xs">
+            <IconAlertTriangle size={20} color="var(--mantine-color-red-6)" />
+            <Text fw={600}>Confirm Disposal</Text>
+          </Group>
+        }
         centered
         closeOnClickOutside
       >
-        <Text mb="md">
-          Are you sure you want to request disposal for this item? This action
-          cannot be undone.
-        </Text>
-        <Group justify="flex-end">
-          <Button variant="default" onClick={() => setDisposalModalOpen(false)}>
+        <Stack align="center" py="md">
+          <Box
+            p="lg"
+            bg="red.1"
+            style={{ borderRadius: "50%", color: "var(--mantine-color-red-6)" }}
+          >
+            <IconFileShredder size={40} />
+          </Box>
+          <Text ta="center" size="lg" fw={500}>
+            Are you sure?
+          </Text>
+          <Text ta="center" c="dimmed" size="sm" px="md">
+            You are about to request disposal for{" "}
+            <Text span fw={700} c="dark">
+              {selectedItem?.mail_item_name}
+            </Text>
+            . This action cannot be undone and the physical item will be
+            destroyed.
+          </Text>
+        </Stack>
+        <Group justify="stretch" mt="md">
+          <Button
+            variant="default"
+            onClick={() => setDisposalModalOpen(false)}
+            flex={1}
+          >
             Cancel
           </Button>
           <Button
             color="red"
             onClick={handleRequestDisposal}
             loading={actionLoading}
+            flex={1}
           >
             Confirm Disposal
           </Button>
@@ -580,35 +740,105 @@ export default function MailroomClient() {
       <Modal
         opened={retrievalModalOpen}
         onClose={() => setRetrievalModalOpen(false)}
-        title="Request Retrieval"
+        title={
+          <Group gap="xs">
+            <IconTruckDelivery size={20} color="var(--mantine-color-blue-6)" />
+            <Text fw={600}>Request Retrieval</Text>
+          </Group>
+        }
         size="lg"
         centered
         closeOnClickOutside
       >
-        <Stack>
-          <TextInput
+        <Stack gap="md" py="sm">
+          <Text size="sm" c="dimmed">
+            Please select a delivery address and provide any additional
+            instructions for the courier.
+          </Text>
+
+          <Select
             label="Delivery Address"
-            placeholder="Enter full address"
+            placeholder="Select a saved address"
+            leftSection={<IconMapPin size={16} />}
+            data={addressOptions}
             value={retrievalAddress}
-            onChange={(e) => setRetrievalAddress(e.currentTarget.value)}
+            onChange={(value) => setRetrievalAddress(value || "")}
+            allowDeselect={false}
+            disabled={loadingAddresses}
+            checkIconPosition="right"
+            nothingFoundMessage={
+              userAddresses && userAddresses.length === 0
+                ? "No saved addresses found"
+                : "Loading..."
+            }
           />
 
           <Textarea
-            label="Follow-up Address / Notes"
-            placeholder="Additional instructions or secondary address details"
+            label="Additional Notes"
+            placeholder="E.g., 'Leave at front desk', 'Call upon arrival'"
             value={retrievalNotes}
             onChange={(e) => setRetrievalNotes(e.currentTarget.value)}
-            minRows={2}
+            minRows={3}
+            leftSectionProps={{
+              style: { alignItems: "flex-start", paddingTop: "8px" },
+            }}
           />
 
-          <Group justify="flex-end" mt="md">
+          <Group justify="flex-end" mt="lg">
             <Button
               variant="default"
               onClick={() => setRetrievalModalOpen(false)}
             >
               Cancel
             </Button>
-            <Button onClick={handleRequestRetrieval} loading={actionLoading}>
+            <Button
+              onClick={handleRequestRetrieval}
+              loading={actionLoading}
+              leftSection={<IconTruckDelivery size={16} />}
+            >
+              Submit Request
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+      {/* Scan Modal */}
+      <Modal
+        opened={scanModalOpen}
+        onClose={() => setScanModalOpen(false)}
+        title={
+          <Group gap="xs">
+            <IconScan size={20} color="var(--mantine-color-grape-6)" />
+            <Text fw={600}>Request Scan</Text>
+          </Group>
+        }
+        centered
+        closeOnClickOutside
+      >
+        <Stack gap="md" py="sm">
+          <Text size="sm" c="dimmed">
+            Request a digital scan of the contents of this mail item. You can
+            provide specific instructions below (e.g., &quot;Scan only the first
+            page&quot;).
+          </Text>
+
+          <Textarea
+            label="Scan Instructions (Optional)"
+            placeholder="E.g., 'Scan all pages', 'Color scan preferred'"
+            value={scanInstructions}
+            onChange={(e) => setScanInstructions(e.currentTarget.value)}
+            minRows={3}
+          />
+
+          <Group justify="flex-end" mt="lg">
+            <Button variant="default" onClick={() => setScanModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRequestScan}
+              loading={actionLoading}
+              color="grape"
+              leftSection={<IconScan size={16} />}
+            >
               Submit Request
             </Button>
           </Group>

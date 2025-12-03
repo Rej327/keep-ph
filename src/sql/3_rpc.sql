@@ -595,6 +595,7 @@ BEGIN
       mi.mail_item_received_at,
       mi.mail_item_created_at,
       mi.mail_item_is_read,
+      mi.mail_item_type,
       mis.mail_item_status_value,
       ma.mail_attachment_unopened_scan_file_path,
       ma.mail_attachment_item_scan_file_path,
@@ -626,6 +627,22 @@ AS $$
 BEGIN
   UPDATE mailroom_schema.mail_item_table
   SET mail_item_is_read = FALSE,
+      mail_item_updated_at = NOW()
+  WHERE mail_item_id = input_mail_item_id;
+
+  RETURN TRUE;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Mark mail item as read
+CREATE OR REPLACE FUNCTION mark_mail_item_as_read(input_mail_item_id UUID)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  UPDATE mailroom_schema.mail_item_table
+  SET mail_item_is_read = TRUE,
       mail_item_updated_at = NOW()
   WHERE mail_item_id = input_mail_item_id;
 
@@ -1505,3 +1522,113 @@ BEGIN
   RETURN return_data;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Get User Adress for Revtrieval Request
+CREATE OR REPLACE FUNCTION get_user_address(input_user_id uuid)
+RETURNS JSON
+AS $$
+DECLARE
+    result JSON;
+BEGIN
+    SELECT json_agg(
+        json_build_object(
+            'address_id', ua.user_address_id,
+            'address_value', CONCAT_WS(', ',
+                ua.user_address_line1,
+                ua.user_address_line2,
+                ua.user_address_city,
+                ua.user_address_province,
+                ua.user_address_postal_code,
+                ua.user_address_country
+            ),
+            'address_label', ua.user_address_label,
+            'address_is_default', ua.user_address_is_default
+        ) ORDER BY ua.user_address_is_default DESC, ua.user_address_created_at DESC
+    ) INTO result
+    FROM user_schema.user_address_table ua
+    WHERE ua.user_address_user_id = input_user_id;
+
+    RETURN COALESCE(result, '[]'::json);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Get mail action has requested
+CREATE OR REPLACE FUNCTION get_mail_has_request_action(input_mail_item_id UUID)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  has_retrieval BOOLEAN;
+  has_disposal BOOLEAN;
+  has_scan BOOLEAN;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1
+    FROM request_schema.retrieval_request_table rr
+    WHERE rr.retrieval_request_mail_item_id = input_mail_item_id
+  ) INTO has_retrieval;
+
+  SELECT EXISTS (
+    SELECT 1
+    FROM request_schema.dispose_request_table dr
+    WHERE dr.dispose_request_mail_item_id = input_mail_item_id
+  ) INTO has_disposal;
+
+  SELECT EXISTS (
+    SELECT 1
+    FROM request_schema.scan_request_table sr
+    WHERE sr.scan_request_mail_item_id = input_mail_item_id
+  ) INTO has_scan;
+
+  RETURN json_build_object(
+    'has_request_retrieval', has_retrieval,
+    'has_request_disposal', has_disposal,
+    'has_request_scan', has_scan
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Request mail scan
+CREATE OR REPLACE FUNCTION request_mail_item_scan(
+  input_mail_item_id UUID,
+  input_account_id UUID,
+  input_instructions TEXT DEFAULT NULL
+)
+RETURNS UUID
+SET search_path TO ''
+AS $$
+DECLARE
+  new_request_id UUID;
+BEGIN
+  -- Check if scan request already active
+  IF EXISTS (
+    SELECT 1 FROM request_schema.scan_request_table
+    WHERE scan_request_mail_item_id = input_mail_item_id
+    AND scan_request_status_id IN ('SRS-PENDING', 'SRS-IN_PROGRESS')
+  ) THEN
+    RAISE EXCEPTION 'Scan request already active for this mail item';
+  END IF;
+
+  INSERT INTO request_schema.scan_request_table (
+    scan_request_mail_item_id,
+    scan_request_account_id,
+    scan_request_status_id,
+    scan_request_instructions
+  ) VALUES (
+    input_mail_item_id,
+    input_account_id,
+    'SRS-PENDING',
+    input_instructions
+  )
+  RETURNING scan_request_id INTO new_request_id;
+
+  -- Update mail item status
+  UPDATE mailroom_schema.mail_item_table
+  SET mail_item_status_id = 'MIS-SCANNING',
+      mail_item_updated_at = NOW()
+  WHERE mail_item_id = input_mail_item_id;
+
+  RETURN new_request_id;
+END;
+$$
+LANGUAGE plpgsql;

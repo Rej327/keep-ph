@@ -18,6 +18,9 @@ type ReusableTableProps<T extends RecordType> = {
   columns: DataTableColumn<T>[];
   isRecordLoading?: boolean;
   pageSize?: number;
+  rowStyle?: (record: T) => React.CSSProperties;
+  selectedRecordId?: string | number;
+  selectedRowStyle?: React.CSSProperties;
 };
 
 export function CustomDataTable<T extends RecordType>({
@@ -26,6 +29,9 @@ export function CustomDataTable<T extends RecordType>({
   columns,
   isRecordLoading = false,
   pageSize = 10,
+  rowStyle,
+  selectedRecordId,
+  selectedRowStyle,
 }: ReusableTableProps<T>) {
   const [page, setPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(pageSize);
@@ -104,6 +110,25 @@ export function CustomDataTable<T extends RecordType>({
     },
   }));
 
+  const combinedRowStyle = (record: T): React.CSSProperties => {
+    let style: React.CSSProperties = {};
+    if (rowStyle) {
+      style = { ...style, ...rowStyle(record) };
+    }
+    if (
+      selectedRecordId &&
+      record[idAccessor as keyof T] === selectedRecordId
+    ) {
+      style = {
+        ...style,
+        ...(selectedRowStyle || {
+          backgroundColor: "var(--mantine-color-gray-1)",
+        }),
+      };
+    }
+    return style;
+  };
+
   return (
     <Paper withBorder radius="md" p="md">
       <DataTable
@@ -125,6 +150,7 @@ export function CustomDataTable<T extends RecordType>({
         paginationActiveBackgroundColor="#1966D1"
         sortStatus={sortStatus}
         onSortStatusChange={handleSortStatusChange}
+        rowStyle={combinedRowStyle}
       />
     </Paper>
   );

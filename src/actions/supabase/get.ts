@@ -240,9 +240,13 @@ export type MailItem = {
   mail_item_created_at: string;
   mail_item_is_read: boolean;
   mail_item_status_value: string;
+  mail_item_type: string;
   mail_attachment_unopened_scan_file_path: string | null;
   mail_attachment_item_scan_file_path: string | null;
   mailbox_label: string | null;
+  has_retrieval_request: boolean;
+  has_disposal_request: boolean;
+  has_scan_request: boolean;
 };
 
 export const getMailItemsByUser = async (
@@ -264,7 +268,7 @@ export const getMailItemsByUser = async (
   if (error) {
     throw new Error(error.message);
   }
-
+  console.log("Customer Mails: ", data);
   return data as MailItem[];
 };
 
@@ -500,4 +504,46 @@ export const getUserPhysicalAddresses = async (userId: string) => {
   }
 
   return (data || []) as UserPhysicalAddress[];
+};
+
+export const getUserAddresses = async (userId: string) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("get_user_address", {
+    input_user_id: userId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as Array<{
+    address_id: string;
+    address_value: string;
+    address_label: string | null;
+    address_is_default: boolean;
+  }>;
+};
+
+export type MailHasRequestAction = {
+  has_request_retrieval: boolean;
+  has_request_disposal: boolean;
+  has_request_scan: boolean;
+};
+
+export const getMailHasRequestAction = async (mailItemId: string) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("get_mail_has_request_action", {
+    input_mail_item_id: mailItemId,
+  });
+
+  if (error) {
+    console.error("Error fetching mail has request action:", error);
+    throw new Error(error.message);
+  }
+
+  console.log("Mail Has Request Action: ", data);
+
+  return data as MailHasRequestAction;
 };
