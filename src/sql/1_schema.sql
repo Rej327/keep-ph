@@ -190,6 +190,7 @@ CREATE TABLE mailroom_schema.mail_item_table (
     mail_item_status_id TEXT NOT NULL, -- FK to status_schema.mail_item_status_table.mail_item_status_id
     mail_item_is_read BOOLEAN DEFAULT FALSE,
     mail_item_is_deleted BOOLEAN DEFAULT FALSE,
+    mail_item_type TEXT NOT NULL DEFAULT 'MAIL', -- TYPE: MAIL, PACKAGE
     mail_item_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     mail_item_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

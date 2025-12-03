@@ -431,6 +431,7 @@ DECLARE
   input_status_id TEXT := COALESCE((input_data->>'status_id')::TEXT, 'MIS-SCANNED');
   input_name TEXT := (input_data->>'name')::TEXT;
   input_description TEXT := (input_data->>'description')::TEXT;
+  input_item_type TEXT := COALESCE((input_data->>'item_type')::TEXT, 'mail');
 
   -- Function variables
   var_current_space SMALLINT;
@@ -440,9 +441,15 @@ DECLARE
   return_data JSON;
 BEGIN
   -- 1. Check current space remaining
-  SELECT mailbox_mail_remaining_space INTO var_current_space
-  FROM mailroom_schema.mailbox_table
-  WHERE mailbox_id = input_mailbox_id;
+  IF input_item_type = 'package' THEN
+    SELECT mailbox_package_remaining_space INTO var_current_space
+    FROM mailroom_schema.mailbox_table
+    WHERE mailbox_id = input_mailbox_id;
+  ELSE
+    SELECT mailbox_mail_remaining_space INTO var_current_space
+    FROM mailroom_schema.mailbox_table
+    WHERE mailbox_id = input_mailbox_id;
+  END IF;
 
   IF var_current_space IS NULL THEN
     RAISE EXCEPTION 'Mailbox not found';
@@ -453,10 +460,17 @@ BEGIN
   END IF;
 
   -- 2. Decrement space
-  UPDATE mailroom_schema.mailbox_table
-  SET mailbox_mail_remaining_space= mailbox_mail_remaining_space - 1,
-      mailbox_updated_at = NOW()
-  WHERE mailbox_id = input_mailbox_id;
+  IF input_item_type = 'package' THEN
+    UPDATE mailroom_schema.mailbox_table
+    SET mailbox_package_remaining_space = mailbox_package_remaining_space - 1,
+        mailbox_updated_at = NOW()
+    WHERE mailbox_id = input_mailbox_id;
+  ELSE
+    UPDATE mailroom_schema.mailbox_table
+    SET mailbox_mail_remaining_space = mailbox_mail_remaining_space - 1,
+        mailbox_updated_at = NOW()
+    WHERE mailbox_id = input_mailbox_id;
+  END IF;
 
   -- 3. Insert mail item
   INSERT INTO mailroom_schema.mail_item_table (
@@ -465,14 +479,16 @@ BEGIN
     mail_item_received_at,
     mail_item_status_id,
     mail_item_name,
-    mail_item_description
+    mail_item_description,
+    mail_item_type
   ) VALUES (
     input_mailbox_id,
     input_sender,
     input_received_at,
     input_status_id,
     input_name,
-    input_description
+    input_description,
+    UPPER(input_item_type)
   )
   RETURNING mail_item_id INTO var_new_mail_item_id;
 

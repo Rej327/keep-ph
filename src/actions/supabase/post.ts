@@ -122,6 +122,7 @@ export type CreateMailItemParams = {
   imagePath: string;
   receivedAt: Date;
   statusId?: string;
+  itemType: "mail" | "package";
 };
 
 export const createMailItem = async (params: CreateMailItemParams) => {
@@ -139,6 +140,7 @@ export const createMailItem = async (params: CreateMailItemParams) => {
           status_id: "MIS-RECEIVED",
           name: params.itemName,
           description: params.description,
+          item_type: params.itemType,
         },
       }
     );

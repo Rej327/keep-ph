@@ -39,7 +39,8 @@ import { uploadAttachmentfile } from "@/actions/supabase/fileupload";
 type Mailbox = {
   mailbox_id: string;
   mailbox_label: string | null;
-  mailbox_space_remaining: number;
+  mailbox_mail_remaining_space: number;
+  mailbox_package_remaining_space: number;
 };
 
 export default function UploadMailClient() {
@@ -51,6 +52,7 @@ export default function UploadMailClient() {
   const [sendBy, setSendBy] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [uploadType, setUploadType] = useState<"mail" | "package">("mail");
   const [uploading, setUploading] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,20 +73,27 @@ export default function UploadMailClient() {
   const customerOptions =
     customers?.map((c) => ({
       value: c.account_id,
-      label: `${c.account_area_code} - ${c.account_number} — ${c.user_first_name} ${c.user_last_name}`,
+      label: `${c.account_address_key} - ${c.account_number} — ${c.user_first_name} ${c.user_last_name}`,
     })) || [];
 
   const mailboxOptions =
-    mailboxes?.map((m) => ({
-      value: m.mailbox_id,
-      label:
-        m.mailbox_space_remaining === 0
-          ? `${m.mailbox_label} - Full`
-          : m.mailbox_label || `Mailbox ${m.mailbox_id.substring(0, 8)}`,
-      description: `${m.mailbox_label} - Remaining ${m.mailbox_space_remaining}`,
-      remaining: m.mailbox_space_remaining,
-      disabled: m.mailbox_space_remaining === 0,
-    })) || [];
+    mailboxes?.map((m) => {
+      const remainingSpace =
+        uploadType === "mail"
+          ? m.mailbox_mail_remaining_space
+          : m.mailbox_package_remaining_space;
+
+      return {
+        value: m.mailbox_id,
+        label:
+          remainingSpace === 0
+            ? `${m.mailbox_label} - Full`
+            : m.mailbox_label || `Mailbox ${m.mailbox_id.substring(0, 8)}`,
+        description: `${m.mailbox_label} - Remaining ${remainingSpace}`,
+        remaining: remainingSpace,
+        disabled: remainingSpace === 0,
+      };
+    }) || [];
 
   const handleNextStep = () => {
     const newErrors: Record<string, string> = {};
@@ -137,6 +146,7 @@ export default function UploadMailClient() {
         itemName: itemName,
         imagePath: uploadData.path,
         receivedAt: sendDate,
+        itemType: uploadType,
       });
 
       if (dbError) throw dbError;
@@ -168,6 +178,7 @@ export default function UploadMailClient() {
     setDescription("");
     setFile(null);
     setSuccessModalOpen(false);
+    setUploadType("mail");
   };
 
   return (
@@ -230,28 +241,48 @@ export default function UploadMailClient() {
                     disabled={loadingCustomers}
                     error={errors.selectedCustomer}
                   />
-                  <Select
-                    label={
-                      selectedMailbox && selectedCustomer
-                        ? `Space Remaining: ${
-                            mailboxOptions.find(
-                              (m) => m.value === selectedMailbox
-                            )?.remaining
-                          }`
-                        : "Mailbox"
-                    }
-                    required
-                    placeholder="Select mailbox"
-                    data={mailboxOptions}
-                    value={selectedMailbox}
-                    onChange={(value) => {
-                      setSelectedMailbox(value);
-                      setErrors((prev) => ({ ...prev, selectedMailbox: "" }));
-                    }}
-                    disabled={!selectedCustomer || loadingMailboxes}
-                    nothingFoundMessage="No active mailboxes found"
-                    error={errors.selectedMailbox}
-                  />
+                  <Group gap="xs" align="flex-start">
+                    <Select
+                      label="Type"
+                      placeholder="Type"
+                      required
+                      data={[
+                        { value: "mail", label: "Mail" },
+                        { value: "package", label: "Package" },
+                      ]}
+                      value={uploadType}
+                      allowDeselect={false}
+                      w={110}
+                      onChange={(value) => {
+                        if (value) setUploadType(value as "mail" | "package");
+                        setSelectedMailbox(null);
+                      }}
+                      disabled={!selectedCustomer || loadingMailboxes}
+                    />
+                    <Select
+                      style={{ flex: 1 }}
+                      label={
+                        selectedMailbox && selectedCustomer
+                          ? `Space Remaining: ${
+                              mailboxOptions.find(
+                                (m) => m.value === selectedMailbox
+                              )?.remaining
+                            }`
+                          : "Mailbox"
+                      }
+                      required
+                      placeholder="Select mailbox"
+                      data={mailboxOptions}
+                      value={selectedMailbox}
+                      onChange={(value) => {
+                        setSelectedMailbox(value);
+                        setErrors((prev) => ({ ...prev, selectedMailbox: "" }));
+                      }}
+                      disabled={!selectedCustomer || loadingMailboxes}
+                      nothingFoundMessage="No active mailboxes found"
+                      error={errors.selectedMailbox}
+                    />
+                  </Group>
                 </Group>
 
                 <Group grow align="flex-start">
@@ -264,6 +295,7 @@ export default function UploadMailClient() {
                       setErrors((prev) => ({ ...prev, itemName: "" }));
                     }}
                     error={errors.itemName}
+                    disabled={!selectedCustomer || loadingMailboxes}
                   />
                   <TextInput
                     label="Description"
@@ -274,6 +306,7 @@ export default function UploadMailClient() {
                       setErrors((prev) => ({ ...prev, description: "" }));
                     }}
                     error={errors.description}
+                    disabled={!selectedCustomer || loadingMailboxes}
                   />
                 </Group>
                 <Group grow align="flex-start">
@@ -286,6 +319,7 @@ export default function UploadMailClient() {
                       setErrors((prev) => ({ ...prev, sendBy: "" }));
                     }}
                     error={errors.sendBy}
+                    disabled={!selectedCustomer || loadingMailboxes}
                   />
                   <DateInput
                     label="Received Date"
@@ -298,6 +332,7 @@ export default function UploadMailClient() {
                     }}
                     error={errors.sendDate}
                     maxDate={new Date()}
+                    disabled={!selectedCustomer || loadingMailboxes}
                   />
                 </Group>
 
