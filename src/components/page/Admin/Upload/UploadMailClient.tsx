@@ -87,7 +87,7 @@ export default function UploadMailClient() {
         value: m.mailbox_id,
         label:
           remainingSpace === 0
-            ? `${m.mailbox_label} - Full`
+            ? `${m.mailbox_label} - Not Available`
             : m.mailbox_label || `Mailbox ${m.mailbox_id.substring(0, 8)}`,
         description: `${m.mailbox_label} - Remaining ${remainingSpace}`,
         remaining: remainingSpace,
