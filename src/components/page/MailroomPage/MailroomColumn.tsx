@@ -33,9 +33,13 @@ export default function MailroomColumn({
   //   column.mail_remaining !== undefined ? column.mail_remaining : 0;
   // const packageRemaining =
   //   column.package_remaining !== undefined ? column.package_remaining : 0;
-  const fontWeight = mailCount === mailLimit ? "bold" : "normal";
-  const fontColor = mailCount === mailLimit ? "red" : "dimmed";
-  const isFull = mailCount === mailLimit ? "Full" : "";
+  const mailFontWeight = mailCount === mailLimit ? "bold" : "normal";
+  const mailFontColor = mailCount === mailLimit ? "red" : "dimmed";
+  const mailIsFull = mailCount === mailLimit ? "Full" : "";
+
+  const packageFontWeight = packageCount === packageLimit ? "bold" : "normal";
+  const packageFontColor = packageCount === packageLimit ? "red" : "dimmed";
+  const packageIsFull = packageCount === packageLimit ? "Full" : "";
 
   return (
     <Paper
@@ -53,15 +57,15 @@ export default function MailroomColumn({
         <Group mb="md" gap="lg">
           <Group gap={4}>
             <IconMail size={16} color="gray" />
-            <Text size="sm" c={fontColor} fw={fontWeight}>
-              {mailCount}/{mailLimit} {isFull}
+            <Text size="sm" c={mailFontColor} fw={mailFontWeight}>
+              {mailCount}/{mailLimit} {mailIsFull}
             </Text>
           </Group>
           {userDetails.account.account_type_sort_order >= 3 && (
             <Group gap={4}>
               <IconPackage size={16} color="gray" />
-              <Text size="sm" c="dimmed">
-                {packageCount}/{packageLimit}
+              <Text size="sm" c={packageFontColor} fw={packageFontWeight}>
+                {packageCount}/{packageLimit} {packageIsFull}
                 {/* ({packageRemaining} free) */}
               </Text>
             </Group>

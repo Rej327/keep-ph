@@ -123,6 +123,37 @@ export default function MailroomBoard() {
     const item = data.items[selectedMoveItemId];
     const isMail = item.mail_item_type === "MAIL";
 
+    // Check if the target column would exceed its limits
+    const targetItems = endColumn.itemIds.map((id) => data.items[id]);
+    const mailCountInTarget = targetItems.filter(
+      (i) => i.mail_item_type === "MAIL"
+    ).length;
+    const packageCountInTarget = targetItems.filter(
+      (i) => i.mail_item_type === "PACKAGE"
+    ).length;
+    const mailLimit = endColumn.account_max_quantity_storage;
+    const packageLimit = endColumn.account_max_parcel_handling;
+
+    if (isMail && mailCountInTarget + 1 > mailLimit) {
+      notifications.show({
+        message: "Cannot move: Target mailbox is full for mail items.",
+        color: "red",
+      });
+      setMoveModalOpen(false);
+      setSelectedMoveItemId(null);
+      return;
+    }
+
+    if (!isMail && packageCountInTarget + 1 > packageLimit) {
+      notifications.show({
+        message: "Cannot move: Target mailbox is full for packages.",
+        color: "red",
+      });
+      setMoveModalOpen(false);
+      setSelectedMoveItemId(null);
+      return;
+    }
+
     const newStartItemIds = Array.from(startColumn.itemIds).filter(
       (id) => id !== selectedMoveItemId
     );
@@ -262,6 +293,33 @@ export default function MailroomBoard() {
     // Moving from one column to another
     const item = data.items[draggableId];
     const isMail = item.mail_item_type === "MAIL";
+
+    // Check if the target column would exceed its limits
+    const targetItems = endColumn.itemIds.map((id) => data.items[id]);
+    const mailCountInTarget = targetItems.filter(
+      (i) => i.mail_item_type === "MAIL"
+    ).length;
+    const packageCountInTarget = targetItems.filter(
+      (i) => i.mail_item_type === "PACKAGE"
+    ).length;
+    const mailLimit = endColumn.account_max_quantity_storage;
+    const packageLimit = endColumn.account_max_parcel_handling;
+
+    if (isMail && mailCountInTarget + 1 > mailLimit) {
+      notifications.show({
+        message: "Cannot move: Target mailbox is full for mail items.",
+        color: "red",
+      });
+      return;
+    }
+
+    if (!isMail && packageCountInTarget + 1 > packageLimit) {
+      notifications.show({
+        message: "Cannot move: Target mailbox is full for packages.",
+        color: "red",
+      });
+      return;
+    }
 
     const startItemIds = Array.from(startColumn.itemIds);
     startItemIds.splice(source.index, 1);
