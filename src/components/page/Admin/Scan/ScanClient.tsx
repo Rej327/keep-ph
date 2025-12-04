@@ -44,6 +44,8 @@ import {
 } from "@/actions/supabase/update";
 import { getStatusFormat, replaceUnderscore } from "@/utils/function";
 
+import { createNotification } from "@/actions/supabase/notification";
+
 const PAGE_SIZE = 10;
 
 // const STATUS_OPTIONS = [
@@ -139,6 +141,19 @@ export default function ScanClient() {
 
       // Store only the relative path, consistent with other uploads
       await processScanRequest(selectedRequest.scan_request_id, filePath);
+
+      // Notify Customer
+      try {
+        await createNotification({
+          userId: selectedRequest.account_id, // This is actually account_id from the view/join
+          title: "Scan Request Completed",
+          message: `Your scan request for ${selectedRequest.mail_item_sender} has been processed.`,
+          itemType: "NIT-MAIL",
+          itemId: selectedRequest.mail_item_id,
+        });
+      } catch (notifError) {
+        console.error("Failed to send notification:", notifError);
+      }
 
       notifications.show({
         message: "Request processed successfully",

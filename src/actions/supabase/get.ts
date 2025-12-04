@@ -337,6 +337,7 @@ export type DisposalRequestItem = {
   user_id: string;
   user_full_name: string;
   user_email: string;
+  account_id: string;
   account_address_key: string;
   account_account_number: string;
   account_type: string;
@@ -569,8 +570,10 @@ export type RetrievalRequestItem = {
   retrieval_request_label_url: string | null;
   retrieval_request_notes: string | null;
   mail_item_sender: string | null;
+  mail_item_id: string;
   user_full_name: string;
   user_email: string;
+  account_id: string;
   account_address_key: string;
   account_number: string;
   account_type_value: string;
@@ -613,8 +616,10 @@ export type ScanRequestItem = {
   scan_request_instructions: string | null;
   scan_request_url: string | null;
   mail_item_sender: string | null;
+  mail_item_id: string;
   user_full_name: string;
   user_email: string;
+  account_id: string;
   account_address_key: string;
   account_number: string;
   account_type_value: string;

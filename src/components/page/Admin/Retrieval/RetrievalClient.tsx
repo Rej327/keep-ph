@@ -36,6 +36,7 @@ import {
   IconTruck,
   IconBarcode,
   IconFileCheck,
+  IconBox,
 } from "@tabler/icons-react";
 import useSWR, { mutate } from "swr";
 import { notifications } from "@mantine/notifications";
@@ -50,22 +51,16 @@ import {
   updateRetrievalRequestStatus,
 } from "@/actions/supabase/update";
 import { getStatusFormat, replaceUnderscore } from "@/utils/function";
+import { createNotification } from "@/actions/supabase/notification";
 
 const PAGE_SIZE = 10;
 
 const STATUS_OPTIONS = [
   { value: "RRS-IN_TRANSIT", label: "In Transit" },
   { value: "RRS-DELIVERED", label: "Delivered" },
-  { value: "RRS-ARRIVED", label: "Arrived" },
 ];
 
-const rawStatusOption = [
-  "All Statuses",
-  "Pending",
-  "In_Transit",
-  "Delivered",
-  "Arrived",
-];
+const rawStatusOption = ["All Statuses", "Pending", "In_Transit", "Delivered"];
 
 const FILTER_STATUS_OPTIONS = rawStatusOption.map((opt) => ({
   value: opt,
@@ -167,6 +162,20 @@ export default function RetrievalClient() {
         publicUrlData.publicUrl
       );
 
+      // Notify Customer
+      try {
+        await createNotification({
+          userId: selectedRequest.account_id,
+          title: "Retrieval Request Processed",
+          message: `Your retrieval request for ${selectedRequest.mail_item_sender} has been processed. Courier: ${courier}, Tracking: ${trackingNumber}`,
+          itemType: "NIT-MAIL",
+          itemId: selectedRequest.mail_item_id,
+          additionalData: { courier, trackingNumber },
+        });
+      } catch (notifError) {
+        console.error("Failed to send notification:", notifError);
+      }
+
       notifications.show({
         message: "Request processed successfully",
         color: "green",
@@ -193,6 +202,30 @@ export default function RetrievalClient() {
     setIsUpdatingStatus(requestId);
     try {
       await updateRetrievalRequestStatus(requestId, newStatusId);
+
+      // Notify Customer
+      try {
+        const request = requests?.find(
+          (r) => r.retrieval_request_id === requestId
+        );
+        if (request) {
+          let statusLabel = "updated";
+          if (newStatusId === "RRS-IN_TRANSIT") statusLabel = "is in transit";
+          if (newStatusId === "RRS-DELIVERED")
+            statusLabel = "has been delivered";
+
+          await createNotification({
+            userId: request.account_id,
+            title: "Retrieval Status Updated",
+            message: `The status of your retrieval request for ${request.mail_item_sender} has been updated: ${statusLabel}.`,
+            itemType: "NIT-MAIL",
+            itemId: request.mail_item_id,
+          });
+        }
+      } catch (notifError) {
+        console.error("Failed to send notification:", notifError);
+      }
+
       notifications.show({
         message: "Status updated successfully",
         color: "green",
@@ -305,10 +338,19 @@ export default function RetrievalClient() {
                   value &&
                   handleStatusUpdate(record.retrieval_request_id, value)
                 }
-                disabled={isUpdatingStatus === record.retrieval_request_id}
+                disabled={
+                  isUpdatingStatus === record.retrieval_request_id ||
+                  record.retrieval_request_status_value === "delivered"
+                }
                 allowDeselect={false}
-                w={140}
-                leftSection={<IconTruckDelivery size={14} />}
+                w={200}
+                leftSection={
+                  record.retrieval_request_status_value === "delivered" ? (
+                    <IconBox size={14} />
+                  ) : (
+                    <IconTruckDelivery size={14} />
+                  )
+                }
                 styles={{ input: { fontSize: "12px" } }}
               />
             )}
