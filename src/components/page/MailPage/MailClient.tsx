@@ -18,9 +18,7 @@ import {
   Box,
   Loader,
   Center,
-  Menu,
   Tooltip,
-  SegmentedControl,
   Modal,
   Textarea,
   Select,
@@ -29,9 +27,6 @@ import {
 import { useMediaQuery } from "@mantine/hooks";
 import {
   IconSearch,
-  IconFilter,
-  IconSortDescending,
-  IconSortAscending,
   IconMail,
   IconX,
   IconTruckDelivery,
@@ -44,6 +39,9 @@ import {
   IconDownload,
   IconEye,
   IconFileText,
+  IconInbox,
+  IconBox,
+  IconCheckbox,
 } from "@tabler/icons-react";
 import useSWR from "swr";
 import useAuthStore from "@/zustand/stores/useAuthStore";
@@ -66,14 +64,15 @@ import {
 import { notifications } from "@mantine/notifications";
 import { CustomDataTable } from "@/components/common/CustomDataTable";
 import { DataTableColumn } from "mantine-datatable";
-import { getStatusFormat } from "@/utils/function";
+import { getStatusFormat, replaceUnderscore } from "@/utils/function";
 
 export default function MailClient() {
   const user = useAuthStore((state) => state.user);
   const [selectedItem, setSelectedItem] = useState<MailItem | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string | null>("all");
+  const [typeFilter, setTypeFilter] = useState<string | null>("all");
+  const [mailboxFilter, setMailboxFilter] = useState<string | null>("all");
   const [viewContentMode, setViewContentMode] = useState<"unopened" | "opened">(
     "unopened"
   );
@@ -140,6 +139,27 @@ export default function MailClient() {
       : null,
     () => getMailItemsByUser(user!.id, userDetails!.account.account_number)
   );
+
+  const mailboxOptions = useMemo(() => {
+    if (!mailItems) return [{ value: "all", label: "All" }];
+    const labels = Array.from(
+      new Set(
+        mailItems
+          .map((item) => item.mailbox_label)
+          .filter((label): label is string => !!label)
+      )
+    );
+    return [
+      { value: "all", label: "All" },
+      ...labels.map((label) => ({ value: label, label })),
+    ];
+  }, [mailItems]);
+
+  const typeOptions = [
+    { value: "all", label: "All" },
+    { value: "mail", label: "Mail" },
+    { value: "package", label: "Package" },
+  ];
 
   // Fetch Request Actions for selected item
   console.log("Selected Item ID:", selectedItem?.mail_item_id);
@@ -367,8 +387,9 @@ export default function MailClient() {
         ),
       },
       {
-        accessor: "mail_item_name",
+        accessor: "mail_item_received_at",
         title: "Mail Details",
+        sortable: true,
         render: (record) => (
           <Box
             onClick={
@@ -418,13 +439,17 @@ export default function MailClient() {
               <Text fw={600} truncate>
                 {record.mail_item_name || "Unknown Name"}
               </Text>
-              <Badge
-                size="sm"
-                variant="light"
-                color={getStatusFormat(record.mail_item_status_value)}
-              >
-                {record.mail_item_status_value}
-              </Badge>
+              <Group gap="xs">
+                <Badge mt="xs" variant="default">
+                  {record.mail_item_type}
+                </Badge>
+                <Badge
+                  mt="xs"
+                  color={getStatusFormat(record.mail_item_status_value)}
+                >
+                  {replaceUnderscore(record.mail_item_status_value)}
+                </Badge>
+              </Group>
             </Group>
             <Group justify="space-between" mt={4}>
               <Text size="xs" c="dimmed">
@@ -443,29 +468,39 @@ export default function MailClient() {
 
   const filteredItems = useMemo(() => {
     if (!mailItems) return [];
-    return mailItems
-      .filter((item) => {
-        const matchesSearch =
-          (item.mail_item_sender?.toLowerCase() || "").includes(
-            searchTerm.toLowerCase()
-          ) ||
-          (item.mailbox_label?.toLowerCase() || "").includes(
-            searchTerm.toLowerCase()
-          );
-        const matchesStatus = statusFilter
+    return mailItems.filter((item) => {
+      const matchesSearch =
+        (item.mail_item_sender?.toLowerCase() || "").includes(
+          searchTerm.toLowerCase()
+        ) ||
+        (item.mailbox_label?.toLowerCase() || "").includes(
+          searchTerm.toLowerCase()
+        );
+      const matchesStatus =
+        statusFilter && statusFilter !== "all"
           ? item.mail_item_status_value === statusFilter
           : true;
-        return matchesSearch && matchesStatus;
-      })
-      .sort((a, b) => {
-        const dateA = new Date(a.mail_item_received_at).getTime();
-        const dateB = new Date(b.mail_item_received_at).getTime();
-        return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
-      });
-  }, [mailItems, searchTerm, statusFilter, sortOrder]);
+      const matchesType =
+        typeFilter && typeFilter !== "all"
+          ? item.mail_item_type?.toLowerCase() === typeFilter.toLowerCase()
+          : true;
+      const matchesMailbox =
+        mailboxFilter && mailboxFilter !== "all"
+          ? item.mailbox_label === mailboxFilter
+          : true;
+      return matchesSearch && matchesStatus && matchesType && matchesMailbox;
+    });
+  }, [mailItems, searchTerm, statusFilter, typeFilter, mailboxFilter]);
 
   const handleRefresh = () => {
     mutate();
+  };
+
+  const handleResetFilters = () => {
+    setStatusFilter("all");
+    setTypeFilter("all");
+    setMailboxFilter("all");
+    setSearchTerm("");
   };
 
   const isMobile = useMediaQuery("(max-width: 48em)");
@@ -484,12 +519,17 @@ export default function MailClient() {
             Received on{" "}
             {new Date(selectedItem.mail_item_received_at).toLocaleDateString()}
           </Text>
-          <Badge
-            mt="xs"
-            color={getStatusFormat(selectedItem.mail_item_status_value)}
-          >
-            {selectedItem.mail_item_status_value}
-          </Badge>
+          <Group>
+            <Badge mt="xs" variant="default">
+              {selectedItem.mail_item_type}
+            </Badge>
+            <Badge
+              mt="xs"
+              color={getStatusFormat(selectedItem.mail_item_status_value)}
+            >
+              {replaceUnderscore(selectedItem.mail_item_status_value)}
+            </Badge>
+          </Group>
         </Box>
         <Group>
           <Tooltip label="Close">
@@ -505,27 +545,6 @@ export default function MailClient() {
       </Group>
 
       <Divider my="md" />
-
-      {/* Image Preview Switch */}
-      {selectedItem.mail_item_type === "MAIL" && (
-        <Group justify="center" mb="md">
-          <SegmentedControl
-            value={viewContentMode}
-            onChange={(value) =>
-              setViewContentMode(value as "unopened" | "opened")
-            }
-            data={[
-              { label: "Unopened Scan", value: "unopened" },
-              {
-                label: "Opened Content",
-                value: "opened",
-                disabled: !selectedItem.mail_attachment_item_scan_file_path,
-              },
-            ]}
-            size="md"
-          />
-        </Group>
-      )}
 
       {/* Image Preview */}
       <Box
@@ -596,7 +615,8 @@ export default function MailClient() {
         </Button>
 
         {/* Scan Button Logic */}
-        {selectedItem.mail_item_type === "MAIL" && (
+
+        {selectedItem.mail_item_type === "MAIL" ? (
           <>
             {selectedItem.mail_attachment_item_scan_file_path ? (
               <Button
@@ -627,7 +647,7 @@ export default function MailClient() {
               </Button>
             )}
           </>
-        )}
+        ) : null}
 
         <Button
           variant="default"
@@ -716,46 +736,53 @@ export default function MailClient() {
             {/* Filters */}
             <Group mb="md" justify="space-between">
               <Group>
-                <Menu shadow="md" width={200}>
-                  <Menu.Target>
-                    <Button
-                      variant="default"
-                      leftSection={<IconFilter size={16} />}
-                    >
-                      Filter
-                    </Button>
-                  </Menu.Target>
-                  <Menu.Dropdown>
-                    <Menu.Label>Status</Menu.Label>
-                    <Menu.Item onClick={() => setStatusFilter(null)}>
-                      All
-                    </Menu.Item>
-                    <Menu.Item onClick={() => setStatusFilter("received")}>
-                      New / Received
-                    </Menu.Item>
-                    <Menu.Item onClick={() => setStatusFilter("archived")}>
-                      Archived
-                    </Menu.Item>
-                    <Menu.Item onClick={() => setStatusFilter("sorted")}>
-                      Sorted
-                    </Menu.Item>
-                  </Menu.Dropdown>
-                </Menu>
-
+                <Select
+                  placeholder="Status"
+                  leftSection={<IconCheckbox size={16} />}
+                  data={[
+                    { value: "all", label: "All" },
+                    { value: "received", label: "Received" },
+                    { value: "archived", label: "Archived" },
+                    { value: "scanned", label: "Scanned" },
+                    { value: "scanning", label: "Scanning" },
+                    { value: "retrieval", label: "Retrieval" },
+                    { value: "retrieved", label: "Retrieved" },
+                    { value: "transit", label: "In Transit" },
+                    { value: "disposal", label: "Disposal" },
+                    { value: "disposed", label: "Disposed" },
+                  ]}
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  allowDeselect={false}
+                  w={180}
+                  checkIconPosition="right"
+                />
+                <Select
+                  placeholder="Type"
+                  leftSection={<IconBox size={16} />}
+                  data={typeOptions}
+                  value={typeFilter}
+                  onChange={setTypeFilter}
+                  allowDeselect={false}
+                  w={150}
+                  checkIconPosition="right"
+                />
+                <Select
+                  placeholder="Mailbox"
+                  leftSection={<IconInbox size={16} />}
+                  data={mailboxOptions}
+                  value={mailboxFilter}
+                  onChange={setMailboxFilter}
+                  allowDeselect={false}
+                  w={150}
+                  checkIconPosition="right"
+                />
                 <Button
                   variant="default"
-                  leftSection={
-                    sortOrder === "desc" ? (
-                      <IconSortDescending size={16} />
-                    ) : (
-                      <IconSortAscending size={16} />
-                    )
-                  }
-                  onClick={() =>
-                    setSortOrder(sortOrder === "desc" ? "asc" : "desc")
-                  }
+                  leftSection={<IconRefresh size={16} />}
+                  onClick={handleResetFilters}
                 >
-                  Sort
+                  Reset
                 </Button>
               </Group>
             </Group>
@@ -776,6 +803,10 @@ export default function MailClient() {
               columns={renderValue}
               pageSize={10}
               selectedRecordId={selectedItem?.mail_item_id}
+              initialSortStatus={{
+                columnAccessor: "mail_item_received_at",
+                direction: "desc",
+              }}
             />
           </Paper>
         </Grid.Col>
@@ -934,7 +965,8 @@ export default function MailClient() {
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
-              minHeight: 400,
+              minHeight: 300,
+              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
             }}
           >
             {selectedItem?.mail_attachment_item_scan_file_path && (
@@ -942,7 +974,7 @@ export default function MailClient() {
                 src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/KEEP-PH-ATTACHMENTS/${selectedItem.mail_attachment_item_scan_file_path}`}
                 alt="Scanned Document"
                 fit="contain"
-                style={{ maxHeight: 500 }}
+                style={{ maxHeight: 250 }}
               />
             )}
           </Box>
