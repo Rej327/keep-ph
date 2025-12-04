@@ -10,7 +10,7 @@ import {
   TextInput,
   Select,
   Button,
-  Pagination,
+  // Pagination,
   Box,
 } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
@@ -23,14 +23,14 @@ import { updateDisposalRequestStatus } from "@/actions/supabase/update";
 import { notifications } from "@mantine/notifications";
 import { CustomDataTable } from "@/components/common/CustomDataTable";
 
-const PAGE_SIZE = 10;
+// const PAGE_SIZE = 10;
 
 export default function DisposalClient() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(
     "All Statuses"
   );
-  const [page, setPage] = useState(1);
+  // const [page, setPage] = useState(1);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   const { data: requests, isLoading } = useSWR(
@@ -68,10 +68,10 @@ export default function DisposalClient() {
   };
 
   const filteredRequests = requests || [];
-  const paginatedRequests = filteredRequests.slice(
-    (page - 1) * PAGE_SIZE,
-    page * PAGE_SIZE
-  );
+  // const paginatedRequests = filteredRequests.slice(
+  //   (page - 1) * PAGE_SIZE,
+  //   page * PAGE_SIZE
+  // );
 
   const columns = [
     {
@@ -157,13 +157,13 @@ export default function DisposalClient() {
 
         <CustomDataTable
           idAccessor="dispose_request_id"
-          records={paginatedRequests}
+          records={filteredRequests}
           columns={columns}
           isRecordLoading={isLoading}
           pageSize={10}
         />
 
-        <Group justify="space-between">
+        {/* <Group justify="space-between">
           <Text size="sm" c="dimmed">
             Showing {(page - 1) * PAGE_SIZE + 1} to{" "}
             {Math.min(page * PAGE_SIZE, filteredRequests.length)} of{" "}
@@ -174,7 +174,7 @@ export default function DisposalClient() {
             value={page}
             onChange={setPage}
           />
-        </Group>
+        </Group> */}
       </Stack>
     </Container>
   );

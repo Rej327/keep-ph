@@ -10,7 +10,6 @@ import {
   TextInput,
   Select,
   Button,
-  Pagination,
   Box,
   Modal,
   FileInput,
@@ -71,7 +70,7 @@ export default function ScanClient() {
   const [statusFilter, setStatusFilter] = useState<string | null>(
     "All Statuses"
   );
-  const [page, setPage] = useState(1);
+  // const [page, setPage] = useState(1);
 
   const [selectedRequest, setSelectedRequest] =
     useState<ScanRequestItem | null>(null);
@@ -87,7 +86,7 @@ export default function ScanClient() {
   //   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
 
   const { data: requests, isLoading } = useSWR(
-    ["scan-requests", searchTerm, statusFilter, page],
+    ["scan-requests", searchTerm, statusFilter],
     () =>
       getScanRequests({
         search: searchTerm,
@@ -95,14 +94,13 @@ export default function ScanClient() {
           statusFilter === "All Statuses"
             ? undefined
             : statusFilter?.toLowerCase(),
-        page: page,
         page_size: PAGE_SIZE,
       })
   );
 
   const filteredRequests = requests || [];
-  const totalCount =
-    filteredRequests.length > 0 ? filteredRequests[0].total_count : 0;
+  // const totalCount =
+  //   filteredRequests.length > 0 ? filteredRequests[0].total_count : 0;
 
   const handleOpenProcessModal = (request: ScanRequestItem) => {
     setSelectedRequest(request);
@@ -146,7 +144,7 @@ export default function ScanClient() {
         message: "Request processed successfully",
         color: "green",
       });
-      mutate(["scan-requests", searchTerm, statusFilter, page]);
+      mutate(["scan-requests", searchTerm, statusFilter]);
       closeProcess();
     } catch (error) {
       console.error(error);
@@ -305,7 +303,7 @@ export default function ScanClient() {
           pageSize={PAGE_SIZE}
         />
 
-        <Group justify="space-between">
+        {/* <Group justify="space-between">
           <Text size="sm" c="dimmed">
             Showing {(page - 1) * PAGE_SIZE + 1} to{" "}
             {Math.min(page * PAGE_SIZE, totalCount)} of {totalCount} results
@@ -315,7 +313,7 @@ export default function ScanClient() {
             value={page}
             onChange={setPage}
           />
-        </Group>
+        </Group> */}
       </Stack>
 
       {/* Process Modal */}

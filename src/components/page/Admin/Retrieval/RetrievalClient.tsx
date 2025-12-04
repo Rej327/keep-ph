@@ -10,7 +10,7 @@ import {
   TextInput,
   Select,
   Button,
-  Pagination,
+  // Pagination,
   Box,
   Modal,
   FileInput,
@@ -77,7 +77,7 @@ export default function RetrievalClient() {
   const [statusFilter, setStatusFilter] = useState<string | null>(
     "All Statuses"
   );
-  const [page, setPage] = useState(1);
+  // const [page, setPage] = useState(1);
 
   const [selectedRequest, setSelectedRequest] =
     useState<RetrievalRequestItem | null>(null);
@@ -95,7 +95,12 @@ export default function RetrievalClient() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
 
   const { data: requests, isLoading } = useSWR(
-    ["retrieval-requests", searchTerm, statusFilter, page],
+    [
+      "retrieval-requests",
+      searchTerm,
+      statusFilter,
+      // page
+    ],
     () =>
       getRetrievalRequests({
         search: searchTerm,
@@ -103,7 +108,7 @@ export default function RetrievalClient() {
           statusFilter === "All Statuses"
             ? undefined
             : statusFilter?.toLowerCase(),
-        page: page,
+        // page: page,
         page_size: PAGE_SIZE,
       })
   );
@@ -111,8 +116,8 @@ export default function RetrievalClient() {
   console.log("Request: ", selectedRequest);
 
   const filteredRequests = requests || [];
-  const totalCount =
-    filteredRequests.length > 0 ? filteredRequests[0].total_count : 0;
+  // const totalCount =
+  //   filteredRequests.length > 0 ? filteredRequests[0].total_count : 0;
 
   const handleOpenProcessModal = (request: RetrievalRequestItem) => {
     setSelectedRequest(request);
@@ -166,7 +171,12 @@ export default function RetrievalClient() {
         message: "Request processed successfully",
         color: "green",
       });
-      mutate(["retrieval-requests", searchTerm, statusFilter, page]);
+      mutate([
+        "retrieval-requests",
+        searchTerm,
+        statusFilter,
+        // page
+      ]);
       closeProcess();
     } catch (error) {
       console.error(error);
@@ -187,7 +197,12 @@ export default function RetrievalClient() {
         message: "Status updated successfully",
         color: "green",
       });
-      mutate(["retrieval-requests", searchTerm, statusFilter, page]);
+      mutate([
+        "retrieval-requests",
+        searchTerm,
+        statusFilter,
+        //  page
+      ]);
     } catch (error) {
       console.error(error);
       notifications.show({
@@ -338,7 +353,7 @@ export default function RetrievalClient() {
           pageSize={PAGE_SIZE}
         />
 
-        <Group justify="space-between">
+        {/* <Group justify="space-between">
           <Text size="sm" c="dimmed">
             Showing {(page - 1) * PAGE_SIZE + 1} to{" "}
             {Math.min(page * PAGE_SIZE, totalCount)} of {totalCount} results
@@ -348,7 +363,7 @@ export default function RetrievalClient() {
             value={page}
             onChange={setPage}
           />
-        </Group>
+        </Group> */}
       </Stack>
 
       {/* Process Modal */}
