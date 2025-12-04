@@ -1,6 +1,6 @@
 import TopLoader from "@/components/common/TopLoader";
-import AuthProvider from "@/components/provider/AuthProvider";
-import { ClientReadyProvider } from "@/components/provider/ClientReadyProvider";
+import AuthProvider from "@/components/providers/AuthProvider";
+import { ClientReadyProvider } from "@/components/providers/ClientReadyProvider";
 import {
   ColorSchemeScript,
   MantineProvider,
@@ -13,6 +13,7 @@ import { Notifications } from "@mantine/notifications";
 import "@mantine/notifications/styles.css";
 import "mantine-datatable/styles.css";
 import "./globals.css";
+import NotificationProvider from "@/components/providers/NotificationProvider";
 
 export const metadata = {
   title: "Keep - PH",
@@ -38,13 +39,15 @@ export default function RootLayout({
           }}
           defaultColorScheme="light"
         >
-          <ModalsProvider>
-            <ClientReadyProvider>
-              <TopLoader />
-              <Notifications />
-              <AuthProvider>{children}</AuthProvider>
-            </ClientReadyProvider>
-          </ModalsProvider>
+          <NotificationProvider>
+            <ModalsProvider>
+              <ClientReadyProvider>
+                <TopLoader />
+                <Notifications />
+                <AuthProvider>{children}</AuthProvider>
+              </ClientReadyProvider>
+            </ModalsProvider>
+          </NotificationProvider>
         </MantineProvider>
       </body>
     </html>

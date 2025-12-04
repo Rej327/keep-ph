@@ -2088,3 +2088,180 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
+-- Create Notification
+CREATE OR REPLACE FUNCTION create_notification(
+  input_source_type_id TEXT,
+  input_scope_type_id TEXT,
+  input_target_user_id UUID,
+  input_title TEXT,
+  input_message TEXT,
+  input_item_type_id TEXT DEFAULT NULL,
+  input_item_id UUID DEFAULT NULL,
+  input_additional_data JSONB DEFAULT NULL
+)
+RETURNS UUID
+SET search_path TO ''
+AS $$
+DECLARE
+  new_notification_id UUID;
+BEGIN
+  INSERT INTO notification_schema.notification_table (
+    notification_source_type_id,
+    notification_scope_type_id,
+    notification_target_user_id,
+    notification_title,
+    notification_message,
+    notification_item_type_id,
+    notification_item_id,
+    notification_additional_data,
+    notification_status_type_id
+  ) VALUES (
+    input_source_type_id,
+    input_scope_type_id,
+    input_target_user_id,
+    input_title,
+    input_message,
+    input_item_type_id,
+    input_item_id,
+    input_additional_data,
+    'NST-PENDING'
+  )
+  RETURNING notification_id INTO new_notification_id;
+
+  RETURN new_notification_id;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Get User Notifications (Paginated)
+CREATE OR REPLACE FUNCTION get_user_notifications(
+  input_user_id UUID,
+  input_page INTEGER DEFAULT 1,
+  input_page_size INTEGER DEFAULT 20,
+  input_filter_type TEXT DEFAULT 'all' -- 'all', 'unread', 'archived'
+)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  return_data JSON;
+  offset_val INTEGER;
+BEGIN
+  offset_val := (input_page - 1) * input_page_size;
+
+  SELECT 
+    JSON_BUILD_OBJECT(
+      'data', COALESCE(JSON_AGG(n.*), '[]'::JSON),
+      'total_count', (
+        SELECT COUNT(*) 
+        FROM notification_schema.notification_table 
+        WHERE notification_target_user_id = input_user_id
+        AND (
+          CASE 
+            WHEN input_filter_type = 'unread' THEN notification_is_read = FALSE
+            WHEN input_filter_type = 'archived' THEN notification_is_archived = TRUE
+            ELSE notification_is_archived = FALSE
+          END
+        )
+      ),
+      'unread_count', (
+        SELECT COUNT(*) 
+        FROM notification_schema.notification_table 
+        WHERE notification_target_user_id = input_user_id 
+        AND notification_is_read = FALSE
+      )
+    ) INTO return_data
+  FROM (
+    SELECT *
+    FROM notification_schema.notification_table
+    WHERE notification_target_user_id = input_user_id
+    AND (
+      CASE 
+        WHEN input_filter_type = 'unread' THEN notification_is_read = FALSE
+        WHEN input_filter_type = 'archived' THEN notification_is_archived = TRUE
+        ELSE notification_is_archived = FALSE
+      END
+    )
+    ORDER BY notification_created_at DESC
+    LIMIT input_page_size
+    OFFSET offset_val
+  ) n;
+
+  RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Mark Notification as Read
+CREATE OR REPLACE FUNCTION mark_notification_as_read(
+  input_notification_id UUID
+)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  UPDATE notification_schema.notification_table
+  SET 
+    notification_is_read = TRUE,
+    notification_read_at = NOW()
+  WHERE notification_id = input_notification_id;
+  
+  RETURN FOUND;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Mark All Notifications as Read
+CREATE OR REPLACE FUNCTION mark_all_notifications_as_read(
+  input_user_id UUID
+)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  UPDATE notification_schema.notification_table
+  SET 
+    notification_is_read = TRUE,
+    notification_read_at = NOW()
+  WHERE notification_target_user_id = input_user_id
+    AND notification_is_read = FALSE;
+  
+  RETURN TRUE;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Mark Toast as Shown
+CREATE OR REPLACE FUNCTION mark_notification_toast_shown(
+  input_notification_id UUID
+)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  UPDATE notification_schema.notification_table
+  SET notification_toast_shown = TRUE
+  WHERE notification_id = input_notification_id;
+  
+  RETURN FOUND;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Archive Notification
+CREATE OR REPLACE FUNCTION archive_notification(
+  input_notification_id UUID
+)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  UPDATE notification_schema.notification_table
+  SET notification_is_archived = TRUE
+  WHERE notification_id = input_notification_id;
+  
+  RETURN FOUND;
+END;
+$$
+LANGUAGE plpgsql;

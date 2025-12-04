@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { createSupabaseBrowserClient } from "@/utils/supabase/browserClient";
 import useAuthStore from "@/zustand/stores/useAuthStore";
 import { notifications } from "@mantine/notifications";
-import { markToastAsShown } from "@/actions/notification";
+import { markToastAsShown } from "@/actions/supabase/notification";
 import { IconBell } from "@tabler/icons-react";
 import { mutate } from "swr";
 import { usePathname } from "next/navigation";

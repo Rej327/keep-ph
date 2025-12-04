@@ -188,3 +188,35 @@ INSERT INTO user_schema.account_type_table (account_type_id, account_type_value,
     ('AT-DIGITAL', 'digital', 50, 5, 5, 2, 2),
     ('AT-PERSONAL', 'personal', 250, 20, 10, 3, 3),
     ('AT-BUSINESS', 'business', 500, 50, 20, 4, 4);
+
+    -- Source Types
+INSERT INTO notification_schema.notification_source_type_table
+  (notification_source_type_id, notification_source_type_name, notification_source_type_description)
+VALUES
+  ('SRC-USER', 'user', 'Triggered by user actions'),
+  ('SRC-SYSTEM', 'system', 'Triggered by system or app updates'),
+  ('SRC-ADMIN', 'admin', 'Triggered by admin actions'),
+  ('SRC-AUTOMATION', 'automation', 'Triggered by automated system jobs');
+
+-- Scope Types
+INSERT INTO notification_schema.notification_scope_type_table
+  (notification_scope_type_id, notification_scope_type_name, notification_scope_type_description)
+VALUES
+  ('ST-ALL', 'all', 'Notification applies to all users'),
+  ('ST-SPECIFIC', 'specific', 'Notification applies to one user');
+
+-- Status Types (Lifecycle only)
+INSERT INTO notification_schema.notification_status_type_table
+  (notification_status_type_id, notification_status_type_name, notification_status_type_description)
+VALUES
+  ('NST-PENDING', 'pending', 'Ready to be pushed'),
+  ('NST-DELIVERED', 'delivered', 'Successfully pushed to client'),
+  ('NST-FAILED', 'failed', 'Failed to push');
+
+-- Item Types
+INSERT INTO notification_schema.notification_item_type_table
+  (notification_item_type_id, notification_item_type_name, notification_item_type_description)
+VALUES
+  ('NIT-MAIL', 'mail', 'Mail item'),
+  ('NIT-PACKAGE', 'package', 'Package item'),
+  ('NIT-BILLING', 'billing', 'Billing or Invoice item');

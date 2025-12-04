@@ -24,6 +24,7 @@ DROP SCHEMA IF EXISTS subscription_schema CASCADE;
 DROP SCHEMA IF EXISTS referral_schema CASCADE;
 DROP SCHEMA IF EXISTS analytics_schema CASCADE;
 DROP SCHEMA IF EXISTS storage_schema CASCADE;
+DROP SCHEMA IF EXISTS notification_schema CASCADE;
 
 -- Create all schemas
 CREATE SCHEMA public AUTHORIZATION postgres;
@@ -35,6 +36,7 @@ CREATE SCHEMA subscription_schema AUTHORIZATION postgres;
 CREATE SCHEMA referral_schema AUTHORIZATION postgres;
 CREATE SCHEMA analytics_schema AUTHORIZATION postgres;
 CREATE SCHEMA storage_schema AUTHORIZATION postgres;
+CREATE SCHEMA notification_schema AUTHORIZATION postgres;
 
 -- Mailbox Status Table
 CREATE TABLE status_schema.mailbox_status_table (
@@ -400,6 +402,68 @@ CREATE TABLE IF NOT EXISTS subscription_schema.subscription_plan_feature_table (
     subscription_plan_feature_created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Source Type
+CREATE TABLE notification_schema.notification_source_type_table (
+  notification_source_type_id TEXT PRIMARY KEY,
+  notification_source_type_name TEXT NOT NULL,
+  notification_source_type_description TEXT,
+  notification_source_type_created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Scope Type
+CREATE TABLE notification_schema.notification_scope_type_table (
+  notification_scope_type_id TEXT PRIMARY KEY,
+  notification_scope_type_name TEXT NOT NULL,
+  notification_scope_type_description TEXT,
+  notification_scope_type_created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Status Type (Simplified for Delivery Lifecycle)
+CREATE TABLE notification_schema.notification_status_type_table (
+  notification_status_type_id TEXT PRIMARY KEY,
+  notification_status_type_name TEXT NOT NULL,
+  notification_status_type_description TEXT,
+  notification_status_type_created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Item Type
+CREATE TABLE notification_schema.notification_item_type_table (
+  notification_item_type_id TEXT PRIMARY KEY,
+  notification_item_type_name TEXT NOT NULL,
+  notification_item_type_description TEXT,
+  notification_item_type_created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Notification
+CREATE TABLE notification_schema.notification_table (
+  notification_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  notification_source_type_id TEXT NOT NULL,
+  notification_scope_type_id TEXT NOT NULL,
+  notification_status_type_id TEXT NOT NULL DEFAULT 'NST-PENDING', -- Lifecycle status
+  notification_target_user_id UUID NULL,
+  
+  notification_item_type_id TEXT NULL,
+  notification_item_id UUID NULL,
+  
+  notification_title TEXT NOT NULL,
+  notification_message TEXT NOT NULL,
+  notification_additional_data JSONB,
+  
+  -- Interaction State
+  notification_is_read BOOLEAN DEFAULT FALSE,
+  notification_read_at TIMESTAMPTZ NULL,
+  notification_is_archived BOOLEAN DEFAULT FALSE,
+  notification_toast_shown BOOLEAN DEFAULT FALSE,
+  
+  notification_created_at TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT chk_specific_user
+    CHECK (
+      (notification_scope_type_id = 'ST-SPECIFIC' AND notification_target_user_id IS NOT NULL)
+      OR notification_scope_type_id = 'ST-ALL'
+    )
+);
+
 
 -- Grant permissions on public schema
 GRANT ALL ON ALL TABLES IN SCHEMA public TO public;
@@ -454,6 +518,12 @@ GRANT ALL ON ALL TABLES IN SCHEMA analytics_schema TO public;
 GRANT ALL ON ALL TABLES IN SCHEMA analytics_schema TO postgres;
 GRANT ALL ON SCHEMA analytics_schema TO postgres;
 GRANT ALL ON SCHEMA analytics_schema TO public;
+
+-- Grant permissions on notification_schema
+GRANT ALL ON ALL TABLES IN SCHEMA notification_schema TO public;
+GRANT ALL ON ALL TABLES IN SCHEMA notification_schema TO postgres;
+GRANT ALL ON SCHEMA notification_schema TO postgres;
+GRANT ALL ON SCHEMA notification_schema TO public;
 
 -- Grant execute permission to authenticated users
 GRANT EXECUTE ON FUNCTION delete_user_profile TO authenticated;
