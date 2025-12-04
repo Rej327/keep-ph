@@ -127,7 +127,7 @@ export default function DisposalClient() {
   ];
 
   return (
-    <Container size="xl" py="xl">
+    <Container fluid py="xl">
       <Stack gap="lg">
         <Box>
           <Title order={2}>Disposal Requests</Title>

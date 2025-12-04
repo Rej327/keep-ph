@@ -304,7 +304,7 @@ export default function RetrievalClient() {
   ];
 
   return (
-    <Container size="xl" py="xl">
+    <Container fluid py="xl">
       <Stack gap="lg">
         <Box>
           <Title order={2}>Retrieval Requests</Title>
