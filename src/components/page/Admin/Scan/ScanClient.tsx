@@ -139,14 +139,8 @@ export default function ScanClient() {
 
       if (uploadError) throw uploadError;
 
-      const { data: publicUrlData } = supabase.storage
-        .from("KEEP-PH-ATTACHMENTS")
-        .getPublicUrl(filePath);
-
-      await processScanRequest(
-        selectedRequest.scan_request_id,
-        publicUrlData.publicUrl
-      );
+      // Store only the relative path, consistent with other uploads
+      await processScanRequest(selectedRequest.scan_request_id, filePath);
 
       notifications.show({
         message: "Request processed successfully",
@@ -510,7 +504,11 @@ export default function ScanClient() {
                       </Group>
                       <Button
                         component="a"
-                        href={selectedRequest.scan_request_url}
+                        href={
+                          selectedRequest.scan_request_url.startsWith("http")
+                            ? selectedRequest.scan_request_url
+                            : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/KEEP-PH-ATTACHMENTS/${selectedRequest.scan_request_url}`
+                        }
                         target="_blank"
                         size="sm"
                         variant="white"
