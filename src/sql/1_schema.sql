@@ -255,6 +255,7 @@ CREATE TABLE request_schema.retrieval_request_table (
     retrieval_request_courier TEXT, -- Courier service name if applicable
     retrieval_request_tracking_number TEXT,
     retrieval_request_notes TEXT,
+    retrieval_request_label_url TEXT,
     retrieval_request_requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     retrieval_request_processed_at TIMESTAMPTZ,
     retrieval_request_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

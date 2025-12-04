@@ -127,6 +127,8 @@ INSERT INTO status_schema.mail_item_status_table (mail_item_status_id, mail_item
     ('MIS-ARCHIVED', 'archived', 7),
     ('MIS-DISPOSAL', 'disposal', 8),
     ('MIS-DISPOSED', 'disposed', 9);
+    ('MIS-TRANSIT', 'in_transit', 10);
+    ('MIS-DELIVERED', 'delivered', 11)
 
 -- Insert default virtual address statuses
 INSERT INTO status_schema.virtual_address_status_table (virtual_address_status_id, virtual_address_status_value, virtual_address_status_sort_order) VALUES
@@ -148,6 +150,7 @@ INSERT INTO status_schema.retrieval_request_status_table (retrieval_request_stat
     ('RRS-IN_TRANSIT', 'in_transit', 3),
     ('RRS-DELIVERED', 'delivered', 4),
     ('RRS-REJECTED', 'rejected', 5);
+    ('RRS-ARRIVED', 'arrived', 6)
 
 -- Insert default pickup request statuses
 INSERT INTO status_schema.pickup_request_status_table (pickup_request_status_id, pickup_request_status_value, pickup_request_status_sort_order) VALUES

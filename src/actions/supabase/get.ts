@@ -554,3 +554,50 @@ export const getMailHasRequestAction = async (mailItemId: string) => {
 
   return data as MailHasRequestAction;
 };
+
+export type RetrievalRequestItem = {
+  retrieval_request_id: string;
+  retrieval_request_status_value: string;
+  retrieval_request_requested_at: string;
+  retrieval_request_courier: string | null;
+  retrieval_request_tracking_number: string | null;
+  retrieval_request_address: string;
+  retrieval_request_label_url: string | null;
+  retrieval_request_notes: string | null;
+  mail_item_sender: string | null;
+  user_full_name: string;
+  user_email: string;
+  account_address_key: string;
+  account_number: string;
+  account_type_value: string;
+  total_count: number;
+};
+
+export const getRetrievalRequests = async (filters?: {
+  search?: string;
+  status_filter?: string;
+  page?: number;
+  page_size?: number;
+  sort_order?: "asc" | "desc";
+}) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const inputData = {
+    search: filters?.search || "",
+    status_filter: filters?.status_filter || "",
+    page: filters?.page || 1,
+    page_size: filters?.page_size || 10,
+    sort_order: filters?.sort_order || "desc",
+  };
+
+  const { data, error } = await supabase.rpc("get_retrieval_requests", {
+    input_data: inputData,
+  });
+
+  if (error) {
+    console.error("Error fetching retrieval requests:", error);
+    throw new Error(error.message);
+  }
+
+  return data as RetrievalRequestItem[];
+};

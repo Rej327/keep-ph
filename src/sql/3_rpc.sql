@@ -1790,3 +1790,124 @@ BEGIN
   END LOOP;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Get Retrival Requests
+CREATE OR REPLACE FUNCTION get_retrieval_requests(
+    input_data JSONB
+)
+RETURNS JSONB
+SET search_path TO ''
+AS $$
+DECLARE
+    input_search_term TEXT := input_data->>'search';
+    input_status_filter TEXT := input_data->>'status_filter';
+    input_page_number INTEGER := COALESCE((input_data->>'page')::INTEGER, 1);
+    input_page_size INTEGER := COALESCE((input_data->>'page_size')::INTEGER, 10);
+    input_sort_order TEXT := COALESCE(input_data->>'sort_order', 'desc');
+    
+    return_data JSONB;
+BEGIN
+    WITH filtered_data AS (
+        SELECT
+            r.retrieval_request_id,
+            rs.retrieval_request_status_value,
+            r.retrieval_request_requested_at,
+            r.retrieval_request_courier,
+            r.retrieval_request_tracking_number,
+            r.retrieval_request_address,
+            r.retrieval_request_label_url,
+            r.retrieval_request_notes,
+            m.mail_item_sender,
+            (u.user_first_name || ' ' || u.user_last_name)::TEXT as user_full_name,
+            u.user_email::TEXT,
+            acc.account_address_key,
+            acc.account_number,
+            at.account_type_value,
+            COUNT(*) OVER() as total_count
+        FROM request_schema.retrieval_request_table r
+        JOIN mailroom_schema.mail_item_table m ON r.retrieval_request_mail_item_id = m.mail_item_id
+        JOIN user_schema.account_table acc ON r.retrieval_request_account_id = acc.account_id
+        JOIN user_schema.user_table u ON acc.account_user_id = u.user_id
+        JOIN status_schema.retrieval_request_status_table rs ON r.retrieval_request_status_id = rs.retrieval_request_status_id
+        JOIN user_schema.account_type_table at ON acc.account_type = at.account_type_id
+        WHERE
+            (input_search_term IS NULL OR input_search_term = '' OR
+             m.mail_item_sender ILIKE '%' || input_search_term || '%' OR
+             u.user_first_name ILIKE '%' || input_search_term || '%' OR
+             u.user_last_name ILIKE '%' || input_search_term || '%' OR
+             u.user_email ILIKE '%' || input_search_term || '%' OR
+             acc.account_number ILIKE '%' || input_search_term || '%')
+            AND
+            (input_status_filter IS NULL OR input_status_filter = '' OR rs.retrieval_request_status_value = input_status_filter)
+        ORDER BY
+            CASE WHEN input_sort_order = 'asc' THEN r.retrieval_request_requested_at END ASC,
+            CASE WHEN input_sort_order = 'desc' THEN r.retrieval_request_requested_at END DESC
+        LIMIT input_page_size
+        OFFSET (input_page_number - 1) * input_page_size
+    )
+    SELECT jsonb_agg(row_to_json(filtered_data))
+    INTO return_data
+    FROM filtered_data;
+
+    RETURN COALESCE(return_data, '[]'::JSONB);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Process retrieval request
+CREATE OR REPLACE FUNCTION process_retrieval_request(
+    input_data JSONB
+)
+RETURNS JSONB
+SET search_path TO ''
+AS $$
+DECLARE
+    input_request_id UUID := (input_data->>'request_id')::UUID;
+    input_courier TEXT := input_data->>'courier';
+    input_tracking_number TEXT := input_data->>'tracking_number';
+    input_label_url TEXT := input_data->>'label_url';
+    input_status_id TEXT := input_data->>'status_id';
+    
+    var_status_id TEXT;
+    var_mail_item_id UUID;
+    var_mail_item_status_id TEXT;
+    return_data JSONB;
+BEGIN
+    -- Determine status ID (Default to IN_TRANSIT if not provided, or use provided one)
+    var_status_id := COALESCE(input_status_id, 'RRS-IN_TRANSIT');
+
+    -- Get the mail_item_id associated with this request
+    SELECT retrieval_request_mail_item_id INTO var_mail_item_id
+    FROM request_schema.retrieval_request_table
+    WHERE retrieval_request_id = input_request_id;
+
+    -- Determine Mail Item Status based on Retrieval Status
+    IF var_status_id = 'RRS-IN_TRANSIT' THEN
+        var_mail_item_status_id := 'MIS-TRANSIT';
+    ELSIF var_status_id = 'RRS-DELIVERED' THEN
+        var_mail_item_status_id := 'MIS-DELIVERED';
+    END IF;
+
+    -- Update retrieval request
+    UPDATE request_schema.retrieval_request_table
+    SET
+        retrieval_request_courier = COALESCE(input_courier, retrieval_request_courier),
+        retrieval_request_tracking_number = COALESCE(input_tracking_number, retrieval_request_tracking_number),
+        retrieval_request_label_url = COALESCE(input_label_url, retrieval_request_label_url),
+        retrieval_request_status_id = var_status_id,
+        retrieval_request_processed_at = CASE WHEN retrieval_request_processed_at IS NULL THEN NOW() ELSE retrieval_request_processed_at END,
+        retrieval_request_updated_at = NOW()
+    WHERE retrieval_request_id = input_request_id;
+
+    -- Update mail item status if mapping exists
+    IF var_mail_item_status_id IS NOT NULL THEN
+        UPDATE mailroom_schema.mail_item_table
+        SET
+            mail_item_status_id = var_mail_item_status_id,
+            mail_item_updated_at = NOW()
+        WHERE mail_item_id = var_mail_item_id;
+    END IF;
+
+    return_data := jsonb_build_object('success', true);
+    RETURN return_data;
+END;
+$$ LANGUAGE plpgsql;

@@ -208,3 +208,44 @@ export const updateUserPhysicalAddress = async (
     return { error: err as Error };
   }
 };
+
+export const processRetrievalRequest = async (
+  requestId: string,
+  courier?: string,
+  trackingNumber?: string,
+  labelUrl?: string,
+  statusId?: string
+) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const inputData = {
+    request_id: requestId,
+    courier: courier || null,
+    tracking_number: trackingNumber || null,
+    label_url: labelUrl || null,
+    status_id: statusId || null,
+  };
+
+  const { error } = await supabase.rpc("process_retrieval_request", {
+    input_data: inputData,
+  });
+
+  if (error) {
+    console.error("Error processing retrieval request:", error);
+    throw new Error(error.message);
+  }
+};
+
+export const updateRetrievalRequestStatus = async (
+  requestId: string,
+  statusId: string
+) => {
+  // Reuse the dynamic process RPC for status updates
+  return processRetrievalRequest(
+    requestId,
+    undefined,
+    undefined,
+    undefined,
+    statusId
+  );
+};
