@@ -1,5 +1,5 @@
 import AuthPage from "@/components/page/AuthPage/AuthPage";
-import PublicProvider from "@/components/provider/PublicProvider";
+import PublicProvider from "@/components/providers/PublicProvider";
 import { createSupabaseServerClient } from "@/utils/supabase/serverClient";
 import { redirect } from "next/navigation";
 
