@@ -248,6 +248,10 @@ export type MailItem = {
   has_retrieval_request: boolean;
   has_disposal_request: boolean;
   has_scan_request: boolean;
+  retrieval_request_label_url: string | null;
+  retrieval_request_tracking_number: string | null;
+  retrieval_request_courier: string | null;
+  retrieval_request_status_id: string | null;
 };
 
 export const getMailItemsByUser = async (

@@ -66,6 +66,20 @@ export const requestMailItemDisposal = async (
   return data;
 };
 
+export const cancelDisposalRequest = async (mailItemId: string) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("cancel_disposal_request", {
+    input_mail_item_id: mailItemId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as boolean;
+};
+
 export const requestMailItemRetrieval = async (
   mailItemId: string,
   accountId: string,

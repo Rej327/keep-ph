@@ -585,10 +585,10 @@ AS $$
 DECLARE
   return_data JSON;
 BEGIN
-  SELECT 
+  SELECT
     JSON_AGG(mail_data) INTO return_data
   FROM (
-    SELECT 
+    SELECT
       mi.mail_item_id,
       mi.mail_item_sender,
       mi.mail_item_name,
@@ -600,14 +600,30 @@ BEGIN
       mis.mail_item_status_value,
       ma.mail_attachment_unopened_scan_file_path,
       ma.mail_attachment_item_scan_file_path,
-      mb.mailbox_label
+      mb.mailbox_label,
+      -- Retrieval info
+      rr.retrieval_request_label_url,
+      rr.retrieval_request_tracking_number,
+      rr.retrieval_request_courier,
+      rr.retrieval_request_status_id
 
     FROM mailroom_schema.mail_item_table mi
     JOIN mailroom_schema.mailbox_table mb ON mi.mail_item_mailbox_id = mb.mailbox_id
     JOIN user_schema.account_table acc ON mb.mailbox_account_id = acc.account_id
     JOIN status_schema.mail_item_status_table mis ON mi.mail_item_status_id = mis.mail_item_status_id
     LEFT JOIN mailroom_schema.mail_attachment_table ma ON mi.mail_item_id = ma.mail_attachment_mail_item_id
-    WHERE 
+    LEFT JOIN LATERAL (
+        SELECT
+            retrieval_request_label_url,
+            retrieval_request_tracking_number,
+            retrieval_request_courier,
+            retrieval_request_status_id
+        FROM request_schema.retrieval_request_table
+        WHERE retrieval_request_mail_item_id = mi.mail_item_id
+        ORDER BY retrieval_request_created_at DESC
+        LIMIT 1
+    ) rr ON TRUE
+    WHERE
       acc.account_user_id = input_user_id
       AND acc.account_number = input_account_no
       AND (input_mailbox_id IS NULL OR mb.mailbox_id = input_mailbox_id)
@@ -2045,3 +2061,30 @@ BEGIN
     RETURN return_data;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Cancel Disposal Request RPC
+CREATE OR REPLACE FUNCTION cancel_disposal_request(
+  input_mail_item_id UUID
+)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  -- Delete pending disposal request
+  DELETE FROM request_schema.dispose_request_table
+  WHERE dispose_request_mail_item_id = input_mail_item_id
+  AND dispose_request_status_id = 'DRS-PENDING';
+
+  -- Reset mail item status based on attachments
+  UPDATE mailroom_schema.mail_item_table
+  SET mail_item_status_id = CASE
+        WHEN EXISTS (SELECT 1 FROM mailroom_schema.mail_attachment_table WHERE mail_attachment_mail_item_id = input_mail_item_id AND mail_attachment_item_scan_file_path IS NOT NULL) THEN 'MIS-SCANNED'
+        ELSE 'MIS-RECEIVED'
+      END,
+      mail_item_updated_at = NOW()
+  WHERE mail_item_id = input_mail_item_id;
+
+  RETURN TRUE;
+END;
+$$
+LANGUAGE plpgsql;

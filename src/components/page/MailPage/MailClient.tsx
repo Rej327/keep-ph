@@ -41,6 +41,9 @@ import {
   IconAlertTriangle,
   IconMapPin,
   IconScan,
+  IconDownload,
+  IconEye,
+  IconFileText,
 } from "@tabler/icons-react";
 import useSWR from "swr";
 import useAuthStore from "@/zustand/stores/useAuthStore";
@@ -58,6 +61,7 @@ import {
   requestMailItemRetrieval,
   markMailItemAsRead,
   requestMailItemScan,
+  cancelDisposalRequest,
 } from "@/actions/supabase/update";
 import { notifications } from "@mantine/notifications";
 import { CustomDataTable } from "@/components/common/CustomDataTable";
@@ -79,6 +83,14 @@ export default function MailClient() {
   const [disposalModalOpen, setDisposalModalOpen] = useState(false);
   const [retrievalModalOpen, setRetrievalModalOpen] = useState(false);
   const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [viewScanResultModalOpen, setViewScanResultModalOpen] = useState(false);
+  const [viewRetrievalResultModalOpen, setViewRetrievalResultModalOpen] =
+    useState(false);
+  const [overrideDisposalModalOpen, setOverrideDisposalModalOpen] =
+    useState(false);
+  const [pendingActionType, setPendingActionType] = useState<
+    "scan" | "retrieval" | null
+  >(null);
 
   // Retrieval Form State
   const [retrievalAddress, setRetrievalAddress] = useState("");
@@ -284,9 +296,52 @@ export default function MailClient() {
     }
   };
 
+  const handleConfirmOverrideDisposal = async () => {
+    if (!selectedItem) return;
+    setActionLoading(true);
+    try {
+      await cancelDisposalRequest(selectedItem.mail_item_id);
+      notifications.show({
+        message: "Disposal request canceled",
+        color: "green",
+      });
+      // Proceed with the pending action
+      setOverrideDisposalModalOpen(false);
+      if (pendingActionType === "scan") {
+        setScanModalOpen(true);
+      } else if (pendingActionType === "retrieval") {
+        setRetrievalModalOpen(true);
+      }
+    } catch (error) {
+      console.error(error);
+      notifications.show({
+        message: "Failed to cancel disposal request",
+        color: "red",
+      });
+    } finally {
+      setActionLoading(false);
+      setPendingActionType(null);
+      mutate();
+    }
+  };
+
+  const handleOpenScanModal = () => {
+    if (requestActions?.has_request_disposal) {
+      setPendingActionType("scan");
+      setOverrideDisposalModalOpen(true);
+    } else {
+      setScanModalOpen(true);
+    }
+  };
+
   // Set initial address when opening retrieval modal
   const openRetrievalModal = () => {
-    setRetrievalModalOpen(true);
+    if (requestActions?.has_request_disposal) {
+      setPendingActionType("retrieval");
+      setOverrideDisposalModalOpen(true);
+    } else {
+      setRetrievalModalOpen(true);
+    }
   };
 
   const renderValue: DataTableColumn<MailItem>[] = useMemo(
@@ -540,23 +595,38 @@ export default function MailClient() {
             : "Archive"}
         </Button>
 
+        {/* Scan Button Logic */}
         {selectedItem.mail_item_type === "MAIL" && (
-          <Button
-            variant="default"
-            fw={500}
-            leftSection={<IconScan size={16} />}
-            onClick={() => setScanModalOpen(true)}
-            loading={actionLoading}
-            disabled={
-              actionLoading ||
-              loadingRequestActions ||
-              requestActions?.has_request_scan
-            }
-          >
-            {requestActions?.has_request_scan
-              ? "Scan Requested"
-              : "Request Scan"}
-          </Button>
+          <>
+            {selectedItem.mail_attachment_item_scan_file_path ? (
+              <Button
+                variant="filled"
+                color="green"
+                fw={500}
+                leftSection={<IconEye size={16} />}
+                onClick={() => setViewScanResultModalOpen(true)}
+              >
+                View Scan Result
+              </Button>
+            ) : (
+              <Button
+                variant="default"
+                fw={500}
+                leftSection={<IconScan size={16} />}
+                onClick={handleOpenScanModal}
+                loading={actionLoading}
+                disabled={
+                  actionLoading ||
+                  loadingRequestActions ||
+                  requestActions?.has_request_scan
+                }
+              >
+                {requestActions?.has_request_scan
+                  ? "Scan Requested"
+                  : "Request Scan"}
+              </Button>
+            )}
+          </>
         )}
 
         <Button
@@ -575,22 +645,37 @@ export default function MailClient() {
             ? "Disposal Requested"
             : "Request Disposal"}
         </Button>
-        <Button
-          variant="default"
-          fw={500}
-          leftSection={<IconTruckDelivery size={16} />}
-          onClick={openRetrievalModal}
-          loading={actionLoading}
-          disabled={
-            actionLoading ||
-            loadingRequestActions ||
-            requestActions?.has_request_retrieval
-          }
-        >
-          {requestActions?.has_request_retrieval
-            ? "Retrieval Requested"
-            : "Request Retrieval"}
-        </Button>
+
+        {/* Retrieval Button Logic */}
+        {selectedItem.retrieval_request_label_url ||
+        selectedItem.retrieval_request_tracking_number ? (
+          <Button
+            variant="filled"
+            color="blue"
+            fw={500}
+            leftSection={<IconTruckDelivery size={16} />}
+            onClick={() => setViewRetrievalResultModalOpen(true)}
+          >
+            View Waybill
+          </Button>
+        ) : (
+          <Button
+            variant="default"
+            fw={500}
+            leftSection={<IconTruckDelivery size={16} />}
+            onClick={openRetrievalModal}
+            loading={actionLoading}
+            disabled={
+              actionLoading ||
+              loadingRequestActions ||
+              requestActions?.has_request_retrieval
+            }
+          >
+            {requestActions?.has_request_retrieval
+              ? "Retrieval Requested"
+              : "Request Retrieval"}
+          </Button>
+        )}
       </Group>
     </>
   );
@@ -767,6 +852,208 @@ export default function MailClient() {
             Confirm Disposal
           </Button>
         </Group>
+      </Modal>
+
+      {/* Override Disposal Modal */}
+      <Modal
+        opened={overrideDisposalModalOpen}
+        onClose={() => setOverrideDisposalModalOpen(false)}
+        title={
+          <Group gap="xs">
+            <IconAlertTriangle
+              size={20}
+              color="var(--mantine-color-orange-6)"
+            />
+            <Text fw={600}>Conflicting Request</Text>
+          </Group>
+        }
+        centered
+        closeOnClickOutside
+      >
+        <Stack align="center" py="md">
+          <Box
+            p="lg"
+            bg="orange.1"
+            style={{
+              borderRadius: "50%",
+              color: "var(--mantine-color-orange-6)",
+            }}
+          >
+            <IconAlertTriangle size={40} />
+          </Box>
+          <Text ta="center" size="lg" fw={500}>
+            Pending Disposal Request
+          </Text>
+          <Text ta="center" c="dimmed" size="sm" px="md">
+            You have requested a disposal for this mail. If you request a{" "}
+            {pendingActionType === "scan" ? "scan" : "retrieval"}, the pending
+            disposal request will be <b>canceled</b>.
+          </Text>
+          <Text ta="center" size="sm" fw={500}>
+            Do you want to proceed?
+          </Text>
+        </Stack>
+        <Group justify="stretch" mt="md">
+          <Button
+            variant="default"
+            onClick={() => setOverrideDisposalModalOpen(false)}
+            flex={1}
+          >
+            Cancel
+          </Button>
+          <Button
+            color="orange"
+            onClick={handleConfirmOverrideDisposal}
+            loading={actionLoading}
+            flex={1}
+          >
+            Yes, Cancel Disposal
+          </Button>
+        </Group>
+      </Modal>
+
+      {/* View Scan Result Modal */}
+      <Modal
+        opened={viewScanResultModalOpen}
+        onClose={() => setViewScanResultModalOpen(false)}
+        title={
+          <Group gap="xs">
+            <IconFileText size={20} color="var(--mantine-color-green-6)" />
+            <Text fw={600}>Scanned Document</Text>
+          </Group>
+        }
+        size="lg"
+        centered
+      >
+        <Stack>
+          <Box
+            bg="gray.1"
+            p="md"
+            style={{
+              borderRadius: 8,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              minHeight: 400,
+            }}
+          >
+            {selectedItem?.mail_attachment_item_scan_file_path && (
+              <Image
+                src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/KEEP-PH-ATTACHMENTS/${selectedItem.mail_attachment_item_scan_file_path}`}
+                alt="Scanned Document"
+                fit="contain"
+                style={{ maxHeight: 500 }}
+              />
+            )}
+          </Box>
+          <Group justify="space-between">
+            <Button
+              component="a"
+              href={
+                selectedItem?.mail_attachment_item_scan_file_path
+                  ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/KEEP-PH-ATTACHMENTS/${selectedItem.mail_attachment_item_scan_file_path}`
+                  : "#"
+              }
+              target="_blank"
+              leftSection={<IconDownload size={16} />}
+              variant="outline"
+            >
+              Download
+            </Button>
+            <Button
+              variant="light"
+              color="grape"
+              leftSection={<IconScan size={16} />}
+              onClick={() => {
+                setViewScanResultModalOpen(false);
+                handleOpenScanModal();
+              }}
+            >
+              Request Rescan
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* View Retrieval Result Modal */}
+      <Modal
+        opened={viewRetrievalResultModalOpen}
+        onClose={() => setViewRetrievalResultModalOpen(false)}
+        title={
+          <Group gap="xs">
+            <IconTruckDelivery size={20} color="var(--mantine-color-blue-6)" />
+            <Text fw={600}>Delivery Details</Text>
+          </Group>
+        }
+        size="md"
+        centered
+      >
+        <Stack gap="md">
+          <Paper withBorder p="md" radius="md">
+            <Stack gap="sm">
+              <Group justify="space-between">
+                <Text c="dimmed" size="sm">
+                  Courier:
+                </Text>
+                <Text fw={600}>
+                  {selectedItem?.retrieval_request_courier || "N/A"}
+                </Text>
+              </Group>
+              <Divider />
+              <Group justify="space-between">
+                <Text c="dimmed" size="sm">
+                  Tracking Number:
+                </Text>
+                <Text fw={600}>
+                  {selectedItem?.retrieval_request_tracking_number || "N/A"}
+                </Text>
+              </Group>
+            </Stack>
+          </Paper>
+
+          {selectedItem?.retrieval_request_label_url && (
+            <>
+              <Text fw={500} size="sm">
+                Proof of Shipment / Waybill
+              </Text>
+              <Box
+                bg="gray.1"
+                p="sm"
+                style={{
+                  borderRadius: 8,
+                  display: "flex",
+                  justifyContent: "center",
+                }}
+              >
+                <Image
+                  src={selectedItem.retrieval_request_label_url}
+                  alt="Waybill"
+                  fit="contain"
+                  style={{ maxHeight: 300 }}
+                />
+              </Box>
+              <Button
+                component="a"
+                href={selectedItem.retrieval_request_label_url}
+                target="_blank"
+                leftSection={<IconDownload size={16} />}
+                variant="outline"
+                fullWidth
+              >
+                Download Waybill
+              </Button>
+            </>
+          )}
+
+          <Group justify="flex-end" mt="md">
+            <Button
+              variant="default"
+              onClick={() => setViewRetrievalResultModalOpen(false)}
+            >
+              Close
+            </Button>
+          </Group>
+        </Stack>
       </Modal>
 
       {/* Retrieval Modal */}
