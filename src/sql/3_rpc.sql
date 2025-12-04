@@ -1911,3 +1911,137 @@ BEGIN
     RETURN return_data;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Get Scan Requests RPC
+CREATE OR REPLACE FUNCTION get_scan_requests(
+    input_data JSONB
+)
+RETURNS JSONB
+SET search_path TO ''
+AS $$
+DECLARE
+    input_search_term TEXT := input_data->>'search';
+    input_status_filter TEXT := input_data->>'status_filter';
+    input_page_number INTEGER := COALESCE((input_data->>'page')::INTEGER, 1);
+    input_page_size INTEGER := COALESCE((input_data->>'page_size')::INTEGER, 10);
+    input_sort_order TEXT := COALESCE(input_data->>'sort_order', 'desc');
+    
+    return_data JSONB;
+BEGIN
+    WITH filtered_data AS (
+        SELECT
+            r.scan_request_id,
+            rs.scan_request_status_value,
+            r.scan_request_requested_at,
+            r.scan_request_instructions,
+            r.scan_request_url,
+            m.mail_item_sender,
+            (u.user_first_name || ' ' || u.user_last_name)::TEXT as user_full_name,
+            u.user_email::TEXT,
+            acc.account_address_key,
+            acc.account_number,
+            at.account_type_value,
+            COUNT(*) OVER() as total_count
+        FROM request_schema.scan_request_table r
+        JOIN mailroom_schema.mail_item_table m ON r.scan_request_mail_item_id = m.mail_item_id
+        JOIN user_schema.account_table acc ON r.scan_request_account_id = acc.account_id
+        JOIN user_schema.user_table u ON acc.account_user_id = u.user_id
+        JOIN status_schema.scan_request_status_table rs ON r.scan_request_status_id = rs.scan_request_status_id
+        JOIN user_schema.account_type_table at ON acc.account_type = at.account_type_id
+        WHERE
+            (input_search_term IS NULL OR input_search_term = '' OR
+             m.mail_item_sender ILIKE '%' || input_search_term || '%' OR
+             u.user_first_name ILIKE '%' || input_search_term || '%' OR
+             u.user_last_name ILIKE '%' || input_search_term || '%' OR
+             u.user_email ILIKE '%' || input_search_term || '%' OR
+             acc.account_number ILIKE '%' || input_search_term || '%')
+            AND
+            (input_status_filter IS NULL OR input_status_filter = '' OR rs.scan_request_status_value = input_status_filter)
+        ORDER BY
+            CASE WHEN input_sort_order = 'asc' THEN r.scan_request_requested_at END ASC,
+            CASE WHEN input_sort_order = 'desc' THEN r.scan_request_requested_at END DESC
+        LIMIT input_page_size
+        OFFSET (input_page_number - 1) * input_page_size
+    )
+    SELECT jsonb_agg(row_to_json(filtered_data))
+    INTO return_data
+    FROM filtered_data;
+
+    RETURN COALESCE(return_data, '[]'::JSONB);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Process Scan Request RPC
+CREATE OR REPLACE FUNCTION process_scan_request(
+    input_data JSONB
+)
+RETURNS JSONB
+SET search_path TO ''
+AS $$
+DECLARE
+    input_request_id UUID := (input_data->>'request_id')::UUID;
+    input_url TEXT := input_data->>'url';
+    input_status_id TEXT := input_data->>'status_id';
+    
+    var_status_id TEXT;
+    var_mail_item_id UUID;
+    var_mail_item_status_id TEXT;
+    return_data JSONB;
+BEGIN
+    -- Determine status ID (Default to COMPLETED if url is provided, or use provided one)
+    var_status_id := COALESCE(input_status_id, 'SRS-COMPLETED');
+
+    -- Get the mail_item_id associated with this request
+    SELECT scan_request_mail_item_id INTO var_mail_item_id
+    FROM request_schema.scan_request_table
+    WHERE scan_request_id = input_request_id;
+
+    -- Determine Mail Item Status based on Scan Status
+    IF var_status_id = 'SRS-COMPLETED' THEN
+        var_mail_item_status_id := 'MIS-SCANNED'; 
+    ELSIF var_status_id = 'SRS-REJECTED' THEN
+         var_mail_item_status_id := 'MIS-RECEIVED';
+    END IF;
+
+    -- Update scan request
+    UPDATE request_schema.scan_request_table
+    SET
+        scan_request_url = COALESCE(input_url, scan_request_url),
+        scan_request_status_id = var_status_id,
+        scan_request_processed_at = CASE WHEN scan_request_processed_at IS NULL THEN NOW() ELSE scan_request_processed_at END,
+        scan_request_updated_at = NOW()
+    WHERE scan_request_id = input_request_id;
+
+    -- Update mail item status if mapping exists
+    IF var_mail_item_status_id IS NOT NULL THEN
+        UPDATE mailroom_schema.mail_item_table
+        SET
+            mail_item_status_id = var_mail_item_status_id,
+            mail_item_updated_at = NOW()
+        WHERE mail_item_id = var_mail_item_id;
+    END IF;
+    
+    -- Update the attachment path if URL provided
+    IF input_url IS NOT NULL THEN
+        -- Check if attachment record exists
+        IF EXISTS (SELECT 1 FROM mailroom_schema.mail_attachment_table WHERE mail_attachment_mail_item_id = var_mail_item_id) THEN
+            UPDATE mailroom_schema.mail_attachment_table
+            SET mail_attachment_item_scan_file_path = input_url,
+                mail_attachment_updated_at = NOW()
+            WHERE mail_attachment_mail_item_id = var_mail_item_id;
+        ELSE
+            -- Insert if not exists (unlikely if created properly, but safe)
+            INSERT INTO mailroom_schema.mail_attachment_table (
+                mail_attachment_mail_item_id,
+                mail_attachment_item_scan_file_path
+            ) VALUES (
+                var_mail_item_id,
+                input_url
+            );
+        END IF;
+    END IF;
+
+    return_data := jsonb_build_object('success', true);
+    RETURN return_data;
+END;
+$$ LANGUAGE plpgsql;

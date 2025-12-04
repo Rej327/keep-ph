@@ -249,3 +249,33 @@ export const updateRetrievalRequestStatus = async (
     statusId
   );
 };
+
+export const processScanRequest = async (
+  requestId: string,
+  url?: string,
+  statusId?: string
+) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const inputData = {
+    request_id: requestId,
+    url: url || null,
+    status_id: statusId || null,
+  };
+
+  const { error } = await supabase.rpc("process_scan_request", {
+    input_data: inputData,
+  });
+
+  if (error) {
+    console.error("Error processing scan request:", error);
+    throw new Error(error.message);
+  }
+};
+
+export const updateScanRequestStatus = async (
+  requestId: string,
+  statusId: string
+) => {
+  return processScanRequest(requestId, undefined, statusId);
+};

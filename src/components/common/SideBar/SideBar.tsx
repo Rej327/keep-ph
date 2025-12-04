@@ -30,6 +30,7 @@ import {
   IconUpload,
   IconTruckDelivery,
   IconServer,
+  IconScan,
   // IconPlus,
 } from "@tabler/icons-react";
 import classes from "./SideBar.module.css";
@@ -61,9 +62,14 @@ const adminLinks: LinksGroupProps[] = [
     link: "/admin/disposal/requests",
   },
   {
-    label: "Retrieval Request",
+    label: "Retrieval Requests",
     icon: IconTruckDelivery,
     link: "/admin/retrieval/requests",
+  },
+  {
+    label: "Scan Requests",
+    icon: IconScan,
+    link: "/admin/scan/requests",
   },
   // { label: "Customer Detail", icon: IconUser, link: "/admin/customer/detail" },
   // { label: "System Stats", icon: IconChartBar, link: "/admin/stats" },

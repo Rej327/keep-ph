@@ -283,6 +283,7 @@ CREATE TABLE request_schema.scan_request_table (
     scan_request_account_id UUID NOT NULL, -- FK to user_schema.account_table.account_id
     scan_request_status_id TEXT NOT NULL, -- FK to status_schema.scan_request_status_table.scan_request_status_id
     scan_request_instructions TEXT, -- Specific pages or details to scan
+    scan_request_url TEXT,
     scan_request_requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     scan_request_processed_at TIMESTAMPTZ,
     scan_request_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
