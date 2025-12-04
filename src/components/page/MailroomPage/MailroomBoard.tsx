@@ -29,11 +29,12 @@ import { notifications } from "@mantine/notifications";
 import useSWR from "swr";
 import useAuthStore from "@/zustand/stores/useAuthStore";
 import { getUserFullDetails } from "@/actions/supabase/get";
+import { getMailroomData } from "@/actions/supabase/get";
 import {
-  getMailroomData,
-  updateMailItemLocations,
   MailItemMove,
-} from "@/actions/supabase/mailroom";
+  updateMailItemLocations,
+} from "@/actions/supabase/update";
+
 import { MailroomData } from "./types";
 import MailroomColumn from "./MailroomColumn";
 
