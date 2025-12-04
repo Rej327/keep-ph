@@ -293,3 +293,17 @@ export const updateScanRequestStatus = async (
 ) => {
   return processScanRequest(requestId, undefined, statusId);
 };
+
+export const markMailItemAsRetrieved = async (mailItemId: string) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("mark_mail_item_as_retrieved", {
+    input_mail_item_id: mailItemId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as boolean;
+};

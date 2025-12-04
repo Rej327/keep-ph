@@ -2265,3 +2265,19 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
+-- Mark mail item as retrieved (User confirms receipt)
+CREATE OR REPLACE FUNCTION mark_mail_item_as_retrieved(input_mail_item_id UUID)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  UPDATE mailroom_schema.mail_item_table
+  SET mail_item_status_id = 'MIS-RETRIEVED',
+      mail_item_updated_at = NOW()
+  WHERE mail_item_id = input_mail_item_id;
+
+  RETURN TRUE;
+END;
+$$
+LANGUAGE plpgsql;
