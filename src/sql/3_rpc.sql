@@ -2281,3 +2281,171 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
+-- Log Visitor (Updated to accept visitor_id)
+CREATE OR REPLACE FUNCTION log_visitor(
+    p_visitor_id TEXT,
+    p_user_agent TEXT,
+    p_source TEXT DEFAULT 'website',
+    p_landing_page TEXT DEFAULT '/'
+)
+RETURNS VOID
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_ip INET;
+BEGIN
+    BEGIN
+        v_ip := (current_setting('request.headers', true)::json->>'x-forwarded-for')::inet;
+    EXCEPTION WHEN OTHERS THEN
+        v_ip := NULL;
+    END;
+
+    INSERT INTO analytics_schema.visitor_analytics_table (
+        visitor_analytics_visitor_id,
+        visitor_analytics_date,
+        visitor_analytics_ip_address,
+        visitor_analytics_user_agent,
+        visitor_analytics_source,
+        visitor_analytics_landing_page
+    ) VALUES (
+        p_visitor_id,
+        CURRENT_DATE,
+        v_ip,
+        p_user_agent,
+        p_source,
+        p_landing_page
+    )
+    ON CONFLICT (visitor_analytics_date, visitor_analytics_visitor_id)
+    DO UPDATE SET
+        visitor_analytics_session_count = analytics_schema.visitor_analytics_table.visitor_analytics_session_count + 1,
+        visitor_analytics_last_visit_at = NOW(),
+        visitor_analytics_updated_at = NOW();
+END;
+$$ LANGUAGE plpgsql;
+
+-- Get Total Visitor Count
+CREATE OR REPLACE FUNCTION get_visitor_count()
+RETURNS INTEGER
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_count INTEGER;
+BEGIN
+    SELECT COUNT(*) INTO v_count FROM analytics_schema.visitor_analytics_table;
+    RETURN v_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Log activity
+CREATE OR REPLACE FUNCTION log_activity(
+    p_type TEXT,
+    p_message TEXT,
+    p_detail TEXT DEFAULT NULL,
+    p_user_id UUID DEFAULT NULL
+)
+RETURNS VOID
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    INSERT INTO analytics_schema.activity_log_table (
+        activity_log_type,
+        activity_log_message,
+        activity_log_detail,
+        activity_log_user_id
+    ) VALUES (
+        p_type,
+        p_message,
+        p_detail,
+        p_user_id
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Get Dashboard Stats
+CREATE OR REPLACE FUNCTION get_dashboard_stats()
+RETURNS JSON
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    active_users INTEGER;
+    inactive_users INTEGER;
+    total_visitors INTEGER;
+    visitors_trend FLOAT;
+    plan_free INTEGER;
+    plan_digital INTEGER;
+    plan_personal INTEGER;
+    plan_business INTEGER;
+    scan_req INTEGER;
+    scan_all INTEGER;
+    retrieval_req INTEGER;
+    retrieval_all INTEGER;
+    disposal_req INTEGER;
+    disposal_all INTEGER;
+    recent_activity JSON;
+    recent_errors JSON;
+BEGIN
+    -- User Counts
+    SELECT COUNT(*) INTO active_users FROM user_schema.account_table WHERE account_subscription_status_id = 'SST-ACTIVE';
+    SELECT COUNT(*) INTO inactive_users FROM user_schema.account_table WHERE account_subscription_status_id != 'SST-ACTIVE';
+
+    -- Visitor Counts
+    SELECT COUNT(*) INTO total_visitors FROM analytics_schema.visitor_analytics_table;
+    SELECT 
+        CASE 
+            WHEN total_visitors > 0 THEN (COUNT(*) FILTER (WHERE visitor_analytics_date >= date_trunc('month', CURRENT_DATE) AND visitor_analytics_date < date_trunc('month', CURRENT_DATE) + interval '1 month') * 100.0 / total_visitors)
+            ELSE 0
+        END INTO visitors_trend 
+    FROM analytics_schema.visitor_analytics_table;
+
+    -- Plan Counts
+    SELECT COUNT(*) INTO plan_free FROM user_schema.account_table WHERE account_type = 'AT-FREE';
+    SELECT COUNT(*) INTO plan_digital FROM user_schema.account_table WHERE account_type = 'AT-DIGITAL';
+    SELECT COUNT(*) INTO plan_personal FROM user_schema.account_table WHERE account_type = 'AT-PERSONAL';
+    SELECT COUNT(*) INTO plan_business FROM user_schema.account_table WHERE account_type = 'AT-BUSINESS';
+
+    -- Request Counts
+    SELECT COUNT(*) INTO scan_req FROM request_schema.scan_request_table WHERE scan_request_status_id = 'SRS-PENDING';
+    SELECT COUNT(*) INTO scan_all FROM request_schema.scan_request_table;
+    
+    SELECT COUNT(*) INTO retrieval_req FROM request_schema.retrieval_request_table WHERE retrieval_request_status_id = 'RRS-PENDING';
+    SELECT COUNT(*) INTO retrieval_all FROM request_schema.retrieval_request_table;
+    
+    SELECT COUNT(*) INTO disposal_req FROM request_schema.dispose_request_table WHERE dispose_request_status_id = 'DRS-PENDING';
+    SELECT COUNT(*) INTO disposal_all FROM request_schema.dispose_request_table;
+
+    -- Recent Activity
+    SELECT COALESCE(json_agg(t), '[]'::json) INTO recent_activity FROM (
+        SELECT 
+            activity_log_type as type,
+            activity_log_message as message,
+            activity_log_detail as detail,
+            activity_log_created_at as time
+        FROM analytics_schema.activity_log_table
+        ORDER BY activity_log_created_at DESC
+        LIMIT 5
+    ) t;
+
+    -- Recent Errors
+    SELECT COALESCE(json_agg(t), '[]'::json) INTO recent_errors FROM (
+        SELECT * FROM analytics_schema.error_table ORDER BY error_timestamp DESC LIMIT 10
+    ) t;
+
+    RETURN json_build_object(
+        'users', json_build_object('active', active_users, 'inactive', inactive_users),
+        'visitors', json_build_object('count', total_visitors, 'trend', visitors_trend),
+        'plans', json_build_object('free', plan_free, 'digital', plan_digital, 'personal', plan_personal, 'business', plan_business),
+        'requests', json_build_object(
+            'scan', json_build_object('requested', scan_req, 'all', scan_all),
+            'retrieval', json_build_object('requested', retrieval_req, 'all', retrieval_all),
+            'disposal', json_build_object('requested', disposal_req, 'all', disposal_all)
+        ),
+        'activity_logs', recent_activity,
+        'error_logs', recent_errors
+    );
+END;
+$$ LANGUAGE plpgsql;

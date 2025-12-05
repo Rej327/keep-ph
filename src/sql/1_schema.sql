@@ -307,20 +307,22 @@ CREATE TABLE referral_schema.referral_invitation_table (
 -- Visitor Analytics Table (Combined approach - no redundancy)
 CREATE TABLE analytics_schema.visitor_analytics_table (
     visitor_analytics_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    visitor_analytics_visitor_id TEXT, -- Generated UUID from cookie/localstorage
     visitor_analytics_date DATE NOT NULL,
-    visitor_analytics_ip_address INET NOT NULL,
+    visitor_analytics_ip_address INET, -- Made nullable in case we just rely on ID
     visitor_analytics_user_agent TEXT,
     visitor_analytics_source TEXT NOT NULL, -- 'website', 'app', etc.
     visitor_analytics_referrer TEXT,
     visitor_analytics_landing_page TEXT,
-    visitor_analytics_session_count INTEGER NOT NULL DEFAULT 1, -- How many times this IP visited today
+    visitor_analytics_session_count INTEGER NOT NULL DEFAULT 1,
     visitor_analytics_first_visit_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     visitor_analytics_last_visit_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     visitor_analytics_duration_seconds INTEGER,
     visitor_analytics_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    visitor_analytics_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(visitor_analytics_date, visitor_analytics_ip_address, visitor_analytics_source)
+    visitor_analytics_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_visitor_analytics_daily_unique 
+ON analytics_schema.visitor_analytics_table (visitor_analytics_date, visitor_analytics_visitor_id);
 
 -- New Account Count Table
 CREATE TABLE analytics_schema.new_account_count_table (
@@ -344,6 +346,16 @@ CREATE TABLE analytics_schema.subscription_account_count_table (
     UNIQUE(subscription_account_count_date, subscription_account_count_type)
 );
 
+-- Activity Log Table
+CREATE TABLE IF NOT EXISTS analytics_schema.activity_log_table (
+    activity_log_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    activity_log_type TEXT NOT NULL, -- 'user', 'scan', 'retrieval', 'disposal'
+    activity_log_message TEXT NOT NULL,
+    activity_log_detail TEXT,
+    activity_log_user_id UUID, -- Optional, who performed it
+    activity_log_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Error Analytics Table
 CREATE TABLE analytics_schema.error_table (
     error_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -364,7 +376,7 @@ CREATE TABLE analytics_schema.error_table (
     error_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS subscription_schema.subscription_plan_table (
+CREATE TABLE subscription_schema.subscription_plan_table (
     subscription_plan_id TEXT PRIMARY KEY,
     subscription_plan_name TEXT NOT NULL,
     subscription_plan_price NUMERIC NOT NULL,
@@ -375,7 +387,7 @@ CREATE TABLE IF NOT EXISTS subscription_schema.subscription_plan_table (
     subscription_plan_created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS subscription_schema.subscription_plan_storage_table (
+CREATE TABLE subscription_schema.subscription_plan_storage_table (
     subscription_plan_storage_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     subscription_plan_storage_plan_id TEXT REFERENCES subscription_schema.subscription_plan_table(subscription_plan_id) ON DELETE CASCADE,
     subscription_plan_max_gb_storage NUMERIC NOT NULL DEFAULT 0,
@@ -386,13 +398,13 @@ CREATE TABLE IF NOT EXISTS subscription_schema.subscription_plan_storage_table (
     UNIQUE(subscription_plan_storage_plan_id)
 );
 
-CREATE TABLE IF NOT EXISTS subscription_schema.subscription_feature_table (
+CREATE TABLE subscription_schema.subscription_feature_table (
     subscription_feature_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     subscription_feature_label TEXT NOT NULL UNIQUE, -- e.g. "Storage"
     subscription_feature_created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS subscription_schema.subscription_plan_feature_table (
+CREATE TABLE subscription_schema.subscription_plan_feature_table (
     subscription_plan_feature_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     subscription_plan_feature_plan_id TEXT REFERENCES subscription_schema.subscription_plan_table(subscription_plan_id) ON DELETE CASCADE,
     subscription_plan_feature_feature_id UUID REFERENCES subscription_schema.subscription_feature_table(subscription_feature_id) ON DELETE CASCADE,

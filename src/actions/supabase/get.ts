@@ -686,3 +686,47 @@ export const getMailroomData = async (
 
   return mailroomData;
 };
+
+export type DashboardStats = {
+  users: { active: number; inactive: number };
+  visitors: { count: number; trend: number };
+  plans: { free: number; digital: number; personal: number; business: number };
+  requests: {
+    scan: { requested: number; all: number };
+    retrieval: { requested: number; all: number };
+    disposal: { requested: number; all: number };
+  };
+  activity_logs: ActivityLog[];
+  error_logs: ErrorLog[];
+};
+
+export type ActivityLog = {
+  type: string;
+  message: string;
+  detail: string;
+  time: string;
+};
+
+export type ErrorLog = {
+  error_id: string;
+  error_timestamp: string;
+  error_type: string;
+  error_source: string;
+  error_message: string;
+  error_stack_trace?: string;
+  error_resolved: boolean;
+};
+
+export const getDashboardStats = async (): Promise<DashboardStats> => {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("get_dashboard_stats");
+
+  if (error) {
+    console.error("Error fetching dashboard stats:", error);
+    throw new Error(error.message);
+  }
+
+  console.log("Dashboard stats:", data);
+
+  return data as DashboardStats;
+};

@@ -5,10 +5,12 @@ import { LandingHowItWorks } from "@/components/page/LandingPage/LandingHowItWor
 import { LandingPricing } from "@/components/page/LandingPage/LandingPricing";
 import { LandingFaq } from "@/components/page/LandingPage/LandingFaq";
 import { LandingFooter } from "@/components/page/LandingPage/LandingFooter";
+import { VisitorTracker } from "@/components/page/DashboardPage/VisitorTracker";
 
 export default function Home() {
   return (
     <>
+      <VisitorTracker />
       <LandingHeader />
       <LandingHero />
       <LandingFeatures />
