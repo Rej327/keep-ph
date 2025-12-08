@@ -293,3 +293,35 @@ export const updateScanRequestStatus = async (
 ) => {
   return processScanRequest(requestId, undefined, statusId);
 };
+
+export const markMailItemAsRetrieved = async (mailItemId: string) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("mark_mail_item_as_retrieved", {
+    input_mail_item_id: mailItemId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as boolean;
+};
+
+export type MailItemMove = {
+  mail_item_id: string;
+  mailbox_id: string;
+};
+
+export const updateMailItemLocations = async (moves: MailItemMove[]) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { error } = await supabase.rpc("update_mail_item_locations", {
+    moves: moves,
+  });
+
+  if (error) {
+    console.error("Error updating mail item locations:", error);
+    throw new Error(error.message);
+  }
+};

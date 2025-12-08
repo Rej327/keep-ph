@@ -17,6 +17,7 @@ import { updateMailboxStatus } from "@/actions/supabase/update";
 import { useState } from "react";
 import useSWR from "swr";
 import { notifications } from "@mantine/notifications";
+import { createNotification } from "@/actions/supabase/notification";
 
 const MAILBOX_STATUSES = [
   { value: "MBS-ACTIVE", label: "Active" },
@@ -28,7 +29,6 @@ const MAILBOX_STATUSES = [
 export default function MailroomClient() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const {
     data: mailrooms,
@@ -36,12 +36,11 @@ export default function MailroomClient() {
     isLoading,
     mutate: refreshMailrooms,
   } = useSWR<MailroomItem[]>(
-    ["mailrooms", search, statusFilter, sortOrder],
+    ["mailrooms", search, statusFilter],
     () =>
       getAllMailrooms({
         search,
         status_filter: statusFilter,
-        sort_order: sortOrder,
       }),
     { revalidateOnFocus: false }
   );
@@ -49,6 +48,24 @@ export default function MailroomClient() {
   const handleStatusChange = async (mailboxId: string, newStatus: string) => {
     try {
       await updateMailboxStatus(mailboxId, newStatus);
+
+      // Notify Customer
+      try {
+        const mailroom = mailrooms?.find((m) => m.mailbox_id === mailboxId);
+        if (mailroom) {
+          const statusLabel = MAILBOX_STATUSES.find(
+            (s) => s.value === newStatus
+          )?.label;
+          await createNotification({
+            userId: mailroom.account_id,
+            title: "Mailbox Status Updated",
+            message: `Your mailbox ${mailroom.mailbox_label} status has been updated to: ${statusLabel}.`,
+          });
+        }
+      } catch (notifError) {
+        console.error("Failed to send notification:", notifError);
+      }
+
       notifications.show({
         title: "Success",
         message: "Mailbox status updated successfully",
@@ -200,18 +217,6 @@ export default function MailroomClient() {
             value={statusFilter}
             onChange={(value) => setStatusFilter(value || "")}
             w={200}
-          />
-          <Select
-            placeholder="Sort Order"
-            data={[
-              { value: "desc", label: "Newest First" },
-              { value: "asc", label: "Oldest First" },
-            ]}
-            value={sortOrder}
-            onChange={(value) =>
-              setSortOrder((value as "asc" | "desc") || "desc")
-            }
-            w={150}
           />
         </Group>
 

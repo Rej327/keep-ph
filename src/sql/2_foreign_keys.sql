@@ -166,3 +166,29 @@ ALTER TABLE user_schema.account_table
     ADD CONSTRAINT fk_account_subscription_status_id
     FOREIGN KEY (account_subscription_status_id)
     REFERENCES status_schema.subscription_status_table(subscription_status_id);
+
+-- Notification Foreign Keys
+ALTER TABLE notification_schema.notification_table
+  ADD CONSTRAINT fk_notification_source_type
+  FOREIGN KEY (notification_source_type_id)
+  REFERENCES notification_schema.notification_source_type_table (notification_source_type_id);
+
+ALTER TABLE notification_schema.notification_table
+  ADD CONSTRAINT fk_notification_scope_type
+  FOREIGN KEY (notification_scope_type_id)
+  REFERENCES notification_schema.notification_scope_type_table (notification_scope_type_id);
+
+ALTER TABLE notification_schema.notification_table
+  ADD CONSTRAINT fk_notification_status_type
+  FOREIGN KEY (notification_status_type_id)
+  REFERENCES notification_schema.notification_status_type_table (notification_status_type_id);
+
+ALTER TABLE notification_schema.notification_table
+  ADD CONSTRAINT fk_notification_item_type
+  FOREIGN KEY (notification_item_type_id)
+  REFERENCES notification_schema.notification_item_type_table (notification_item_type_id);
+
+ALTER TABLE notification_schema.notification_table
+  ADD CONSTRAINT fk_notification_target_user
+  FOREIGN KEY (notification_target_user_id)
+  REFERENCES user_schema.account_table (account_id);

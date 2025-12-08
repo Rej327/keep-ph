@@ -22,6 +22,7 @@ import {
 import { updateDisposalRequestStatus } from "@/actions/supabase/update";
 import { notifications } from "@mantine/notifications";
 import { CustomDataTable } from "@/components/common/CustomDataTable";
+import { createNotification } from "@/actions/supabase/notification";
 
 // const PAGE_SIZE = 10;
 
@@ -49,6 +50,32 @@ export default function DisposalClient() {
     setProcessingId(requestId);
     try {
       await updateDisposalRequestStatus(requestId, statusId);
+
+      // Notify Customer
+      try {
+        const request = requests?.find(
+          (r) => r.dispose_request_id === requestId
+        );
+        if (request) {
+          await createNotification({
+            userId: request.dispose_request_account_id, // Or request.account_id if available in future
+            title:
+              statusId === "DRS-COMPLETED"
+                ? "Disposal Completed"
+                : "Disposal Rejected",
+            message: `Your disposal request for ${
+              request.mail_item_name
+            } has been ${
+              statusId === "DRS-COMPLETED" ? "completed" : "rejected"
+            }.`,
+            itemType: "NIT-MAIL",
+            itemId: request.dispose_request_mail_item_id,
+          });
+        }
+      } catch (notifError) {
+        console.error("Failed to send notification:", notifError);
+      }
+
       notifications.show({
         message: `Request ${
           statusId === "DRS-COMPLETED" ? "dispose" : "rejected"

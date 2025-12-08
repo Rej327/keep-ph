@@ -1,7 +1,7 @@
 "use client";
 
 import { redirect } from "next/navigation";
-import SubscriptionClient from "@/components/page/Subscription/SubscriptionClient";
+import SubscriptionClient from "@/components/page/SubscriptionPage/SubscriptionClient";
 import useAuthStore from "@/zustand/stores/useAuthStore";
 
 export default function SubscriptionPage() {

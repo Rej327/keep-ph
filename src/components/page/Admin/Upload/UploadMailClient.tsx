@@ -35,6 +35,7 @@ import {
 import { createMailItem } from "@/actions/supabase/post";
 import { CustomerApiResponse } from "@/components/page/Admin/Customers/CustomersClient";
 import { uploadAttachmentfile } from "@/actions/supabase/fileupload";
+import { createNotification } from "@/actions/supabase/notification";
 
 type Mailbox = {
   mailbox_id: string;
@@ -139,7 +140,7 @@ export default function UploadMailClient() {
       );
 
       // 2. Create mail item record
-      const { error: dbError } = await createMailItem({
+      const { error: dbError, data: mailData } = await createMailItem({
         mailboxId: selectedMailbox,
         sender: sendBy, // Using itemName as sender
         description: description,
@@ -150,6 +151,22 @@ export default function UploadMailClient() {
       });
 
       if (dbError) throw dbError;
+
+      // 3. Create Notification for the user
+      try {
+        await createNotification({
+          userId: selectedCustomer,
+          title: `New ${uploadType === "mail" ? "Mail" : "Package"} Received`,
+          message: `You have received a new ${
+            uploadType === "mail" ? "mail" : "package"
+          } from ${sendBy}.`,
+          itemType: uploadType === "mail" ? "NIT-MAIL" : "NIT-PACKAGE",
+          itemId: mailData?.[0]?.mail_item_id,
+        });
+      } catch (notifError) {
+        console.error("Failed to send notification:", notifError);
+        // Don't block success modal if notification fails
+      }
 
       setSuccessModalOpen(true);
     } catch (error: unknown) {

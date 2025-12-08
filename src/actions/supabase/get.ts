@@ -1,4 +1,5 @@
 import { CustomerApiResponse } from "@/components/page/Admin/Customers/CustomersClient";
+import { MailroomData } from "@/components/page/MailroomPage/types";
 import { createSupabaseBrowserClient } from "@/utils/supabase/browserClient";
 
 export const isUserAdmin = async (userId: string): Promise<boolean> => {
@@ -337,6 +338,7 @@ export type DisposalRequestItem = {
   user_id: string;
   user_full_name: string;
   user_email: string;
+  account_id: string;
   account_address_key: string;
   account_account_number: string;
   account_type: string;
@@ -569,8 +571,10 @@ export type RetrievalRequestItem = {
   retrieval_request_label_url: string | null;
   retrieval_request_notes: string | null;
   mail_item_sender: string | null;
+  mail_item_id: string;
   user_full_name: string;
   user_email: string;
+  account_id: string;
   account_address_key: string;
   account_number: string;
   account_type_value: string;
@@ -613,8 +617,10 @@ export type ScanRequestItem = {
   scan_request_instructions: string | null;
   scan_request_url: string | null;
   mail_item_sender: string | null;
+  mail_item_id: string;
   user_full_name: string;
   user_email: string;
+  account_id: string;
   account_address_key: string;
   account_number: string;
   account_type_value: string;
@@ -648,4 +654,79 @@ export const getScanRequests = async (filters?: {
   }
 
   return data as ScanRequestItem[];
+};
+
+export const getMailroomData = async (
+  accountId: string
+): Promise<MailroomData> => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("get_mailroom_data", {
+    input_account_id: accountId,
+  });
+
+  if (error) {
+    console.error("Error fetching mailroom data:", error);
+    throw new Error(error.message);
+  }
+
+  // Process the data to ensure it has the correct structure
+  const mailroomData: MailroomData = data;
+
+  // Add mail_remaining and package_remaining if they don't exist
+  Object.keys(mailroomData.columns).forEach((columnId) => {
+    const column = mailroomData.columns[columnId];
+    if (column.mail_remaining === undefined) {
+      column.mail_remaining = 0;
+    }
+    if (column.package_remaining === undefined) {
+      column.package_remaining = 0;
+    }
+  });
+
+  return mailroomData;
+};
+
+export type DashboardStats = {
+  users: { active: number; inactive: number };
+  visitors: { count: number; trend: number };
+  plans: { free: number; digital: number; personal: number; business: number };
+  requests: {
+    scan: { requested: number; all: number };
+    retrieval: { requested: number; all: number };
+    disposal: { requested: number; all: number };
+  };
+  activity_logs: ActivityLog[];
+  error_logs: ErrorLog[];
+};
+
+export type ActivityLog = {
+  type: string;
+  message: string;
+  detail: string;
+  time: string;
+};
+
+export type ErrorLog = {
+  error_id: string;
+  error_timestamp: string;
+  error_type: string;
+  error_source: string;
+  error_message: string;
+  error_stack_trace?: string;
+  error_resolved: boolean;
+};
+
+export const getDashboardStats = async (): Promise<DashboardStats> => {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("get_dashboard_stats");
+
+  if (error) {
+    console.error("Error fetching dashboard stats:", error);
+    throw new Error(error.message);
+  }
+
+  console.log("Dashboard stats:", data);
+
+  return data as DashboardStats;
 };

@@ -222,3 +222,43 @@ export const addUserPhysicalAddress = async (params: AddUserAddressParams) => {
     return { error: err as Error };
   }
 };
+
+export const logVisitor = async (
+  visitorId: string,
+  userAgent: string,
+  source: string = "website",
+  landingPage: string = "/"
+) => {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("log_visitor", {
+    p_visitor_id: visitorId,
+    p_user_agent: userAgent,
+    p_source: source,
+    p_landing_page: landingPage,
+  });
+
+  if (error) throw error;
+
+  return data;
+};
+
+export const logActivity = async (
+  type: "user" | "scan" | "retrieval" | "disposal" | "mail_item",
+  message: string,
+  detail?: string,
+  userId?: string
+) => {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("log_activity", {
+    p_type: type,
+    p_message: message,
+    p_detail: detail || null,
+    p_user_id: userId || null,
+  });
+
+  if (error) {
+    console.error("Error logging activity:", error);
+  }
+
+  return data;
+};

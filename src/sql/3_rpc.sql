@@ -2088,3 +2088,364 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
+-- Create Notification
+CREATE OR REPLACE FUNCTION create_notification(
+  input_source_type_id TEXT,
+  input_scope_type_id TEXT,
+  input_target_user_id UUID,
+  input_title TEXT,
+  input_message TEXT,
+  input_item_type_id TEXT DEFAULT NULL,
+  input_item_id UUID DEFAULT NULL,
+  input_additional_data JSONB DEFAULT NULL
+)
+RETURNS UUID
+SET search_path TO ''
+AS $$
+DECLARE
+  new_notification_id UUID;
+BEGIN
+  INSERT INTO notification_schema.notification_table (
+    notification_source_type_id,
+    notification_scope_type_id,
+    notification_target_user_id,
+    notification_title,
+    notification_message,
+    notification_item_type_id,
+    notification_item_id,
+    notification_additional_data,
+    notification_status_type_id
+  ) VALUES (
+    input_source_type_id,
+    input_scope_type_id,
+    input_target_user_id,
+    input_title,
+    input_message,
+    input_item_type_id,
+    input_item_id,
+    input_additional_data,
+    'NST-PENDING'
+  )
+  RETURNING notification_id INTO new_notification_id;
+
+  RETURN new_notification_id;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Get User Notifications (Paginated)
+CREATE OR REPLACE FUNCTION get_user_notifications(
+  input_user_id UUID,
+  input_page INTEGER DEFAULT 1,
+  input_page_size INTEGER DEFAULT 20,
+  input_filter_type TEXT DEFAULT 'all' -- 'all', 'unread', 'archived'
+)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  return_data JSON;
+  offset_val INTEGER;
+BEGIN
+  offset_val := (input_page - 1) * input_page_size;
+
+  SELECT 
+    JSON_BUILD_OBJECT(
+      'data', COALESCE(JSON_AGG(n.*), '[]'::JSON),
+      'total_count', (
+        SELECT COUNT(*) 
+        FROM notification_schema.notification_table 
+        WHERE notification_target_user_id = input_user_id
+        AND (
+          CASE 
+            WHEN input_filter_type = 'unread' THEN notification_is_read = FALSE
+            WHEN input_filter_type = 'archived' THEN notification_is_archived = TRUE
+            ELSE notification_is_archived = FALSE
+          END
+        )
+      ),
+      'unread_count', (
+        SELECT COUNT(*) 
+        FROM notification_schema.notification_table 
+        WHERE notification_target_user_id = input_user_id 
+        AND notification_is_read = FALSE
+      )
+    ) INTO return_data
+  FROM (
+    SELECT *
+    FROM notification_schema.notification_table
+    WHERE notification_target_user_id = input_user_id
+    AND (
+      CASE 
+        WHEN input_filter_type = 'unread' THEN notification_is_read = FALSE
+        WHEN input_filter_type = 'archived' THEN notification_is_archived = TRUE
+        ELSE notification_is_archived = FALSE
+      END
+    )
+    ORDER BY notification_created_at DESC
+    LIMIT input_page_size
+    OFFSET offset_val
+  ) n;
+
+  RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Mark Notification as Read
+CREATE OR REPLACE FUNCTION mark_notification_as_read(
+  input_notification_id UUID
+)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  UPDATE notification_schema.notification_table
+  SET 
+    notification_is_read = TRUE,
+    notification_read_at = NOW()
+  WHERE notification_id = input_notification_id;
+  
+  RETURN FOUND;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Mark All Notifications as Read
+CREATE OR REPLACE FUNCTION mark_all_notifications_as_read(
+  input_user_id UUID
+)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  UPDATE notification_schema.notification_table
+  SET 
+    notification_is_read = TRUE,
+    notification_read_at = NOW()
+  WHERE notification_target_user_id = input_user_id
+    AND notification_is_read = FALSE;
+  
+  RETURN TRUE;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Mark Toast as Shown
+CREATE OR REPLACE FUNCTION mark_notification_toast_shown(
+  input_notification_id UUID
+)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  UPDATE notification_schema.notification_table
+  SET notification_toast_shown = TRUE
+  WHERE notification_id = input_notification_id;
+  
+  RETURN FOUND;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Archive Notification
+CREATE OR REPLACE FUNCTION archive_notification(
+  input_notification_id UUID
+)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  UPDATE notification_schema.notification_table
+  SET notification_is_archived = TRUE
+  WHERE notification_id = input_notification_id;
+  
+  RETURN FOUND;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Mark mail item as retrieved (User confirms receipt)
+CREATE OR REPLACE FUNCTION mark_mail_item_as_retrieved(input_mail_item_id UUID)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  UPDATE mailroom_schema.mail_item_table
+  SET mail_item_status_id = 'MIS-RETRIEVED',
+      mail_item_updated_at = NOW()
+  WHERE mail_item_id = input_mail_item_id;
+
+  RETURN TRUE;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Log Visitor (Updated to accept visitor_id)
+CREATE OR REPLACE FUNCTION log_visitor(
+    p_visitor_id TEXT,
+    p_user_agent TEXT,
+    p_source TEXT DEFAULT 'website',
+    p_landing_page TEXT DEFAULT '/'
+)
+RETURNS VOID
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_ip INET;
+BEGIN
+    BEGIN
+        v_ip := (current_setting('request.headers', true)::json->>'x-forwarded-for')::inet;
+    EXCEPTION WHEN OTHERS THEN
+        v_ip := NULL;
+    END;
+
+    INSERT INTO analytics_schema.visitor_analytics_table (
+        visitor_analytics_visitor_id,
+        visitor_analytics_date,
+        visitor_analytics_ip_address,
+        visitor_analytics_user_agent,
+        visitor_analytics_source,
+        visitor_analytics_landing_page
+    ) VALUES (
+        p_visitor_id,
+        CURRENT_DATE,
+        v_ip,
+        p_user_agent,
+        p_source,
+        p_landing_page
+    )
+    ON CONFLICT (visitor_analytics_date, visitor_analytics_visitor_id)
+    DO UPDATE SET
+        visitor_analytics_session_count = analytics_schema.visitor_analytics_table.visitor_analytics_session_count + 1,
+        visitor_analytics_last_visit_at = NOW(),
+        visitor_analytics_updated_at = NOW();
+END;
+$$ LANGUAGE plpgsql;
+
+-- Get Total Visitor Count
+CREATE OR REPLACE FUNCTION get_visitor_count()
+RETURNS INTEGER
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_count INTEGER;
+BEGIN
+    SELECT COUNT(*) INTO v_count FROM analytics_schema.visitor_analytics_table;
+    RETURN v_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Log activity
+CREATE OR REPLACE FUNCTION log_activity(
+    p_type TEXT,
+    p_message TEXT,
+    p_detail TEXT DEFAULT NULL,
+    p_user_id UUID DEFAULT NULL
+)
+RETURNS VOID
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    INSERT INTO analytics_schema.activity_log_table (
+        activity_log_type,
+        activity_log_message,
+        activity_log_detail,
+        activity_log_user_id
+    ) VALUES (
+        p_type,
+        p_message,
+        p_detail,
+        p_user_id
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Get Dashboard Stats
+CREATE OR REPLACE FUNCTION get_dashboard_stats()
+RETURNS JSON
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    active_users INTEGER;
+    inactive_users INTEGER;
+    total_visitors INTEGER;
+    visitors_trend FLOAT;
+    plan_free INTEGER;
+    plan_digital INTEGER;
+    plan_personal INTEGER;
+    plan_business INTEGER;
+    scan_req INTEGER;
+    scan_all INTEGER;
+    retrieval_req INTEGER;
+    retrieval_all INTEGER;
+    disposal_req INTEGER;
+    disposal_all INTEGER;
+    recent_activity JSON;
+    recent_errors JSON;
+BEGIN
+    -- User Counts
+    SELECT COUNT(*) INTO active_users FROM user_schema.account_table WHERE account_subscription_status_id = 'SST-ACTIVE';
+    SELECT COUNT(*) INTO inactive_users FROM user_schema.account_table WHERE account_subscription_status_id != 'SST-ACTIVE';
+
+    -- Visitor Counts
+    SELECT COUNT(*) INTO total_visitors FROM analytics_schema.visitor_analytics_table;
+    SELECT 
+        CASE 
+            WHEN total_visitors > 0 THEN (COUNT(*) FILTER (WHERE visitor_analytics_date >= date_trunc('month', CURRENT_DATE) AND visitor_analytics_date < date_trunc('month', CURRENT_DATE) + interval '1 month') * 100.0 / total_visitors)
+            ELSE 0
+        END INTO visitors_trend 
+    FROM analytics_schema.visitor_analytics_table;
+
+    -- Plan Counts
+    SELECT COUNT(*) INTO plan_free FROM user_schema.account_table WHERE account_type = 'AT-FREE';
+    SELECT COUNT(*) INTO plan_digital FROM user_schema.account_table WHERE account_type = 'AT-DIGITAL';
+    SELECT COUNT(*) INTO plan_personal FROM user_schema.account_table WHERE account_type = 'AT-PERSONAL';
+    SELECT COUNT(*) INTO plan_business FROM user_schema.account_table WHERE account_type = 'AT-BUSINESS';
+
+    -- Request Counts
+    SELECT COUNT(*) INTO scan_req FROM request_schema.scan_request_table WHERE scan_request_status_id = 'SRS-PENDING';
+    SELECT COUNT(*) INTO scan_all FROM request_schema.scan_request_table;
+    
+    SELECT COUNT(*) INTO retrieval_req FROM request_schema.retrieval_request_table WHERE retrieval_request_status_id = 'RRS-PENDING';
+    SELECT COUNT(*) INTO retrieval_all FROM request_schema.retrieval_request_table;
+    
+    SELECT COUNT(*) INTO disposal_req FROM request_schema.dispose_request_table WHERE dispose_request_status_id = 'DRS-PENDING';
+    SELECT COUNT(*) INTO disposal_all FROM request_schema.dispose_request_table;
+
+    -- Recent Activity
+    SELECT COALESCE(json_agg(t), '[]'::json) INTO recent_activity FROM (
+        SELECT 
+            activity_log_type as type,
+            activity_log_message as message,
+            activity_log_detail as detail,
+            activity_log_created_at as time
+        FROM analytics_schema.activity_log_table
+        ORDER BY activity_log_created_at DESC
+        LIMIT 5
+    ) t;
+
+    -- Recent Errors
+    SELECT COALESCE(json_agg(t), '[]'::json) INTO recent_errors FROM (
+        SELECT * FROM analytics_schema.error_table ORDER BY error_timestamp DESC LIMIT 10
+    ) t;
+
+    RETURN json_build_object(
+        'users', json_build_object('active', active_users, 'inactive', inactive_users),
+        'visitors', json_build_object('count', total_visitors, 'trend', visitors_trend),
+        'plans', json_build_object('free', plan_free, 'digital', plan_digital, 'personal', plan_personal, 'business', plan_business),
+        'requests', json_build_object(
+            'scan', json_build_object('requested', scan_req, 'all', scan_all),
+            'retrieval', json_build_object('requested', retrieval_req, 'all', retrieval_all),
+            'disposal', json_build_object('requested', disposal_req, 'all', disposal_all)
+        ),
+        'activity_logs', recent_activity,
+        'error_logs', recent_errors
+    );
+END;
+$$ LANGUAGE plpgsql;

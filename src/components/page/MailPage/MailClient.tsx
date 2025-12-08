@@ -60,11 +60,13 @@ import {
   markMailItemAsRead,
   requestMailItemScan,
   cancelDisposalRequest,
+  markMailItemAsRetrieved,
 } from "@/actions/supabase/update";
 import { notifications } from "@mantine/notifications";
 import { CustomDataTable } from "@/components/common/CustomDataTable";
 import { DataTableColumn } from "mantine-datatable";
 import { getStatusFormat, replaceUnderscore } from "@/utils/function";
+import { logActivity } from "@/actions/supabase/post";
 
 export default function MailClient() {
   const user = useAuthStore((state) => state.user);
@@ -217,6 +219,12 @@ export default function MailClient() {
         message: `${archiveAction ? "Archived" : "Unarchived"} successfully`,
         color: "green",
       });
+      await logActivity(
+        "mail_item",
+        archiveAction ? "Archived mail item" : "Unarchived mail item",
+        selectedItem.mail_item_name || `ID: ${selectedItem.mail_item_id}`,
+        user?.id
+      );
       setSelectedItem(null);
       mutate();
     } catch {
@@ -242,6 +250,12 @@ export default function MailClient() {
         userDetails.account.account_id
       );
       notifications.show({ message: "Disposal requested", color: "green" });
+      await logActivity(
+        "disposal",
+        "Disposal requested",
+        selectedItem.mail_item_name || `ID: ${selectedItem.mail_item_id}`,
+        user?.id
+      );
       mutate();
       setDisposalModalOpen(false);
     } catch {
@@ -275,6 +289,12 @@ export default function MailClient() {
         retrievalNotes
       );
       notifications.show({ message: "Retrieval requested", color: "green" });
+      await logActivity(
+        "retrieval",
+        "Retrieval requested",
+        selectedItem.mail_item_name || `ID: ${selectedItem.mail_item_id}`,
+        user?.id
+      );
       mutate();
       setRetrievalModalOpen(false);
       // Reset form
@@ -302,6 +322,12 @@ export default function MailClient() {
         scanInstructions
       );
       notifications.show({ message: "Scan requested", color: "green" });
+      await logActivity(
+        "scan",
+        "Scan requested",
+        selectedItem.mail_item_name || `ID: ${selectedItem.mail_item_id}`,
+        user?.id
+      );
       mutate();
       setScanModalOpen(false);
       setScanInstructions("");
@@ -316,6 +342,34 @@ export default function MailClient() {
     }
   };
 
+  const handleMarkAsRetrieved = async () => {
+    if (!selectedItem) return;
+    setActionLoading(true);
+    try {
+      await markMailItemAsRetrieved(selectedItem.mail_item_id);
+      notifications.show({
+        message: "Marked as retrieved",
+        color: "green",
+      });
+      await logActivity(
+        "retrieval",
+        "Marked as retrieved",
+        selectedItem.mail_item_name || `ID: ${selectedItem.mail_item_id}`,
+        user?.id
+      );
+      setViewRetrievalResultModalOpen(false);
+      setSelectedItem(null);
+      mutate();
+    } catch {
+      notifications.show({
+        message: "Failed to mark as retrieved",
+        color: "red",
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleConfirmOverrideDisposal = async () => {
     if (!selectedItem) return;
     setActionLoading(true);
@@ -325,6 +379,12 @@ export default function MailClient() {
         message: "Disposal request canceled",
         color: "green",
       });
+      await logActivity(
+        "disposal",
+        "Disposal request canceled",
+        selectedItem.mail_item_name || `ID: ${selectedItem.mail_item_id}`,
+        user?.id
+      );
       // Proceed with the pending action
       setOverrideDisposalModalOpen(false);
       if (pendingActionType === "scan") {
@@ -393,7 +453,8 @@ export default function MailClient() {
         render: (record) => (
           <Box
             onClick={
-              record.mail_item_status_value?.toLowerCase() !== "disposed"
+              record.mail_item_status_value?.toLowerCase() !== "disposed" &&
+              record.mail_item_status_value?.toLowerCase() !== "retrieved"
                 ? async () => {
                     setSelectedItem(record);
 
@@ -416,7 +477,8 @@ export default function MailClient() {
             }
             style={{
               cursor:
-                record.mail_item_status_value?.toLowerCase() !== "disposed"
+                record.mail_item_status_value?.toLowerCase() !== "disposed" &&
+                record.mail_item_status_value?.toLowerCase() !== "retrieved"
                   ? "pointer"
                   : "not-allowed",
               position: "relative",
@@ -638,7 +700,8 @@ export default function MailClient() {
                 disabled={
                   actionLoading ||
                   loadingRequestActions ||
-                  requestActions?.has_request_scan
+                  requestActions?.has_request_scan ||
+                  requestActions?.has_request_retrieval
                 }
               >
                 {requestActions?.has_request_scan
@@ -658,7 +721,8 @@ export default function MailClient() {
           disabled={
             actionLoading ||
             loadingRequestActions ||
-            requestActions?.has_request_disposal
+            requestActions?.has_request_disposal ||
+            requestActions?.has_request_retrieval
           }
         >
           {requestActions?.has_request_disposal
@@ -1078,6 +1142,15 @@ export default function MailClient() {
           )}
 
           <Group justify="flex-end" mt="md">
+            <Button
+              variant="outline"
+              color="green"
+              leftSection={<IconCheckbox size={16} />}
+              loading={actionLoading}
+              onClick={handleMarkAsRetrieved}
+            >
+              Mark as Received
+            </Button>
             <Button
               variant="default"
               onClick={() => setViewRetrievalResultModalOpen(false)}

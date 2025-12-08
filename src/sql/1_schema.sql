@@ -24,6 +24,7 @@ DROP SCHEMA IF EXISTS subscription_schema CASCADE;
 DROP SCHEMA IF EXISTS referral_schema CASCADE;
 DROP SCHEMA IF EXISTS analytics_schema CASCADE;
 DROP SCHEMA IF EXISTS storage_schema CASCADE;
+DROP SCHEMA IF EXISTS notification_schema CASCADE;
 
 -- Create all schemas
 CREATE SCHEMA public AUTHORIZATION postgres;
@@ -35,6 +36,7 @@ CREATE SCHEMA subscription_schema AUTHORIZATION postgres;
 CREATE SCHEMA referral_schema AUTHORIZATION postgres;
 CREATE SCHEMA analytics_schema AUTHORIZATION postgres;
 CREATE SCHEMA storage_schema AUTHORIZATION postgres;
+CREATE SCHEMA notification_schema AUTHORIZATION postgres;
 
 -- Mailbox Status Table
 CREATE TABLE status_schema.mailbox_status_table (
@@ -305,20 +307,22 @@ CREATE TABLE referral_schema.referral_invitation_table (
 -- Visitor Analytics Table (Combined approach - no redundancy)
 CREATE TABLE analytics_schema.visitor_analytics_table (
     visitor_analytics_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    visitor_analytics_visitor_id TEXT, -- Generated UUID from cookie/localstorage
     visitor_analytics_date DATE NOT NULL,
-    visitor_analytics_ip_address INET NOT NULL,
+    visitor_analytics_ip_address INET, -- Made nullable in case we just rely on ID
     visitor_analytics_user_agent TEXT,
     visitor_analytics_source TEXT NOT NULL, -- 'website', 'app', etc.
     visitor_analytics_referrer TEXT,
     visitor_analytics_landing_page TEXT,
-    visitor_analytics_session_count INTEGER NOT NULL DEFAULT 1, -- How many times this IP visited today
+    visitor_analytics_session_count INTEGER NOT NULL DEFAULT 1,
     visitor_analytics_first_visit_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     visitor_analytics_last_visit_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     visitor_analytics_duration_seconds INTEGER,
     visitor_analytics_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    visitor_analytics_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(visitor_analytics_date, visitor_analytics_ip_address, visitor_analytics_source)
+    visitor_analytics_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_visitor_analytics_daily_unique 
+ON analytics_schema.visitor_analytics_table (visitor_analytics_date, visitor_analytics_visitor_id);
 
 -- New Account Count Table
 CREATE TABLE analytics_schema.new_account_count_table (
@@ -342,6 +346,16 @@ CREATE TABLE analytics_schema.subscription_account_count_table (
     UNIQUE(subscription_account_count_date, subscription_account_count_type)
 );
 
+-- Activity Log Table
+CREATE TABLE IF NOT EXISTS analytics_schema.activity_log_table (
+    activity_log_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    activity_log_type TEXT NOT NULL, -- 'user', 'scan', 'retrieval', 'disposal'
+    activity_log_message TEXT NOT NULL,
+    activity_log_detail TEXT,
+    activity_log_user_id UUID, -- Optional, who performed it
+    activity_log_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Error Analytics Table
 CREATE TABLE analytics_schema.error_table (
     error_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -362,7 +376,7 @@ CREATE TABLE analytics_schema.error_table (
     error_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS subscription_schema.subscription_plan_table (
+CREATE TABLE subscription_schema.subscription_plan_table (
     subscription_plan_id TEXT PRIMARY KEY,
     subscription_plan_name TEXT NOT NULL,
     subscription_plan_price NUMERIC NOT NULL,
@@ -373,7 +387,7 @@ CREATE TABLE IF NOT EXISTS subscription_schema.subscription_plan_table (
     subscription_plan_created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS subscription_schema.subscription_plan_storage_table (
+CREATE TABLE subscription_schema.subscription_plan_storage_table (
     subscription_plan_storage_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     subscription_plan_storage_plan_id TEXT REFERENCES subscription_schema.subscription_plan_table(subscription_plan_id) ON DELETE CASCADE,
     subscription_plan_max_gb_storage NUMERIC NOT NULL DEFAULT 0,
@@ -384,13 +398,13 @@ CREATE TABLE IF NOT EXISTS subscription_schema.subscription_plan_storage_table (
     UNIQUE(subscription_plan_storage_plan_id)
 );
 
-CREATE TABLE IF NOT EXISTS subscription_schema.subscription_feature_table (
+CREATE TABLE subscription_schema.subscription_feature_table (
     subscription_feature_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     subscription_feature_label TEXT NOT NULL UNIQUE, -- e.g. "Storage"
     subscription_feature_created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS subscription_schema.subscription_plan_feature_table (
+CREATE TABLE subscription_schema.subscription_plan_feature_table (
     subscription_plan_feature_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     subscription_plan_feature_plan_id TEXT REFERENCES subscription_schema.subscription_plan_table(subscription_plan_id) ON DELETE CASCADE,
     subscription_plan_feature_feature_id UUID REFERENCES subscription_schema.subscription_feature_table(subscription_feature_id) ON DELETE CASCADE,
@@ -398,6 +412,68 @@ CREATE TABLE IF NOT EXISTS subscription_schema.subscription_plan_feature_table (
     subscription_plan_feature_is_primary BOOLEAN DEFAULT true,
     subscription_plan_feature_sort_order INTEGER DEFAULT 0,
     subscription_plan_feature_created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Source Type
+CREATE TABLE notification_schema.notification_source_type_table (
+  notification_source_type_id TEXT PRIMARY KEY,
+  notification_source_type_name TEXT NOT NULL,
+  notification_source_type_description TEXT,
+  notification_source_type_created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Scope Type
+CREATE TABLE notification_schema.notification_scope_type_table (
+  notification_scope_type_id TEXT PRIMARY KEY,
+  notification_scope_type_name TEXT NOT NULL,
+  notification_scope_type_description TEXT,
+  notification_scope_type_created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Status Type (Simplified for Delivery Lifecycle)
+CREATE TABLE notification_schema.notification_status_type_table (
+  notification_status_type_id TEXT PRIMARY KEY,
+  notification_status_type_name TEXT NOT NULL,
+  notification_status_type_description TEXT,
+  notification_status_type_created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Item Type
+CREATE TABLE notification_schema.notification_item_type_table (
+  notification_item_type_id TEXT PRIMARY KEY,
+  notification_item_type_name TEXT NOT NULL,
+  notification_item_type_description TEXT,
+  notification_item_type_created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Notification
+CREATE TABLE notification_schema.notification_table (
+  notification_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  notification_source_type_id TEXT NOT NULL,
+  notification_scope_type_id TEXT NOT NULL,
+  notification_status_type_id TEXT NOT NULL DEFAULT 'NST-PENDING', -- Lifecycle status
+  notification_target_user_id UUID NULL,
+  
+  notification_item_type_id TEXT NULL,
+  notification_item_id UUID NULL,
+  
+  notification_title TEXT NOT NULL,
+  notification_message TEXT NOT NULL,
+  notification_additional_data JSONB,
+  
+  -- Interaction State
+  notification_is_read BOOLEAN DEFAULT FALSE,
+  notification_read_at TIMESTAMPTZ NULL,
+  notification_is_archived BOOLEAN DEFAULT FALSE,
+  notification_toast_shown BOOLEAN DEFAULT FALSE,
+  
+  notification_created_at TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT chk_specific_user
+    CHECK (
+      (notification_scope_type_id = 'ST-SPECIFIC' AND notification_target_user_id IS NOT NULL)
+      OR notification_scope_type_id = 'ST-ALL'
+    )
 );
 
 
@@ -454,6 +530,12 @@ GRANT ALL ON ALL TABLES IN SCHEMA analytics_schema TO public;
 GRANT ALL ON ALL TABLES IN SCHEMA analytics_schema TO postgres;
 GRANT ALL ON SCHEMA analytics_schema TO postgres;
 GRANT ALL ON SCHEMA analytics_schema TO public;
+
+-- Grant permissions on notification_schema
+GRANT ALL ON ALL TABLES IN SCHEMA notification_schema TO public;
+GRANT ALL ON ALL TABLES IN SCHEMA notification_schema TO postgres;
+GRANT ALL ON SCHEMA notification_schema TO postgres;
+GRANT ALL ON SCHEMA notification_schema TO public;
 
 -- Grant execute permission to authenticated users
 GRANT EXECUTE ON FUNCTION delete_user_profile TO authenticated;

@@ -1,4 +1,4 @@
-import PublicProvider from "@/components/provider/PublicProvider";
+import PublicProvider from "@/components/providers/PublicProvider";
 import ForgotPasswordForm from "./ForgotPasswordForm";
 
 export default function Page() {
