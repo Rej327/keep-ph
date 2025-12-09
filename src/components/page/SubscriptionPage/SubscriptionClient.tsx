@@ -42,6 +42,7 @@ import {
   CreateUserSubscriptionAccount,
 } from "@/actions/supabase/post";
 import SubscriptionManagement from "./SubscriptionManagement";
+import UserVerificationStep from "../AuthPage/UserVerificationStep";
 
 export default function SubscriptionClient({ user }: { user: User }) {
   const { mutate } = useSWRConfig();
@@ -51,6 +52,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFreeModalOpen, setIsFreeModalOpen] = useState(false);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [selectedMailboxIds, setSelectedMailboxIds] = useState<string[]>([]);
   const [mailboxPage, setMailboxPage] = useState(1);
   const [mailAccessLimit, setMailAccessLimit] = useState<UserMailAccessLimit>();
@@ -174,6 +176,18 @@ export default function SubscriptionClient({ user }: { user: User }) {
   };
 
   const handleChoosePlan = async (plan: SubscriptionPlan) => {
+    // Check verification status
+    if (userDetails && !userDetails.user.user_is_verified) {
+      notifications.show({
+        title: "Verification Required",
+        message: "You need to verify your identity before purchasing a plan.",
+        color: "yellow",
+        autoClose: 5000,
+      });
+      setIsVerificationModalOpen(true);
+      return;
+    }
+
     setLoading(true);
     setSelectedPlan(plan);
     setSelectedMailboxIds([]);
@@ -687,6 +701,29 @@ export default function SubscriptionClient({ user }: { user: User }) {
     </Modal>
   );
 
+  const verificationModal = (
+    <Modal
+      opened={isVerificationModalOpen}
+      onClose={() => setIsVerificationModalOpen(false)}
+      size="lg"
+      centered
+      title="Identity Verification"
+    >
+      <UserVerificationStep
+        userId={user.id}
+        onComplete={() => {
+          setIsVerificationModalOpen(false);
+          mutate(["user-full-details", user.id]); // Refresh user details
+          notifications.show({
+            message: "Verification submitted! You can now proceed.",
+            color: "teal",
+          });
+        }}
+        onSkip={() => setIsVerificationModalOpen(false)}
+      />
+    </Modal>
+  );
+
   return (
     <Container size="xl" py="xl">
       <Stack align="center" mb={50}>
@@ -781,6 +818,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
 
       {mailboxSelectionModal}
       {freePlanModal}
+      {verificationModal}
       {loadingOverlay}
     </Container>
   );

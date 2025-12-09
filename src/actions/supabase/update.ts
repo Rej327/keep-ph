@@ -325,3 +325,24 @@ export const updateMailItemLocations = async (moves: MailItemMove[]) => {
     throw new Error(error.message);
   }
 };
+
+export const processVerificationRequest = async (
+  requestId: string,
+  status: "approved" | "rejected",
+  reason?: string
+) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { error } = await supabase.rpc("process_verification_request", {
+    input_data: {
+      request_id: requestId,
+      status: status,
+      reason: reason || null,
+    },
+  });
+
+  if (error) {
+    console.error("Error processing verification request:", error);
+    throw new Error(error.message);
+  }
+};

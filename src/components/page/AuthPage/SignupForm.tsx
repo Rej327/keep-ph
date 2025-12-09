@@ -37,6 +37,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import validator from "validator";
 
+import UserVerificationStep from "./UserVerificationStep";
+
 type FormValuesType = {
   firstName: string;
   lastName: string;
@@ -58,6 +60,7 @@ type FormValuesType = {
 export default function SignupForm() {
   const [activeStep, setActiveStep] = useState(0);
   const [showSignupSuccess, setShowSignupSuccess] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const {
     register,
@@ -168,6 +171,7 @@ export default function SignupForm() {
       if (error) throw error;
 
       if (userData.user && userData.user.email) {
+        setUserId(userData.user.id);
         let avatarPath: string | undefined;
         let fileExt: string | undefined;
 
@@ -211,7 +215,8 @@ export default function SignupForm() {
         email: userData.user?.email,
       });
 
-      setShowSignupSuccess(true);
+      setActiveStep(2);
+      // setShowSignupSuccess(true);
     } catch (err) {
       console.log(err);
       notifications.show({
@@ -329,11 +334,11 @@ export default function SignupForm() {
             {/* Stepper Progress */}
             <Stack gap="xs">
               <Text size="sm" ta="center" fw={500}>
-                Step {activeStep + 1} of 2
+                Step {activeStep + 1} of 3
               </Text>
 
               <Progress
-                value={((activeStep + 1) / 2) * 100}
+                value={((activeStep + 1) / 3) * 100}
                 color="#1966D1"
                 size="sm"
               />
@@ -596,6 +601,13 @@ export default function SignupForm() {
                   </Stack>
                 )}
               </form>
+              {activeStep === 2 && userId && (
+                <UserVerificationStep
+                  userId={userId}
+                  onComplete={() => setShowSignupSuccess(true)}
+                  onSkip={() => setShowSignupSuccess(true)}
+                />
+              )}
             </Paper>
           </Stack>
         )}

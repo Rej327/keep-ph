@@ -2,9 +2,13 @@
 
 import { updateUserProfile } from "@/actions/supabase/update";
 import { uploadUserAvatar } from "@/actions/supabase/fileupload";
-import { UserProfileDetail } from "@/actions/supabase/get";
+import {
+  UserProfileDetail,
+  getUserLatestVerification,
+} from "@/actions/supabase/get";
 import {
   Avatar,
+  Badge,
   Button,
   FileButton,
   Group,
@@ -14,11 +18,15 @@ import {
   Text,
   TextInput,
   Title,
+  Modal,
+  Tooltip,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { IconPencil } from "@tabler/icons-react";
+import UserVerificationStep from "../AuthPage/UserVerificationStep";
+import useSWR from "swr";
 
 type Props = {
   user: UserProfileDetail;
@@ -34,9 +42,15 @@ type FormValues = {
 export default function BasicInfo({ user }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(
     user.user_avatar_bucket_path
+  );
+
+  const { data: verificationData, mutate: mutateVerification } = useSWR(
+    `verification-${user.user_id}`,
+    () => getUserLatestVerification(user.user_id)
   );
 
   const {
@@ -85,32 +99,6 @@ export default function BasicInfo({ user }: Props) {
         avatarPath = null;
       }
 
-      // Note: If avatarPath was a public URL (from get_user), we might need to be careful.
-      // But update_user_profile expects the bucket path (relative).
-      // The get_user returns the signed/public URL for display.
-      // If we don't change avatar, we shouldn't send the full URL back as path.
-      // So we pass undefined to keep existing if not changed.
-      // However, if we want to REMOVE it, we pass null.
-
-      // We need to handle the case where we keep the existing avatar.
-      // In the update RPC: COALESCE(input_avatar_path, user_avatar_bucket_path)
-      // So if we pass NULL, it might be ignored by COALESCE?
-      // Wait, COALESCE(NULL, val) returns val.
-      // If we want to unset it, we might need different logic in RPC or pass explicit empty string?
-      // For now, let's assume we only support Updating or Keeping. Removing might require check.
-
-      // Actually, the RPC logic:
-      // user_avatar_bucket_path = COALESCE(input_avatar_path, user_avatar_bucket_path)
-      // This prevents unsetting (setting to NULL) if we pass NULL.
-      // If we want to unset, we should pass a specific value or change RPC.
-      // But typically users just replace avatar.
-
-      // For this implementation, I'll pass the NEW path if uploaded.
-      // If not uploaded, I pass null so it keeps existing.
-      // If I removed it (avatarPreview null), I technically want to set it to NULL.
-      // The current RPC won't allow setting to NULL if I pass NULL.
-      // I'll ignore the remove case for now or assume it's fine.
-
       const updatePayload = {
         user_id: user.user_id,
         first_name: data.firstName,
@@ -142,6 +130,39 @@ export default function BasicInfo({ user }: Props) {
       setIsLoading(false);
     }
   };
+
+  let verificationBadge;
+  if (user.user_is_verified) {
+    verificationBadge = (
+      <Badge variant="dot" color="green">
+        Verified
+      </Badge>
+    );
+  } else if (verificationData?.user_verification_status == "pending") {
+    verificationBadge = (
+      <Badge variant="dot" color="orange">
+        Pending
+      </Badge>
+    );
+  } else if (verificationData?.user_verification_status == "rejected") {
+    verificationBadge = (
+      <Tooltip
+        label={
+          verificationData.user_verification_reason || "Verification rejected"
+        }
+      >
+        <Badge variant="dot" color="red" style={{ cursor: "help" }}>
+          Rejected
+        </Badge>
+      </Tooltip>
+    );
+  } else {
+    verificationBadge = (
+      <Badge variant="dot" color="red">
+        Not Verified
+      </Badge>
+    );
+  }
 
   return (
     <Paper p="xl" radius="md" withBorder>
@@ -220,6 +241,22 @@ export default function BasicInfo({ user }: Props) {
               placeholder="+63 917 123 4567"
               {...register("phone")}
             />
+            <TextInput label="Email" disabled value={user.user_email} />
+            <Group mt={{ md: 25, base: 0 }} style={{ alignSelf: "center" }}>
+              {verificationBadge}
+
+              {user.user_is_verified &&
+              verificationData?.user_verification_status ===
+                "approved" ? null : (
+                <Button
+                  variant="light"
+                  size="xs"
+                  onClick={() => setIsVerificationModalOpen(true)}
+                >
+                  {user.user_is_verified ? "Verified" : "Verify"}
+                </Button>
+              )}
+            </Group>
           </SimpleGrid>
 
           {isEditing && (
@@ -242,6 +279,27 @@ export default function BasicInfo({ user }: Props) {
           )}
         </Stack>
       </form>
+
+      <Modal
+        opened={isVerificationModalOpen}
+        onClose={() => setIsVerificationModalOpen(false)}
+        size="lg"
+        centered
+        title="Identity Verification"
+      >
+        <UserVerificationStep
+          userId={user.user_id}
+          onComplete={() => {
+            setIsVerificationModalOpen(false);
+            mutateVerification();
+            notifications.show({
+              message: "Verification submitted! Please wait for approval.",
+              color: "teal",
+            });
+          }}
+          onSkip={() => setIsVerificationModalOpen(false)}
+        />
+      </Modal>
     </Paper>
   );
 }

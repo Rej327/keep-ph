@@ -84,3 +84,34 @@ USING (
   bucket_id = 'KEEP-PH-ATTACHMENTS'
   AND auth.role() = 'authenticated'
 );
+
+-- --------------------------------------------------------
+-- POLICIES FOR "USER-KYC-DOCUMENTS" BUCKET
+-- --------------------------------------------------------
+CREATE POLICY "USER-KYC-DOCUMENTS: Allow authenticated uploads" ON storage.objects
+FOR INSERT
+WITH CHECK (
+  bucket_id = 'USER-KYC-DOCUMENTS'
+  AND auth.role() = 'authenticated'
+);
+
+CREATE POLICY "USER-KYC-DOCUMENTS: Allow authenticated view" ON storage.objects
+FOR SELECT
+USING (
+  bucket_id = 'USER-KYC-DOCUMENTS'
+  AND auth.role() = 'authenticated'
+);
+
+CREATE POLICY "USER-KYC-DOCUMENTS: Allow authenticated delete" ON storage.objects
+FOR DELETE
+USING (
+  bucket_id = 'USER-KYC-DOCUMENTS'
+  AND auth.role() = 'authenticated'
+);
+
+CREATE POLICY "USER-KYC-DOCUMENTS: Allow authenticated update" ON storage.objects
+FOR UPDATE
+USING (
+  bucket_id = 'USER-KYC-DOCUMENTS'
+  AND auth.role() = 'authenticated'
+);

@@ -73,6 +73,7 @@ export type UserFullDetails = {
     user_first_name: string | null;
     user_last_name: string | null;
     user_is_admin: boolean;
+    user_is_verified: boolean;
     user_avatar_bucket_path: string | null;
   };
   account: {
@@ -122,6 +123,7 @@ export type UserProfileDetail = {
   user_last_name: string | null;
   user_phone: string | null;
   user_is_admin: boolean;
+  user_is_verified: boolean;
   user_avatar_bucket_path: string | null;
   user_referral_email: string | null;
 };
@@ -729,4 +731,74 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
   console.log("Dashboard stats:", data);
 
   return data as DashboardStats;
+};
+
+export type VerificationRequestItem = {
+  user_verification_id: string;
+  user_verification_user_id: string;
+  user_verification_id_type: string;
+  user_verification_id_number: string | null;
+  user_verification_id_front_bucket_path: string;
+  user_verification_id_back_bucket_path: string | null;
+  user_verification_selfie_bucket_path: string | null;
+  user_verification_status: string;
+  user_verification_reason: string | null;
+  user_verification_created_at: string;
+  user_full_name: string;
+  user_email: string;
+  user_username: string;
+  total_count: number;
+};
+
+export const getVerificationRequests = async (filters?: {
+  search?: string;
+  status_filter?: string;
+  page?: number;
+  page_size?: number;
+  sort_order?: "asc" | "desc";
+}) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const inputData = {
+    search: filters?.search || "",
+    status_filter: filters?.status_filter || "",
+    page: filters?.page || 1,
+    page_size: filters?.page_size || 10,
+    sort_order: filters?.sort_order || "desc",
+  };
+
+  const { data, error } = await supabase.rpc("get_verification_requests", {
+    input_data: inputData,
+  });
+
+  if (error) {
+    console.error("Error fetching verification requests:", error);
+    throw new Error(error.message);
+  }
+
+  return data as VerificationRequestItem[];
+};
+
+export type UserLatestVerification = {
+  user_verification_id: string;
+  user_verification_user_id: string;
+  user_verification_status: string;
+  user_verification_reason: string | null;
+  user_verification_created_at: string;
+};
+
+export const getUserLatestVerification = async (userId: string) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("get_user_latest_verification", {
+    input_user_id: userId,
+  });
+
+  if (error) {
+    console.error("Error fetching user latest verification:", error);
+    throw new Error(error.message);
+  }
+  console.log("User latest verification:", data);
+
+  return data as UserLatestVerification;
 };

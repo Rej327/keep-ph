@@ -13,6 +13,8 @@ INSERT INTO storage.buckets (id, name, public) VALUES
 ('KEEP-PH-ATTACHMENTS', 'KEEP-PH-ATTACHMENTS', true);
 INSERT INTO storage.buckets (id, name, public) VALUES
 ('USER-AVATARS', 'USER-AVATARS', true);
+INSERT INTO storage.buckets (id, name, public) VALUES
+('USER-KYC-DOCUMENTS', 'USER-KYC-DOCUMENTS', true);
 
 -- Drop existing schemas if they exist
 DROP SCHEMA IF EXISTS public CASCADE;
@@ -132,9 +134,26 @@ CREATE TABLE user_schema.user_table (
     user_is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     user_avatar_bucket_path TEXT,
     user_referral_email VARCHAR(254),
+    user_is_verified BOOLEAN NOT NULL DEFAULT FALSE,
     user_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     user_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- User Verification Table
+CREATE TABLE user_schema.user_verification_table (
+    user_verification_id UUID PRIMARY KEY NOT NULL,
+    user_verification_user_id UUID NOT NULL, -- Fk to user_schema.user_table.user_id
+    user_verification_id_type VARCHAR(100) NOT NULL,
+    user_verification_id_number VARCHAR(100),
+    user_verification_id_front_bucket_path TEXT NOT NULL,
+    user_verification_id_back_bucket_path TEXT,
+    user_verification_selfie_bucket_path TEXT,
+    user_verification_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+    user_verification_reason TEXT,
+    user_verification_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    user_verification_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 
 -- Account Table
 CREATE TABLE user_schema.account_table (

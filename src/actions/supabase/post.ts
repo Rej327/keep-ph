@@ -262,3 +262,42 @@ export const logActivity = async (
 
   return data;
 };
+
+export type SubmitUserVerificationParams = {
+  userId: string;
+  idType: string;
+  idNumber?: string;
+  frontPath: string;
+  backPath?: string;
+  selfiePath?: string;
+  reason?: string;
+};
+
+export const submitUserVerification = async (
+  params: SubmitUserVerificationParams
+) => {
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    const { data, error } = await supabase.rpc(
+      "submit_user_verification" as never,
+      {
+        input_data: {
+          user_id: params.userId,
+          id_type: params.idType,
+          id_number: params.idNumber,
+          front_path: params.frontPath,
+          back_path: params.backPath,
+          selfie_path: params.selfiePath,
+          reason: params.reason,
+        },
+      }
+    );
+
+    if (error) throw error;
+    return { data };
+  } catch (err) {
+    console.error("Error submitting user verification:", err);
+    return { error: err as Error };
+  }
+};

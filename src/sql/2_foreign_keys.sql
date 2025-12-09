@@ -1,5 +1,12 @@
 -- Foreign Key Constraints
 
+-- User Verification Keys
+ALTER TABLE user_schema.user_verification_table
+    ADD CONSTRAINT fk_user_verification_user
+    FOREIGN KEY (user_verification_user_id)
+    REFERENCES user_schema.user_table(user_id)
+    ON DELETE CASCADE;
+
 -- Mailbox Foreign Keys
 ALTER TABLE mailroom_schema.mailbox_table
     ADD CONSTRAINT fk_mailbox_account

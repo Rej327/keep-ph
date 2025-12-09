@@ -182,6 +182,7 @@ BEGIN
       'user_first_name', u.user_first_name,
       'user_last_name', u.user_last_name,
       'user_is_admin', u.user_is_admin,
+      'user_is_verified', u.user_is_verified,
       'user_avatar_bucket_path', u.user_avatar_bucket_path
     ) FROM user_schema.user_table u WHERE u.user_id = input_user_id),
     'account', (SELECT JSON_BUILD_OBJECT(
@@ -2447,5 +2448,174 @@ BEGIN
         'activity_logs', recent_activity,
         'error_logs', recent_errors
     );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Submit User Verification
+CREATE OR REPLACE FUNCTION submit_user_verification(input_data JSON)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+    input_user_id UUID := (input_data->>'user_id')::UUID;
+    input_id_type VARCHAR := (input_data->>'id_type')::VARCHAR;
+    input_id_number VARCHAR := (input_data->>'id_number')::VARCHAR;
+    input_front_path TEXT := (input_data->>'front_path')::TEXT;
+    input_back_path TEXT := (input_data->>'back_path')::TEXT;
+    input_selfie_path TEXT := (input_data->>'selfie_path')::TEXT;
+    input_reason TEXT := (input_data->>'reason')::TEXT;
+    
+    return_data JSON;
+BEGIN
+    INSERT INTO user_schema.user_verification_table (
+        user_verification_id,
+        user_verification_user_id,
+        user_verification_id_type,
+        user_verification_id_number,
+        user_verification_id_front_bucket_path,
+        user_verification_id_back_bucket_path,
+        user_verification_selfie_bucket_path,
+        user_verification_status,
+        user_verification_reason
+    ) VALUES (
+        gen_random_uuid(),
+        input_user_id,
+        input_id_type,
+        input_id_number,
+        input_front_path,
+        input_back_path,
+        input_selfie_path,
+        'pending',
+        input_reason
+    ) RETURNING to_json(user_verification_table.*) INTO return_data;
+
+    RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Get Verification Requests
+CREATE OR REPLACE FUNCTION get_verification_requests(
+    input_data JSONB
+)
+RETURNS JSONB
+SET search_path TO ''
+AS $$
+DECLARE
+    input_search_term TEXT := input_data->>'search';
+    input_status_filter TEXT := input_data->>'status_filter';
+    input_page_number INTEGER := COALESCE((input_data->>'page')::INTEGER, 1);
+    input_page_size INTEGER := COALESCE((input_data->>'page_size')::INTEGER, 10);
+    input_sort_order TEXT := COALESCE(input_data->>'sort_order', 'desc');
+    
+    return_data JSONB;
+BEGIN
+    WITH filtered_data AS (
+        SELECT
+            v.user_verification_id,
+            v.user_verification_user_id,
+            v.user_verification_id_type,
+            v.user_verification_id_number,
+            v.user_verification_id_front_bucket_path,
+            v.user_verification_id_back_bucket_path,
+            v.user_verification_selfie_bucket_path,
+            v.user_verification_status,
+            v.user_verification_reason,
+            v.user_verification_created_at,
+            (u.user_first_name || ' ' || u.user_last_name)::TEXT as user_full_name,
+            u.user_email::TEXT,
+            u.user_username::TEXT,
+            COUNT(*) OVER() as total_count
+        FROM user_schema.user_verification_table v
+        JOIN user_schema.user_table u ON v.user_verification_user_id = u.user_id
+        WHERE
+            (input_search_term IS NULL OR input_search_term = '' OR
+             u.user_first_name ILIKE '%' || input_search_term || '%' OR
+             u.user_last_name ILIKE '%' || input_search_term || '%' OR
+             u.user_email ILIKE '%' || input_search_term || '%')
+            AND
+            (input_status_filter IS NULL OR input_status_filter = '' OR v.user_verification_status = input_status_filter)
+        ORDER BY
+            CASE WHEN input_sort_order = 'asc' THEN v.user_verification_created_at END ASC,
+            CASE WHEN input_sort_order = 'desc' THEN v.user_verification_created_at END DESC
+        LIMIT input_page_size
+        OFFSET (input_page_number - 1) * input_page_size
+    )
+    SELECT jsonb_agg(row_to_json(filtered_data))
+    INTO return_data
+    FROM filtered_data;
+
+    RETURN COALESCE(return_data, '[]'::JSONB);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Process Verification Request
+CREATE OR REPLACE FUNCTION process_verification_request(
+    input_data JSONB
+)
+RETURNS JSONB
+SET search_path TO ''
+AS $$
+DECLARE
+    input_request_id UUID := (input_data->>'request_id')::UUID;
+    input_status TEXT := input_data->>'status'; -- 'approved' or 'rejected'
+    input_reason TEXT := input_data->>'reason';
+    
+    var_user_id UUID;
+    return_data JSONB;
+BEGIN
+    -- Get user id from request
+    SELECT user_verification_user_id INTO var_user_id
+    FROM user_schema.user_verification_table
+    WHERE user_verification_id = input_request_id;
+
+    IF var_user_id IS NULL THEN
+        RAISE EXCEPTION 'Verification request not found';
+    END IF;
+
+    -- Update verification request status
+    UPDATE user_schema.user_verification_table
+    SET
+        user_verification_status = input_status,
+        user_verification_reason = COALESCE(input_reason, user_verification_reason),
+        user_verification_updated_at = NOW()
+    WHERE user_verification_id = input_request_id;
+
+    -- If approved, update user verification status
+    IF input_status = 'approved' THEN
+        UPDATE user_schema.user_table
+        SET
+            user_is_verified = TRUE,
+            user_updated_at = NOW()
+        WHERE user_id = var_user_id;
+    ELSIF input_status = 'rejected' THEN
+         UPDATE user_schema.user_table
+        SET
+            user_is_verified = FALSE,
+            user_updated_at = NOW()
+        WHERE user_id = var_user_id;
+    END IF;
+
+    return_data := jsonb_build_object('success', true);
+    RETURN return_data;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Get latest verification status for user
+CREATE OR REPLACE FUNCTION get_user_latest_verification(input_user_id UUID)
+RETURNS JSONB
+SET search_path TO ''
+AS $$
+DECLARE
+    return_data JSONB;
+BEGIN
+    SELECT to_jsonb(v.*)
+    INTO return_data
+    FROM user_schema.user_verification_table v
+    WHERE user_verification_user_id = input_user_id
+    ORDER BY user_verification_created_at DESC
+    LIMIT 1;
+
+    RETURN return_data;
 END;
 $$ LANGUAGE plpgsql;
