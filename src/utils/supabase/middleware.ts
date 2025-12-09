@@ -81,6 +81,8 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith(route)
   );
 
+  const isOnboardingRoute = pathname.startsWith("/onboarding");
+
   const requiresSubscription = subscriptionRequiredRoutes.some((route) =>
     pathname.startsWith(route)
   );
@@ -96,7 +98,7 @@ export async function updateSession(request: NextRequest) {
   const isAdminRoute = adminRoutes.some((route) => pathname.startsWith(route));
 
   // Early return for unauthenticated users on protected routes
-  if ((isCustomerRoute || isAdminRoute) && !validUser) {
+  if ((isCustomerRoute || isAdminRoute || isOnboardingRoute) && !validUser) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
@@ -108,7 +110,7 @@ export async function updateSession(request: NextRequest) {
       return supabaseResponse;
     }
     const url = request.nextUrl.clone();
-    url.pathname = "/mails";
+    url.pathname = "/customer/mails";
     return NextResponse.redirect(url);
   }
 
@@ -121,7 +123,7 @@ export async function updateSession(request: NextRequest) {
     account_status: "SST-NONSUB",
   };
 
-  if (validUser && (isCustomerRoute || isAdminRoute)) {
+  if (validUser && (isCustomerRoute || isAdminRoute || isOnboardingRoute)) {
     // Try to get cached auth data from cookie
     const cachedAuth = request.cookies.get(AUTH_CACHE_COOKIE);
 
@@ -155,6 +157,14 @@ export async function updateSession(request: NextRequest) {
   } = authData;
 
   // Redirect logic
+  if (isOnboardingRoute && validUser) {
+    if (isAdmin || hasSubscription || hasBusinessPlan) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/customer/dashboard";
+      return NextResponse.redirect(url);
+    }
+  }
+
   if (isAdminRoute && !isAdmin) {
     const url = request.nextUrl.clone();
     url.pathname = "/unauthorized";
