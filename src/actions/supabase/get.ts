@@ -446,7 +446,7 @@ export const getVirtualAddressLocations = async () => {
 
 export type FreeSubscriber = {
   account_user_id: string;
-  user_email: string;
+  user_referral_code: string;
 };
 
 export const getAllFreeSubscribers = async () => {
@@ -801,4 +801,21 @@ export const getUserLatestVerification = async (userId: string) => {
   console.log("User latest verification:", data);
 
   return data as UserLatestVerification;
+};
+
+export const getUserReferralCode = async (
+  userId: string
+): Promise<string | null> => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("get_user_referral_code", {
+    input_user_id: userId,
+  });
+
+  if (error) {
+    console.error("Error fetching user referral code:", error);
+    throw new Error(error.message);
+  }
+
+  return data as string | null;
 };

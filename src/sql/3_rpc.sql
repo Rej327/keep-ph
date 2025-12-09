@@ -1,3 +1,5 @@
+-- Enable pgcrypto extension for random bytes generation
+
 CREATE OR REPLACE FUNCTION create_user_account(input_data JSON)
 RETURNS JSON
 SET search_path TO ''
@@ -1065,7 +1067,7 @@ DECLARE
   
   -- Address Inputs
   input_address_key TEXT := (input_data->>'account_address_key')::TEXT;
-  input_referral_email VARCHAR(254) := (input_data->>'referral_email')::VARCHAR;
+  input_referred_by VARCHAR(254) := (input_data->>'referred_by')::VARCHAR;
 
   -- Function variables
   var_account_number TEXT;
@@ -1079,23 +1081,22 @@ DECLARE
   -- Return variable
   return_data JSON;
 BEGIN
-  -- 1. Generate account number (format: Q[Quarter][Year]-[Seq])
-  SELECT CONCAT('Q', EXTRACT(QUARTER FROM NOW()), EXTRACT(YEAR FROM NOW()), '-', 
-         LPAD((COUNT(*) + 1)::TEXT, 4, '0'))
+  -- 1. Generate account number
+  SELECT (COUNT(*) + 1)::TEXT
   INTO var_account_number
   FROM user_schema.account_table;
 
   -- 2. Create or update account subscription details
-  IF input_referral_email IS NOT NULL AND input_referral_email <> '' THEN
+  IF input_referred_by IS NOT NULL AND input_referred_by <> '' THEN
     -- Get referrer user id
     SELECT user_id INTO var_referrer_id
     FROM user_schema.user_table
-    WHERE user_email = input_referral_email;
+    WHERE user_referral_code = input_referred_by;
 
     IF var_referrer_id IS NOT NULL THEN
       -- Update user referral email
       UPDATE user_schema.user_table
-      SET user_referral_email = input_referral_email,
+      SET user_referral_code = input_referred_by,
           user_updated_at = NOW()
       WHERE user_id = input_user_id;
 
@@ -1144,7 +1145,15 @@ BEGIN
     account_subscription_status_id = EXCLUDED.account_subscription_status_id,
     account_updated_at = NOW();
 
-  -- 3. Insert mailboxes
+  -- 4. Generate referral code for free plan
+  IF input_account_type = 'AT-FREE' THEN
+    UPDATE user_schema.user_table
+    SET user_referral_code = UPPER(LEFT(encode(gen_random_bytes(6), 'hex'), 12)),
+        user_updated_at = NOW()
+    WHERE user_id = input_user_id
+    AND (user_referral_code IS NULL OR user_referral_code = '');
+  END IF;
+  -- 5. Insert mailboxes
   FOR var_mailbox_item IN SELECT * FROM json_array_elements(input_mailbox_data)
   LOOP
     var_mailbox_status_id := (var_mailbox_item->>'mailbox_status_id')::TEXT;
@@ -1167,7 +1176,7 @@ BEGIN
     );
   END LOOP;
 
-  -- 5. Build return data
+  -- 6. Build return data
   SELECT JSON_BUILD_OBJECT(
     'success', TRUE,
     'message', 'Account updated and mailboxes created successfully',
@@ -1264,7 +1273,7 @@ BEGIN
         COALESCE(JSON_AGG(
             JSON_BUILD_OBJECT(
                 'account_user_id', a.account_user_id,
-                'user_email', u.user_email
+                'user_referral_code', u.user_referral_code
             )
         ), '[]'::json) INTO return_data
     FROM user_schema.account_table a
@@ -1330,7 +1339,7 @@ BEGIN
       'user_phone', u.user_phone,
       'user_is_admin', u.user_is_admin,
       'user_avatar_bucket_path', u.user_avatar_bucket_path,
-      'user_referral_email', u.user_referral_email
+      'user_referral_code', u.user_referral_code
     ) FROM user_schema.user_table u WHERE u.user_id = input_user_id)
   ) INTO return_data;
 
@@ -2617,5 +2626,21 @@ BEGIN
     LIMIT 1;
 
     RETURN return_data;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Get user referral code
+CREATE OR REPLACE FUNCTION get_user_referral_code(input_user_id UUID)
+RETURNS TEXT
+SET search_path TO ''
+AS $$
+DECLARE
+  referral_code TEXT;
+BEGIN
+  SELECT user_referral_code INTO referral_code
+  FROM user_schema.user_table
+  WHERE user_id = input_user_id;
+
+  RETURN referral_code;
 END;
 $$ LANGUAGE plpgsql;

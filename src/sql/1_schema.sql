@@ -133,7 +133,8 @@ CREATE TABLE user_schema.user_table (
     user_phone VARCHAR(50),
     user_is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     user_avatar_bucket_path TEXT,
-    user_referral_email VARCHAR(254),
+    user_referred_by VARCHAR(254),
+    user_referral_code VARCHAR(254),
     user_is_verified BOOLEAN NOT NULL DEFAULT FALSE,
     user_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     user_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

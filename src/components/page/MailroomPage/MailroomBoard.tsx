@@ -431,15 +431,6 @@ export default function MailroomBoard() {
           />
         </Group>
         <Group>
-          <Text size="sm" c="dimmed">
-            Remaining Access:{" "}
-            <Text span fw={700} c="dark">
-              {userDetails?.account.account_remaining_mailbox_access !==
-              undefined
-                ? userDetails.account.account_remaining_mailbox_access
-                : "-"}
-            </Text>
-          </Text>
           <Button
             color="blue"
             onClick={handleSaveChanges}

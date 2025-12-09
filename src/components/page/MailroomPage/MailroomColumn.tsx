@@ -1,7 +1,6 @@
 import React from "react";
 import { Droppable } from "@hello-pangea/dnd";
-import { Box, Text, Group, Paper } from "@mantine/core";
-import { IconMail, IconPackage } from "@tabler/icons-react";
+import { Box, Text, Paper, Group } from "@mantine/core";
 import { MailroomColumn as ColumnType, MailItem } from "./types";
 import MailroomCard from "./MailroomCard";
 import { UserFullDetails } from "@/actions/supabase/get";
@@ -16,30 +15,30 @@ type MailroomColumnProps = {
 export default function MailroomColumn({
   column,
   items,
-  userDetails,
+  // userDetails,
   onMoveClick,
 }: MailroomColumnProps) {
-  const mailCount = items.filter((i) => i.mail_item_type === "MAIL").length;
-  const packageCount = items.filter(
-    (i) => i.mail_item_type === "PACKAGE"
-  ).length;
+  // const mailCount = items.filter((i) => i.mail_item_type === "MAIL").length;
+  // const packageCount = items.filter(
+  //   (i) => i.mail_item_type === "PACKAGE"
+  // ).length;
 
   // Calculate limits based on current count + remaining space
-  const mailLimit = column.account_max_quantity_storage;
-  const packageLimit = column.account_max_parcel_handling;
+  // const mailLimit = column.account_max_quantity_storage;
+  // const packageLimit = column.account_max_parcel_handling;
 
   // Calculate remaining space
   // const mailRemaining =
   //   column.mail_remaining !== undefined ? column.mail_remaining : 0;
   // const packageRemaining =
   //   column.package_remaining !== undefined ? column.package_remaining : 0;
-  const mailFontWeight = mailCount === mailLimit ? "bold" : "normal";
-  const mailFontColor = mailCount === mailLimit ? "red" : "dimmed";
-  const mailIsFull = mailCount === mailLimit ? "Full" : "";
+  // const mailFontWeight = mailCount === mailLimit ? "bold" : "normal";
+  // const mailFontColor = mailCount === mailLimit ? "red" : "dimmed";
+  // const mailIsFull = mailCount === mailLimit ? "Full" : "";
 
-  const packageFontWeight = packageCount === packageLimit ? "bold" : "normal";
-  const packageFontColor = packageCount === packageLimit ? "red" : "dimmed";
-  const packageIsFull = packageCount === packageLimit ? "Full" : "";
+  // const packageFontWeight = packageCount === packageLimit ? "bold" : "normal";
+  // const packageFontColor = packageCount === packageLimit ? "red" : "dimmed";
+  // const packageIsFull = packageCount === packageLimit ? "Full" : "";
 
   return (
     <Paper
@@ -54,7 +53,7 @@ export default function MailroomColumn({
           {column.title}
         </Text>
 
-        <Group mb="md" gap="lg">
+        {/* <Group mb="md" gap="lg">
           <Group gap={4}>
             <IconMail size={16} color="gray" />
             <Text size="sm" c={mailFontColor} fw={mailFontWeight}>
@@ -66,11 +65,11 @@ export default function MailroomColumn({
               <IconPackage size={16} color="gray" />
               <Text size="sm" c={packageFontColor} fw={packageFontWeight}>
                 {packageCount}/{packageLimit} {packageIsFull}
-                {/* ({packageRemaining} free) */}
+                ({packageRemaining} free)
               </Text>
             </Group>
           )}
-        </Group>
+        </Group> */}
       </Group>
 
       <Droppable droppableId={column.id}>

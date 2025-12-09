@@ -63,7 +63,7 @@ export const createUserProfile = async (userData: CreateUserProfileParams) => {
 
 export type CreateUserSubscriptionAccount = {
   userId: string;
-  referralEmail?: string | null;
+  referralCode?: string | null;
   account: {
     account_type: string;
     account_is_subscribed: boolean;
@@ -91,7 +91,7 @@ export const createUserSubscriptionAccount = async (
       {
         input_data: {
           user_id: subscriptionData.userId,
-          referral_email: subscriptionData.referralEmail || null,
+          referred_by: subscriptionData.referralCode || null,
           account_type: subscriptionData.account.account_type,
           account_is_subscribed: subscriptionData.account.account_is_subscribed,
           account_subscription_ends_at:

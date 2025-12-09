@@ -18,15 +18,14 @@ import {
   Badge,
   Group,
   Modal,
-  Box,
   Stack,
-  SimpleGrid,
-  UnstyledButton,
   Title,
   Divider,
   Alert,
   Overlay,
   Container,
+  Progress,
+  Box,
 } from "@mantine/core";
 import { IconCreditCard } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
@@ -47,12 +46,12 @@ export default function SubscriptionManagement({
   const { mutate } = useSWRConfig();
   const [loading, setLoading] = useState(false);
   const [isAddMailboxModalOpen, setIsAddMailboxModalOpen] = useState(false);
-  const [selectedMailboxIds, setSelectedMailboxIds] = useState<string[]>([]);
-  const [mailboxPage, setMailboxPage] = useState(1);
+  const [numMailboxes, setNumMailboxes] = useState<number>(0);
   const [mailAccessLimit, setMailAccessLimit] = useState<UserMailAccessLimit>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeStep, setActiveStep] = useState(0);
 
-  const { data: existingMailbox, isLoading: existingMailboxLoading } = useSWR(
+  const { data: existingMailbox } = useSWR(
     user ? ["existing-mailbox", user.id] : null,
     () => filterExistingLabel()
   );
@@ -61,8 +60,8 @@ export default function SubscriptionManagement({
     if (!userDetails?.account.account_type) return;
 
     setLoading(true);
-    setSelectedMailboxIds([]);
-    setMailboxPage(1);
+    setNumMailboxes(0);
+    setActiveStep(0);
 
     try {
       const limit = await getMailAccessLimit(
@@ -74,7 +73,7 @@ export default function SubscriptionManagement({
     } catch (error) {
       console.error("Error fetching limits", error);
       notifications.show({
-        message: "Error preparing mailbox selection",
+        message: "Error preparing mailbox addition",
         color: "red",
       });
     } finally {
@@ -90,9 +89,48 @@ export default function SubscriptionManagement({
     const remainingAccess =
       userDetails.account.account_remaining_mailbox_access ?? 0;
 
-    if (selectedMailboxIds.length > remainingAccess) {
+    if (numMailboxes <= 0) {
       notifications.show({
-        message: `You can only add up to ${remainingAccess} more mailboxes.`,
+        message: "Please select at least 1 mailbox to add.",
+        color: "red",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (numMailboxes > remainingAccess) {
+      notifications.show({
+        message: `You can only add up to ${remainingAccess} mailboxes.`,
+        color: "red",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Generate mailboxes automatically
+    const mailboxes: string[] = [];
+    let addedCount = 0;
+    for (let page = 1; page <= 4; page++) {
+      if (addedCount >= numMailboxes) break;
+      const letter = String.fromCharCode(65 + (page - 1));
+      for (let i = 1; i <= 15; i++) {
+        if (addedCount >= numMailboxes) break;
+        const id = `${letter}${i}`;
+
+        // Check if occupied
+        const isOccupied = existingMailbox?.some((m) => m.mailbox_label === id);
+        if (isOccupied) continue;
+
+        mailboxes.push(id);
+        addedCount++;
+      }
+    }
+
+    const availableMailboxCount = mailboxes.length;
+
+    if (availableMailboxCount < numMailboxes) {
+      notifications.show({
+        message: `Only ${availableMailboxCount} mailboxes are available. Please select fewer mailboxes.`,
         color: "red",
       });
       setIsSubmitting(false);
@@ -102,7 +140,7 @@ export default function SubscriptionManagement({
     try {
       const result = await addMailboxesToAccount({
         accountId: userDetails.account.account_id,
-        mailboxes: selectedMailboxIds.map((label) => ({
+        mailboxes: mailboxes.map((label) => ({
           mailbox_status_id: "MBS-ACTIVE",
           mailbox_label: label,
           mailbox_mail_remaining_space:
@@ -117,13 +155,14 @@ export default function SubscriptionManagement({
       }
 
       notifications.show({
-        message: "Mailboxes added successfully",
+        message: `${availableMailboxCount} mailboxes added successfully`,
         color: "green",
       });
 
       mutate(["user-full-details", user.id]);
       setIsAddMailboxModalOpen(false);
-      setSelectedMailboxIds([]);
+      setNumMailboxes(0);
+      setActiveStep(0);
     } catch (error) {
       console.error("Error adding mailboxes:", error);
       notifications.show({
@@ -135,53 +174,10 @@ export default function SubscriptionManagement({
     }
   };
 
-  const handleMailboxToggleAdd = (id: string) => {
-    setSelectedMailboxIds((prev) => {
-      if (prev.includes(id)) {
-        return prev.filter((mailboxId) => mailboxId !== id);
-      } else if (
-        prev.length <
-        (userDetails?.account.account_remaining_mailbox_access ?? 0)
-      ) {
-        return [...prev, id];
-      }
-      return prev;
-    });
-  };
-
-  const handleAutoSelect = () => {
-    const maxAccess =
-      userDetails?.account.account_remaining_mailbox_access ?? 0;
-    const currentSelected = selectedMailboxIds.length;
-    const needed = maxAccess - currentSelected;
-
-    if (needed <= 0) return;
-
-    const newSelection = [...selectedMailboxIds];
-    let addedCount = 0;
-
-    // Iterate through pages 1-4 to find available mailboxes
-    for (let page = 1; page <= 4; page++) {
-      if (addedCount >= needed) break;
-      const letter = String.fromCharCode(65 + (page - 1));
-      for (let i = 1; i <= 15; i++) {
-        if (addedCount >= needed) break;
-        const id = `${letter}${i}`;
-
-        // Check if already selected
-        if (newSelection.includes(id)) continue;
-
-        // Check if occupied
-        const isOccupied = existingMailbox?.some((m) => m.mailbox_label === id);
-        if (isOccupied) continue;
-
-        newSelection.push(id);
-        addedCount++;
-      }
-    }
-
-    setSelectedMailboxIds(newSelection);
-  };
+  const nextStep = () =>
+    setActiveStep((current) => (current < 1 ? current + 1 : current));
+  const prevStep = () =>
+    setActiveStep((current) => (current > 0 ? current - 1 : current));
 
   const loadingOverlay = loading ? (
     <Overlay>
@@ -189,158 +185,88 @@ export default function SubscriptionManagement({
     </Overlay>
   ) : null;
 
-  const renderAddMailboxSelection = () => (
-    <Stack align="center" gap="md" w="100%">
-      <Title order={4}>Add More Mailboxes</Title>
-      <Text c="dimmed" size="sm" ta="center">
-        You can add up to{" "}
-        {userDetails?.account.account_remaining_mailbox_access ?? 0} more
-        mailboxes.
-      </Text>
+  const renderMailboxSummary = () => {
+    const currentPlan = plans?.find(
+      (p) => p.id === userDetails?.account.account_type
+    );
+    const totalPrice = (currentPlan?.price ?? 0) * numMailboxes;
 
-      <Group justify="center" gap="xs">
-        <Text size="sm" fw={500}>
-          Selected: {selectedMailboxIds.length} /{" "}
-          {userDetails?.account.account_remaining_mailbox_access ?? 0}
+    return (
+      <Stack align="center" gap="md" w="100%">
+        <Title order={4}>Mailbox Addition Summary</Title>
+        <Card withBorder radius="md" w="100%" p="lg">
+          <Stack gap="sm">
+            <Group justify="space-between">
+              <Text c="dimmed">Current Plan</Text>
+              <Text fw={600}>{currentPlan?.name}</Text>
+            </Group>
+            <Group justify="space-between">
+              <Text c="dimmed">Mailboxes to Add</Text>
+              <Text fw={600}>{numMailboxes} mailboxes</Text>
+            </Group>
+            <Group justify="space-between">
+              <Text c="dimmed">Price per Mailbox</Text>
+              <Text fw={600}>₱{currentPlan?.price.toLocaleString()}/mo</Text>
+            </Group>
+            <Group justify="space-between">
+              <Text c="dimmed">Total Monthly Cost</Text>
+              <Text fw={600}>₱{totalPrice.toLocaleString()}/mo</Text>
+            </Group>
+          </Stack>
+        </Card>
+        <Text c="dimmed" size="sm" ta="center">
+          This will be added to your existing subscription billing cycle.
         </Text>
-        <Badge
-          color={
-            selectedMailboxIds.length ===
-            (userDetails?.account.account_remaining_mailbox_access ?? 0)
-              ? "green"
-              : "blue"
-          }
-          size="sm"
-        >
-          {selectedMailboxIds.length ===
-          (userDetails?.account.account_remaining_mailbox_access ?? 0)
-            ? "Max Reached"
-            : "Select More"}
-        </Badge>
-      </Group>
+      </Stack>
+    );
+  };
 
-      <Button
-        variant="light"
-        size="xs"
-        onClick={handleAutoSelect}
-        disabled={
-          selectedMailboxIds.length >=
-            (userDetails?.account.account_remaining_mailbox_access ?? 0) ||
-          existingMailboxLoading
-        }
-      >
-        Auto Select
-      </Button>
+  const renderAddMailboxSelection = () => {
+    const remainingAccess =
+      userDetails?.account.account_remaining_mailbox_access ?? 0;
 
-      <Box w="100%">
-        <SimpleGrid cols={5} spacing="xs">
-          {Array.from({ length: 15 }).map((_, i) => {
-            const letter = String.fromCharCode(65 + (mailboxPage - 1));
-            const number = i + 1;
-            const id = `${letter}${number}`;
-            const isSelected = selectedMailboxIds.includes(id);
-            const isDisabled =
-              (!isSelected &&
-                selectedMailboxIds.length >=
-                  (userDetails?.account.account_remaining_mailbox_access ??
-                    0)) ||
-              (existingMailbox &&
-                existingMailbox.some(
-                  (mailbox: { mailbox_label: string }) =>
-                    mailbox.mailbox_label === id
-                ));
+    return (
+      <Stack align="center" gap="md" w="100%">
+        <Title order={4}>Add More Mailboxes</Title>
+        <Text c="dimmed" size="sm" ta="center">
+          Choose how many mailboxes you want to add.
+        </Text>
 
-            let borderColor: string;
-            if (isSelected) {
-              borderColor = "var(--mantine-color-blue-6)";
-            } else if (isDisabled) {
-              borderColor = "var(--mantine-color-gray-4)";
-            } else {
-              borderColor = "var(--mantine-color-gray-3)";
+        <Group justify="center" gap="md">
+          <Button
+            variant="light"
+            size="sm"
+            onClick={() => setNumMailboxes(Math.max(0, numMailboxes - 1))}
+            disabled={numMailboxes <= 0}
+          >
+            -
+          </Button>
+          <Text size="lg" fw={600}>
+            {numMailboxes}
+          </Text>
+          <Button
+            variant="light"
+            size="sm"
+            onClick={() =>
+              setNumMailboxes(Math.min(remainingAccess, numMailboxes + 1))
             }
-
-            let backgroundColor: string;
-            if (isSelected) {
-              backgroundColor = "var(--mantine-color-blue-0)";
-            } else if (isDisabled) {
-              backgroundColor = "var(--mantine-color-gray-1)";
-            } else {
-              backgroundColor = "transparent";
-            }
-
-            let textColor: string;
-            if (isSelected) {
-              textColor = "var(--mantine-color-blue-7)";
-            } else if (isDisabled) {
-              textColor = "var(--mantine-color-gray-5)";
-            } else {
-              textColor = "inherit";
-            }
-
-            return (
-              <UnstyledButton
-                key={id}
-                onClick={() => !isDisabled && handleMailboxToggleAdd(id)}
-                disabled={isDisabled || existingMailboxLoading}
-                style={{
-                  border: `1px solid ${borderColor}`,
-                  borderRadius: "var(--mantine-radius-md)",
-                  padding: "8px",
-                  textAlign: "center",
-                  backgroundColor,
-                  color: textColor,
-                  fontWeight: isSelected ? 600 : 400,
-                  opacity: isDisabled ? 0.6 : 1,
-                  cursor: isDisabled ? "not-allowed" : "pointer",
-                }}
-              >
-                {id}
-              </UnstyledButton>
-            );
-          })}
-        </SimpleGrid>
-      </Box>
-
-      <Group justify="center" w="100%" mt="sm">
-        <UnstyledButton
-          disabled={mailboxPage === 1}
-          onClick={() => setMailboxPage((p) => p - 1)}
-          style={{ opacity: mailboxPage === 1 ? 0.5 : 1 }}
-        >
-          ←
-        </UnstyledButton>
-        <Text size="sm">Page {mailboxPage} of 4</Text>
-        <UnstyledButton
-          onClick={() => setMailboxPage((p) => p + 1)}
-          disabled={mailboxPage === 4}
-          style={{ opacity: mailboxPage === 4 ? 0.5 : 1 }}
-        >
-          →
-        </UnstyledButton>
-      </Group>
-
-      <Group justify="flex-end" w="100%" mt="md">
-        <Button
-          variant="default"
-          onClick={() => setIsAddMailboxModalOpen(false)}
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={processAddMailboxes}
-          loading={isSubmitting}
-          disabled={selectedMailboxIds.length === 0}
-        >
-          Confirm
-        </Button>
-      </Group>
-    </Stack>
-  );
+            disabled={numMailboxes >= remainingAccess}
+          >
+            +
+          </Button>
+        </Group>
+      </Stack>
+    );
+  };
 
   const addMailboxModal = (
     <Modal
       opened={isAddMailboxModalOpen}
-      onClose={() => setIsAddMailboxModalOpen(false)}
+      onClose={() => {
+        setIsAddMailboxModalOpen(false);
+        setNumMailboxes(0);
+        setActiveStep(0);
+      }}
       size="lg"
       centered
       padding="xl"
@@ -348,7 +274,48 @@ export default function SubscriptionManagement({
       closeOnClickOutside={false}
       title="Request More Storage"
     >
-      {renderAddMailboxSelection()}
+      <Stack gap="xl">
+        <Stack gap="xs">
+          <Group justify="space-between">
+            <Text size="sm" fw={500}>
+              Step {activeStep + 1} of 2
+            </Text>
+            <Text size="sm" c="dimmed">
+              {activeStep === 0 && "Select Mailboxes"}
+              {activeStep === 1 && "Review Summary"}
+            </Text>
+          </Group>
+          <Progress
+            value={((activeStep + 1) / 2) * 100}
+            size="lg"
+            radius="xl"
+          />
+        </Stack>
+
+        <Box py="md">
+          {activeStep === 0 && renderAddMailboxSelection()}
+          {activeStep === 1 && renderMailboxSummary()}
+        </Box>
+
+        <Group justify="space-between" mt="md">
+          <Button
+            variant="default"
+            onClick={prevStep}
+            disabled={activeStep === 0}
+          >
+            Back
+          </Button>
+          {activeStep < 1 ? (
+            <Button onClick={nextStep} disabled={numMailboxes === 0}>
+              Next
+            </Button>
+          ) : (
+            <Button onClick={processAddMailboxes} loading={isSubmitting}>
+              Confirm Addition
+            </Button>
+          )}
+        </Group>
+      </Stack>
     </Modal>
   );
 

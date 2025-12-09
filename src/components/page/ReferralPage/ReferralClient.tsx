@@ -25,20 +25,25 @@ import {
 } from "@tabler/icons-react";
 import { useShallow } from "zustand/shallow";
 import useSWR from "swr";
-import { getUserReferrals } from "@/actions/supabase/get";
+import { getUserReferrals, getUserReferralCode } from "@/actions/supabase/get";
 import { CustomDataTable } from "@/components/common/CustomDataTable";
 import { getStatusFormat, replaceUnderscore } from "@/utils/function";
 
 export default function ReferralClient() {
   // In a real app, we'd fetch the user's referral code
   const user = useAuthStore(useShallow((state) => state.user));
-  const referralLink = user?.email as string;
+
+  const { data: referralCode } = useSWR(
+    user ? ["user-referral-code", user.id] : null,
+    ([, userId]) => getUserReferralCode(userId)
+  );
 
   const { data: referrals, isLoading } = useSWR(
     user ? ["user-referrals", user.id] : null,
     ([, userId]) => getUserReferrals(userId)
   );
 
+  const referralLink = referralCode ? referralCode : "";
   return (
     <Container size="xl" py="xl">
       <Stack gap="xl">

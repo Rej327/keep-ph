@@ -53,8 +53,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFreeModalOpen, setIsFreeModalOpen] = useState(false);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
-  const [selectedMailboxIds, setSelectedMailboxIds] = useState<string[]>([]);
-  const [mailboxPage, setMailboxPage] = useState(1);
+  const [numMailboxes, setNumMailboxes] = useState<number>(0);
   const [mailAccessLimit, setMailAccessLimit] = useState<UserMailAccessLimit>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
@@ -66,15 +65,12 @@ export default function SubscriptionClient({ user }: { user: User }) {
     user ? ["user-full-details", user.id] : null,
     ([, userId]) => getUserFullDetails(userId)
   );
-  const { data: existingMailbox, isLoading: existingMailboxLoading } = useSWR(
+  const { data: existingMailbox } = useSWR(
     user ? ["existing-mailbox", user.id] : null,
     () => filterExistingLabel()
   );
 
-  const { data: plans, isLoading: plansLoading } = useSWR(
-    "subscription-plans",
-    getSubscriptionPlans
-  );
+  const { data: plans } = useSWR("subscription-plans", getSubscriptionPlans);
 
   const { data: addressLocations, isLoading: addressLocationsLoading } = useSWR(
     "virtual-address-locations",
@@ -88,19 +84,41 @@ export default function SubscriptionClient({ user }: { user: User }) {
 
   const processSubscription = async (
     plan: SubscriptionPlan,
-    mailboxes: string[] = []
+    numMailboxes: number = 0
   ) => {
     setIsSubmitting(true);
 
-    if (mailboxes.length > (mailAccessLimit?.account_max_mailbox_access ?? 0)) {
+    const maxAccess = mailAccessLimit?.account_max_mailbox_access ?? 0;
+    if (numMailboxes > maxAccess) {
       notifications.show({
-        message: `You can only select up to ${
-          mailAccessLimit?.account_max_mailbox_access ?? 0
-        } mailboxes for your plan.`,
+        message: `You can only select up to ${maxAccess} mailboxes for your plan.`,
         color: "red",
       });
       setIsSubmitting(false);
       return;
+    }
+
+    // Generate mailboxes automatically
+    const mailboxes: string[] = [];
+    if (numMailboxes > 0) {
+      let addedCount = 0;
+      for (let page = 1; page <= 4; page++) {
+        if (addedCount >= numMailboxes) break;
+        const letter = String.fromCharCode(65 + (page - 1));
+        for (let i = 1; i <= 15; i++) {
+          if (addedCount >= numMailboxes) break;
+          const id = `${letter}${i}`;
+
+          // Check if occupied
+          const isOccupied = existingMailbox?.some(
+            (m) => m.mailbox_label === id
+          );
+          if (isOccupied) continue;
+
+          mailboxes.push(id);
+          addedCount++;
+        }
+      }
     }
 
     const availableMailboxCount = mailboxes.length;
@@ -118,7 +136,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
 
     const subscriptionData = {
       userId: user.id,
-      referralEmail: selectedReferral,
+      referralCode: selectedReferral,
       account: {
         account_type: plan.id,
         account_is_subscribed: true,
@@ -159,7 +177,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
       });
 
       mutate(["user-full-details", user.id]);
-      setSelectedMailboxIds([]);
+      setNumMailboxes(0);
       setIsModalOpen(false);
       setIsFreeModalOpen(false);
       setIsSubmitting(false);
@@ -190,8 +208,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
 
     setLoading(true);
     setSelectedPlan(plan);
-    setSelectedMailboxIds([]);
-    setMailboxPage(1);
+    setNumMailboxes(0);
     setActiveStep(0);
     setSelectedLocation(null);
 
@@ -228,19 +245,6 @@ export default function SubscriptionClient({ user }: { user: User }) {
     }
   };
 
-  const handleMailboxToggle = (id: string) => {
-    setSelectedMailboxIds((prev) => {
-      if (prev.includes(id)) {
-        return prev.filter((mailboxId) => mailboxId !== id);
-      } else if (
-        prev.length < (mailAccessLimit?.account_max_mailbox_access ?? 0)
-      ) {
-        return [...prev, id];
-      }
-      return prev;
-    });
-  };
-
   const nextStep = () =>
     setActiveStep((current) => (current < 3 ? current + 1 : current));
   const prevStep = () =>
@@ -248,13 +252,13 @@ export default function SubscriptionClient({ user }: { user: User }) {
 
   const handleConfirmSelection = async () => {
     if (selectedPlan) {
-      await processSubscription(selectedPlan, selectedMailboxIds);
+      await processSubscription(selectedPlan, numMailboxes);
     }
   };
 
   const isSubscribed = userDetails?.account?.account_is_subscribed;
 
-  if (userDetailsLoading || plansLoading) {
+  if (userDetailsLoading) {
     return <CustomLoader />;
   }
 
@@ -274,164 +278,42 @@ export default function SubscriptionClient({ user }: { user: User }) {
     </Overlay>
   ) : null;
 
-  const handleAutoSelect = () => {
-    const maxAccess = mailAccessLimit?.account_max_mailbox_access ?? 0;
-    const currentSelected = selectedMailboxIds.length;
-    const needed = maxAccess - currentSelected;
-
-    if (needed <= 0) return;
-
-    const newSelection = [...selectedMailboxIds];
-    let addedCount = 0;
-
-    // Iterate through pages 1-4 to find available mailboxes
-    for (let page = 1; page <= 4; page++) {
-      if (addedCount >= needed) break;
-      const letter = String.fromCharCode(65 + (page - 1));
-      for (let i = 1; i <= 15; i++) {
-        if (addedCount >= needed) break;
-        const id = `${letter}${i}`;
-
-        // Check if already selected
-        if (newSelection.includes(id)) continue;
-
-        // Check if occupied
-        const isOccupied = existingMailbox?.some((m) => m.mailbox_label === id);
-        if (isOccupied) continue;
-
-        newSelection.push(id);
-        addedCount++;
-      }
-    }
-
-    setSelectedMailboxIds(newSelection);
-  };
-
   const renderMailboxSelection = () => (
     <Stack align="center" gap="md" w="100%">
-      <Title order={4}>Select Your Mailbox IDs</Title>
+      <Title order={4}>Select Number of Mailboxes</Title>
       <Text c="dimmed" size="sm" ta="center">
-        Choose up to {mailAccessLimit?.account_max_mailbox_access ?? 0}{" "}
-        mailboxes.
+        Choose how many mailboxes you want
       </Text>
 
-      <Group justify="center" gap="xs">
-        <Text size="sm" fw={500}>
-          Selected: {selectedMailboxIds.length} /{" "}
-          {mailAccessLimit?.account_max_mailbox_access ?? 0}
-        </Text>
-        <Badge
-          color={
-            selectedMailboxIds.length ===
-            (mailAccessLimit?.account_max_mailbox_access ?? 0)
-              ? "green"
-              : "blue"
-          }
+      <Group justify="center" gap="md">
+        <Button
+          variant="light"
           size="sm"
+          onClick={() => setNumMailboxes(Math.max(0, numMailboxes - 1))}
+          disabled={numMailboxes <= 0}
         >
-          {selectedMailboxIds.length ===
-          (mailAccessLimit?.account_max_mailbox_access ?? 0)
-            ? "Complete"
-            : "Select More"}
-        </Badge>
-      </Group>
-
-      <Button
-        variant="light"
-        size="xs"
-        onClick={handleAutoSelect}
-        disabled={
-          selectedMailboxIds.length >=
-            (mailAccessLimit?.account_max_mailbox_access ?? 0) ||
-          existingMailboxLoading
-        }
-      >
-        Auto Select
-      </Button>
-
-      <Box w="100%">
-        <SimpleGrid cols={5} spacing="xs">
-          {Array.from({ length: 15 }).map((_, i) => {
-            const letter = String.fromCharCode(65 + (mailboxPage - 1)); // A for page 1, B for page 2, etc.
-            const number = i + 1;
-            const id = `${letter}${number}`;
-            const isSelected = selectedMailboxIds.includes(id);
-            const isDisabled =
-              (!isSelected &&
-                selectedMailboxIds.length >=
-                  (mailAccessLimit?.account_max_mailbox_access ?? 0)) ||
-              (existingMailbox &&
-                existingMailbox.some(
-                  (mailbox) => mailbox.mailbox_label === id
-                ));
-
-            let borderColor: string;
-            if (isSelected) {
-              borderColor = "var(--mantine-color-blue-6)";
-            } else if (isDisabled) {
-              borderColor = "var(--mantine-color-gray-4)";
-            } else {
-              borderColor = "var(--mantine-color-gray-3)";
-            }
-
-            let backgroundColor: string;
-            if (isSelected) {
-              backgroundColor = "var(--mantine-color-blue-0)";
-            } else if (isDisabled) {
-              backgroundColor = "var(--mantine-color-gray-1)";
-            } else {
-              backgroundColor = "transparent";
-            }
-
-            let textColor: string;
-            if (isSelected) {
-              textColor = "var(--mantine-color-blue-7)";
-            } else if (isDisabled) {
-              textColor = "var(--mantine-color-gray-5)";
-            } else {
-              textColor = "inherit";
-            }
-
-            return (
-              <UnstyledButton
-                key={id}
-                onClick={() => !isDisabled && handleMailboxToggle(id)}
-                disabled={isDisabled || existingMailboxLoading}
-                style={{
-                  border: `1px solid ${borderColor}`,
-                  borderRadius: "var(--mantine-radius-md)",
-                  padding: "8px",
-                  textAlign: "center",
-                  backgroundColor,
-                  color: textColor,
-                  fontWeight: isSelected ? 600 : 400,
-                  opacity: isDisabled ? 0.6 : 1,
-                  cursor: isDisabled ? "not-allowed" : "pointer",
-                }}
-              >
-                {id}
-              </UnstyledButton>
-            );
-          })}
-        </SimpleGrid>
-      </Box>
-
-      <Group justify="center" w="100%" mt="sm">
-        <UnstyledButton
-          disabled={mailboxPage === 1}
-          onClick={() => setMailboxPage((p) => p - 1)}
-          style={{ opacity: mailboxPage === 1 ? 0.5 : 1 }}
+          -
+        </Button>
+        <Text size="lg" fw={600}>
+          {numMailboxes}
+        </Text>
+        <Button
+          variant="light"
+          size="sm"
+          onClick={() =>
+            setNumMailboxes(
+              Math.min(
+                mailAccessLimit?.account_max_mailbox_access ?? 0,
+                numMailboxes + 1
+              )
+            )
+          }
+          disabled={
+            numMailboxes >= (mailAccessLimit?.account_max_mailbox_access ?? 0)
+          }
         >
-          ←
-        </UnstyledButton>
-        <Text size="sm">Page {mailboxPage} of 4</Text>
-        <UnstyledButton
-          onClick={() => setMailboxPage((p) => p + 1)}
-          disabled={mailboxPage === 4}
-          style={{ opacity: mailboxPage === 4 ? 0.5 : 1 }}
-        >
-          →
-        </UnstyledButton>
+          +
+        </Button>
       </Group>
     </Stack>
   );
@@ -522,10 +404,12 @@ export default function SubscriptionClient({ user }: { user: User }) {
           label="Referred by"
           placeholder="Select a referrer"
           data={
-            freeSubscribers?.map((s) => ({
-              value: s.user_email,
-              label: s.user_email,
-            })) || []
+            freeSubscribers
+              ?.filter((s) => s.user_referral_code)
+              .map((s) => ({
+                value: s.user_referral_code,
+                label: s.user_referral_code,
+              })) || []
           }
           value={selectedReferral}
           onChange={setSelectedReferral}
@@ -550,7 +434,13 @@ export default function SubscriptionClient({ user }: { user: User }) {
           </Group>
           <Group justify="space-between">
             <Text c="dimmed">Price</Text>
-            <Text fw={600}>₱{selectedPlan?.price.toLocaleString()}/mo</Text>
+            <Text fw={600}>
+              ₱
+              {(
+                (selectedPlan?.price ?? 0) * numMailboxes || 0
+              ).toLocaleString()}
+              /mo
+            </Text>
           </Group>
           <Group justify="space-between">
             <Text c="dimmed">Location</Text>
@@ -563,15 +453,9 @@ export default function SubscriptionClient({ user }: { user: User }) {
               </Text>
             </Stack>
           </Group>
-          <Group justify="space-between" align="flex-start">
+          <Group justify="space-between">
             <Text c="dimmed">Mailboxes</Text>
-            <Group gap={4} justify="flex-end" style={{ maxWidth: "60%" }}>
-              {selectedMailboxIds.map((id) => (
-                <Badge key={id} variant="outline">
-                  {id}
-                </Badge>
-              ))}
-            </Group>
+            <Text fw={600}>{numMailboxes} mailboxes</Text>
           </Group>
           <Group justify="space-between">
             <Text c="dimmed">Referral</Text>
@@ -584,7 +468,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
 
   const handleConfirmFreePlan = async () => {
     if (selectedPlan) {
-      await processSubscription(selectedPlan, []);
+      await processSubscription(selectedPlan, 0);
     }
   };
 
@@ -653,8 +537,8 @@ export default function SubscriptionClient({ user }: { user: User }) {
               Step {activeStep + 1} of 4
             </Text>
             <Text size="sm" c="dimmed">
-              {activeStep === 0 && "Select Mailbox"}
-              {activeStep === 1 && "Select Address"}
+              {activeStep === 0 && "Select Address"}
+              {activeStep === 1 && "Select Mailbox"}
               {activeStep === 2 && "Select Referral"}
               {activeStep === 3 && "Review Summary"}
             </Text>
@@ -667,8 +551,8 @@ export default function SubscriptionClient({ user }: { user: User }) {
         </Stack>
 
         <Box py="md">
-          {activeStep === 0 && renderMailboxSelection()}
-          {activeStep === 1 && renderVirtualAddressSelection()}
+          {activeStep === 0 && renderVirtualAddressSelection()}
+          {activeStep === 1 && renderMailboxSelection()}
           {activeStep === 2 && renderReferralSelection()}
           {activeStep === 3 && renderSummary()}
         </Box>
@@ -685,8 +569,8 @@ export default function SubscriptionClient({ user }: { user: User }) {
             <Button
               onClick={nextStep}
               disabled={
-                (activeStep === 0 && selectedMailboxIds.length === 0) ||
-                (activeStep === 1 && !selectedLocation)
+                (activeStep === 0 && !selectedLocation) ||
+                (activeStep === 1 && numMailboxes === 0)
               }
             >
               {activeStep === 2 ? "Skip / Next" : "Next"}
