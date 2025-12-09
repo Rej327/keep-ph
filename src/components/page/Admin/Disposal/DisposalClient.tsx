@@ -12,6 +12,7 @@ import {
   Button,
   // Pagination,
   Box,
+  Badge,
 } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
 import useSWR, { mutate } from "swr";
@@ -23,6 +24,7 @@ import { updateDisposalRequestStatus } from "@/actions/supabase/update";
 import { notifications } from "@mantine/notifications";
 import { CustomDataTable } from "@/components/common/CustomDataTable";
 import { createNotification } from "@/actions/supabase/notification";
+import { getStatusFormat } from "@/utils/function";
 
 // const PAGE_SIZE = 10;
 
@@ -131,15 +133,26 @@ export default function DisposalClient() {
     },
     {
       accessor: "dispose_request_status_value",
+      title: "STATUS",
+      render: (record: DisposalRequestItem) => (
+        <Badge
+          variant="filled"
+          color={getStatusFormat(record.dispose_request_status_value)}
+        >
+          {record.dispose_request_status_value}
+        </Badge>
+      ),
+    },
+    {
+      accessor: "actions",
       title: "ACTIONS",
       render: (record: DisposalRequestItem) => (
         <Button
           key="dispose"
           size="xs"
           disabled={record.dispose_request_status_value === "completed"}
-          className="dispose-btn"
+          // className="dispose-btn"
           color={"blue"}
-          variant="light"
           loading={processingId === record.dispose_request_id}
           onClick={() =>
             handleStatusUpdate(record.dispose_request_id, "DRS-COMPLETED")
@@ -147,7 +160,7 @@ export default function DisposalClient() {
         >
           {record.dispose_request_status_value == "pending"
             ? "DISPOSE"
-            : "COMPLETED"}
+            : "DISPOSED"}
         </Button>
       ),
     },

@@ -32,7 +32,7 @@ import {
   IconTruckDelivery,
   IconFileShredder,
   IconRefresh,
-  IconRestore,
+  // IconRestore,
   IconAlertTriangle,
   IconMapPin,
   IconScan,
@@ -54,7 +54,7 @@ import {
 } from "@/actions/supabase/get";
 import {
   markMailItemAsUnread,
-  setMailItemArchiveStatus,
+  // setMailItemArchiveStatus,
   requestMailItemDisposal,
   requestMailItemRetrieval,
   markMailItemAsRead,
@@ -209,36 +209,36 @@ export default function MailClient() {
     }
   };
 
-  const handleSetArchive = async (isArchive: boolean) => {
-    if (!selectedItem) return;
-    setActionLoading(true);
-    const archiveAction = isArchive ? true : false;
-    try {
-      await setMailItemArchiveStatus(selectedItem.mail_item_id, archiveAction);
-      notifications.show({
-        message: `${archiveAction ? "Archived" : "Unarchived"} successfully`,
-        color: "green",
-      });
-      await logActivity(
-        "mail_item",
-        archiveAction ? "Archived mail item" : "Unarchived mail item",
-        selectedItem.mail_item_name || `ID: ${selectedItem.mail_item_id}`,
-        user?.id
-      );
-      setSelectedItem(null);
-      mutate();
-    } catch {
-      notifications.show({
-        message: `${
-          archiveAction ? "Failed to archive" : "Failed to unarchive"
-        } item`,
-        color: "red",
-      });
-    } finally {
-      setActionLoading(false);
-      setSelectedItem(null);
-    }
-  };
+  // const handleSetArchive = async (isArchive: boolean) => {
+  //   if (!selectedItem) return;
+  //   setActionLoading(true);
+  //   const archiveAction = isArchive ? true : false;
+  //   try {
+  //     await setMailItemArchiveStatus(selectedItem.mail_item_id, archiveAction);
+  //     notifications.show({
+  //       message: `${archiveAction ? "Archived" : "Unarchived"} successfully`,
+  //       color: "green",
+  //     });
+  //     await logActivity(
+  //       "mail_item",
+  //       archiveAction ? "Archived mail item" : "Unarchived mail item",
+  //       selectedItem.mail_item_name || `ID: ${selectedItem.mail_item_id}`,
+  //       user?.id
+  //     );
+  //     setSelectedItem(null);
+  //     mutate();
+  //   } catch {
+  //     notifications.show({
+  //       message: `${
+  //         archiveAction ? "Failed to archive" : "Failed to unarchive"
+  //       } item`,
+  //       color: "red",
+  //     });
+  //   } finally {
+  //     setActionLoading(false);
+  //     setSelectedItem(null);
+  //   }
+  // };
 
   const handleRequestDisposal = async () => {
     if (!selectedItem || !userDetails?.account.account_id) return;
@@ -659,7 +659,7 @@ export default function MailClient() {
           Mark as {selectedItem.mail_item_is_read ? "unread" : "read"}
         </Button>
 
-        <Button
+        {/* <Button
           variant="default"
           fw={500}
           leftSection={<IconRestore size={16} />}
@@ -674,7 +674,7 @@ export default function MailClient() {
           {selectedItem.mail_item_status_value == "archived"
             ? "Unarchive"
             : "Archive"}
-        </Button>
+        </Button> */}
 
         {/* Scan Button Logic */}
 

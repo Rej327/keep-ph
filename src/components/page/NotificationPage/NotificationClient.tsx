@@ -25,6 +25,7 @@ import {
   IconDots,
   IconCheck,
   IconTrash,
+  IconUser,
 } from "@tabler/icons-react";
 import useSWR, { mutate } from "swr";
 import {
@@ -90,6 +91,12 @@ export default function NotificationClient() {
         return (
           <ThemeIcon color="orange" variant="light" radius="xl" size="lg">
             <IconCreditCard size={20} />
+          </ThemeIcon>
+        );
+      case "NIT-USER":
+        return (
+          <ThemeIcon color="violet" variant="light" radius="xl" size="lg">
+            <IconUser size={20} />
           </ThemeIcon>
         );
       default:

@@ -9,9 +9,9 @@ font-family: 'Manrope', sans-serif;
 scroll-behavior: smooth;
 }
 
-.dispose-btn[data-disabled] {
+/* .dispose-btn[data-disabled] {
   background-color: #37B24D !important; 
   color: white !important;
   cursor: not-allowed;
   opacity: 1;
-}
+} */

@@ -17,6 +17,7 @@ import {
   TextInput,
   Checkbox,
   Popover,
+  Box,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -286,7 +287,7 @@ export default function AddressInfo({
                   </Text>
                 </Group>
                 <CopyButton
-                  value={`Acc No. ${address.mailroom_address_key} - ${address.account_number}|${address.mailroom_address_value}`}
+                  value={`ACC #${address.account_number} - ${address.mailroom_address_value}`}
                   timeout={2000}
                 >
                   {({ copied, copy }) => (
@@ -311,8 +312,7 @@ export default function AddressInfo({
                 </CopyButton>
               </Group>
               <Text size="md" fw={500} style={{ lineHeight: 1.4 }}>
-                Acc No. {address.mailroom_address_key} -{" "}
-                {address.account_number}| {address.mailroom_address_value}
+                ACC #{address.account_number} - {address.mailroom_address_value}
               </Text>
             </Stack>
           </Paper>
@@ -329,7 +329,7 @@ export default function AddressInfo({
                     </Text>
                   </Group>
                   <CopyButton
-                    value={`Acc No. ${address.mailroom_address_key} - ${address.account_number}`}
+                    value={`ACC #${address.account_number}`}
                     timeout={2000}
                   >
                     {({ copied, copy }) => (
@@ -354,8 +354,7 @@ export default function AddressInfo({
                   </CopyButton>
                 </Group>
                 <Text size="sm" fw={500}>
-                  Acc No. {address.mailroom_address_key} -{" "}
-                  {address.account_number}
+                  ACC #{address.account_number}
                 </Text>
               </Stack>
             </Paper>
@@ -407,11 +406,16 @@ export default function AddressInfo({
       {/* Physical Addresses Section */}
       <Paper p="xl" radius="md" withBorder mt="lg">
         <Group justify="space-between" mb="lg">
-          <Title order={4}>Physical Addresses</Title>
+          <Box>
+            <Title order={4}>Customer Addresses</Title>
+            <Text c="dimmed">Where do you want us to deliver your mail?</Text>
+          </Box>
+
           <Button
             leftSection={<IconPlus size={16} />}
             onClick={handleOpenAdd}
             variant="light"
+            style={{ alignSelf: "flex-start" }}
           >
             Add Address
           </Button>

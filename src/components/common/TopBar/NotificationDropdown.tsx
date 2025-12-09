@@ -20,6 +20,7 @@ import {
   IconCreditCard,
   IconAlertCircle,
   IconMail,
+  IconUser,
 } from "@tabler/icons-react";
 import useSWR, { mutate } from "swr";
 import {
@@ -74,6 +75,12 @@ export function NotificationDropdown() {
         return (
           <ThemeIcon color="orange" variant="light" radius="xl" size="lg">
             <IconCreditCard size={18} />
+          </ThemeIcon>
+        );
+      case "NIT-USER":
+        return (
+          <ThemeIcon color="violet" variant="light" radius="xl" size="lg">
+            <IconUser size={20} />
           </ThemeIcon>
         );
       default:

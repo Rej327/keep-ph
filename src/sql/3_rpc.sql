@@ -2521,6 +2521,7 @@ DECLARE
 BEGIN
     WITH filtered_data AS (
         SELECT
+            acc.account_id,
             v.user_verification_id,
             v.user_verification_user_id,
             v.user_verification_id_type,
@@ -2537,6 +2538,7 @@ BEGIN
             COUNT(*) OVER() as total_count
         FROM user_schema.user_verification_table v
         JOIN user_schema.user_table u ON v.user_verification_user_id = u.user_id
+        JOIN user_schema.account_table acc ON u.user_id = acc.account_user_id
         WHERE
             (input_search_term IS NULL OR input_search_term = '' OR
              u.user_first_name ILIKE '%' || input_search_term || '%' OR

@@ -245,15 +245,19 @@ export default function BasicInfo({ user }: Props) {
             <Group mt={{ md: 25, base: 0 }} style={{ alignSelf: "center" }}>
               {verificationBadge}
 
-              {user.user_is_verified &&
+              {(user.user_is_verified &&
+                verificationData?.user_verification_status === "approved") ||
               verificationData?.user_verification_status ===
-                "approved" ? null : (
+                "pending" ? null : (
                 <Button
                   variant="light"
                   size="xs"
                   onClick={() => setIsVerificationModalOpen(true)}
                 >
-                  {user.user_is_verified ? "Verified" : "Verify"}
+                  {user.user_is_verified ||
+                  verificationData?.user_verification_status === "approved"
+                    ? "Verified"
+                    : "Verify"}
                 </Button>
               )}
             </Group>

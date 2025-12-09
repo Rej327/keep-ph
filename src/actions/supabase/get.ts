@@ -734,6 +734,7 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
 };
 
 export type VerificationRequestItem = {
+  account_id: string;
   user_verification_id: string;
   user_verification_user_id: string;
   user_verification_id_type: string;

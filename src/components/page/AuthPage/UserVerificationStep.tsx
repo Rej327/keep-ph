@@ -118,11 +118,6 @@ export default function UserVerificationStep({
       });
 
       if (result.error) throw result.error;
-
-      notifications.show({
-        message: "Verification submitted successfully",
-        color: "teal",
-      });
       onComplete();
     } catch (error) {
       console.error(error);

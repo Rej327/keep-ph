@@ -41,6 +41,7 @@ import {
   VerificationRequestItem,
 } from "@/actions/supabase/get";
 import { processVerificationRequest } from "@/actions/supabase/update";
+import { createNotification } from "@/actions/supabase/notification";
 // import { createSupabaseBrowserClient } from "@/utils/supabase/browserClient";
 
 const PAGE_SIZE = 10;
@@ -112,6 +113,16 @@ export default function VerificationClient() {
       closeView();
       closeReject();
       setRejectReason("");
+      try {
+        await createNotification({
+          userId: selectedRequest.account_id,
+          itemType: "NIT-USER",
+          title: "Verification Request Processed",
+          message: `Your verification request has been ${status}.`,
+        });
+      } catch (notifError) {
+        console.error("Failed to send notification:", notifError);
+      }
     } catch (error) {
       console.error(error);
       notifications.show({
