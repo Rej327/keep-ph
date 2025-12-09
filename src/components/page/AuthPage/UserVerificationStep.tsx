@@ -155,11 +155,17 @@ export default function UserVerificationStep({
             placeholder="Select ID Type"
             data={[
               "Passport",
-              "Driver's License",
+              "Driver’s License",
               "National ID",
-              "Postal ID",
               "UMID",
-              "Other",
+              "PRC ID",
+              "Postal ID",
+              "Voter’s ID",
+              "SSS ID",
+              "PWD ID",
+              "Senior Citizen ID",
+              "OFW/OWWA ID",
+              "Government Office ID (GOCC)",
             ]}
             value={idType}
             onChange={setIdType}
