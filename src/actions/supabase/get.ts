@@ -72,8 +72,10 @@ export type UserFullDetails = {
     user_email: string;
     user_first_name: string | null;
     user_last_name: string | null;
+    user_phone: string | null;
     user_is_admin: boolean;
     user_is_verified: boolean;
+    user_referred_by: string | null;
     user_avatar_bucket_path: string | null;
   };
   account: {
@@ -125,7 +127,7 @@ export type UserProfileDetail = {
   user_is_admin: boolean;
   user_is_verified: boolean;
   user_avatar_bucket_path: string | null;
-  user_referral_email: string | null;
+  user_referred_by: string | null;
 };
 
 export const getUser = async (userId: string) => {
@@ -734,7 +736,7 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
 };
 
 export type VerificationRequestItem = {
-  account_id: string;
+  account_id?: string;
   user_verification_id: string;
   user_verification_user_id: string;
   user_verification_id_type: string;

@@ -376,7 +376,7 @@ export default function MailService() {
         <Title order={2}>Mailroom Service</Title>
         <Button
           component="a"
-          href="/subscription"
+          href="/customer/subscription"
           color={colors.main}
           size="md"
           radius="md"

@@ -321,7 +321,7 @@ export default function SignupForm() {
                 size="md"
                 color="#1966D1"
                 // onClick={() => router.push("https://mail.google.com/")}
-                onClick={() => router.push("/subscription")}
+                onClick={() => router.push("/customer/subscription")}
                 fullWidth
                 maw={300}
               >

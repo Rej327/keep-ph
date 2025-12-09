@@ -1,11 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { SupabaseClient } from "@supabase/supabase-js";
-import {
-  isAccountBusiness,
-  isAccountSubscribed,
-  isUserAdmin,
-} from "@/actions/supabase/get";
+
+type UserAuthData = {
+  is_admin: boolean;
+  is_subscribed: boolean;
+  is_business: boolean;
+  account_type: string;
+  account_status: string;
+};
+
+const AUTH_CACHE_COOKIE = "user_auth_cache";
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -33,19 +38,18 @@ export async function updateSession(request: NextRequest) {
         },
       },
     }
-  ) as unknown as SupabaseClient;
+  );
 
-  // Do not run code between createServerClient and
-  // supabase.auth.getClaims(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
-
-  // IMPORTANT: DO NOT REMOVE auth.getClaims()
+  // IMPORTANT: DO NOT REMOVE auth.getUser()
+  // const {
+  //   data: { user },
+  // } = await supabase.auth.getUser();
   const { data } = await supabase.auth.getClaims();
-
   const user = data?.claims;
-  const validUser = user;
 
+  const validUser = user;
   const pathname = request.nextUrl.pathname;
+
   // Auth routes that should redirect to dashboard if user is already logged in
   const publicAuthRoutes = ["/login", "/signup"];
   const isPublicAuthRoute = publicAuthRoutes.some((route) =>
@@ -54,21 +58,21 @@ export async function updateSession(request: NextRequest) {
 
   // Customer routes (authentication required)
   const customerRoutes = [
-    "/dashboard",
-    "/profile",
-    "/mailroom",
-    "/mailbox",
-    "/mails",
-    "/disposal",
-    "/subscription",
-    "/notifications",
-    "/referral",
+    "/customer/dashboard",
+    "/customer/profile",
+    "/customer/mailroom",
+    "/customer/mailbox",
+    "/customer/mails",
+    "/customer/disposal",
+    "/customer/subscription",
+    "/customer/notifications",
+    "/customer/referral",
   ];
 
   // Subscription required routes
-  const subscriptionRequiredRoutes = ["/referral"];
-  const subsciptionBusinessRoutes = ["/dashboard"];
-  const subscriptionNotForFreeRoutes = ["/mailroom"];
+  const subscriptionRequiredRoutes = ["/customer/referral"];
+  const subsciptionBusinessRoutes = ["/customer/dashboard"];
+  const subscriptionNotForFreeRoutes = ["/customer/mailroom"];
 
   // Admin routes (authentication + admin role required)
   const adminRoutes = ["/admin"];
@@ -90,83 +94,142 @@ export async function updateSession(request: NextRequest) {
   );
 
   const isAdminRoute = adminRoutes.some((route) => pathname.startsWith(route));
-  const isAdmin = validUser ? await isUserAdmin(validUser.sub) : false;
 
-  // Check if user has an active subscription
-  const hasSubscription = validUser
-    ? await isAccountSubscribed(validUser.sub)
-    : false;
-
-  // Check if user has business subscription
-  const hasBusinessPlan = validUser
-    ? await isAccountBusiness(validUser.sub)
-    : false;
-
-  // Redirect logic
+  // Early return for unauthenticated users on protected routes
   if ((isCustomerRoute || isAdminRoute) && !validUser) {
-    // Redirect to unauthorized if trying to access protected routes without authentication
     const url = request.nextUrl.clone();
-    url.pathname = "/unauthorized";
+    url.pathname = "/";
     return NextResponse.redirect(url);
   }
 
+  // Early return for public auth routes without needing auth data
+  if (isPublicAuthRoute && validUser) {
+    if (request.method === "POST") {
+      return supabaseResponse;
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = "/mails";
+    return NextResponse.redirect(url);
+  }
+
+  // Only fetch auth data if we need it for route protection
+  let authData: UserAuthData = {
+    is_admin: false,
+    is_subscribed: false,
+    is_business: false,
+    account_type: "AT-FREE",
+    account_status: "SST-NONSUB",
+  };
+
+  if (validUser && (isCustomerRoute || isAdminRoute)) {
+    // Try to get cached auth data from cookie
+    const cachedAuth = request.cookies.get(AUTH_CACHE_COOKIE);
+
+    if (cachedAuth?.value) {
+      try {
+        const parsed = JSON.parse(cachedAuth.value);
+        // Check if cache is still valid (within TTL)
+        if (parsed.exp && parsed.exp > Date.now()) {
+          authData = parsed.data;
+        } else {
+          // Cache expired, fetch fresh data
+          authData = await fetchAuthData(supabase, validUser.sub);
+          setCacheInResponse(supabaseResponse, authData);
+        }
+      } catch {
+        // Invalid cache, fetch fresh data
+        authData = await fetchAuthData(supabase, validUser.sub);
+        setCacheInResponse(supabaseResponse, authData);
+      }
+    } else {
+      // No cache, fetch fresh data
+      authData = await fetchAuthData(supabase, validUser.sub);
+      setCacheInResponse(supabaseResponse, authData);
+    }
+  }
+
+  const {
+    is_admin: isAdmin,
+    is_subscribed: hasSubscription,
+    is_business: hasBusinessPlan,
+  } = authData;
+
+  // Redirect logic
   if (isAdminRoute && !isAdmin) {
-    // Redirect non-admin users trying to access admin routes
     const url = request.nextUrl.clone();
     url.pathname = "/unauthorized";
     return NextResponse.redirect(url);
   }
 
   if (isCustomerRoute && isAdmin) {
-    // Redirect admins trying to access customer routes to admin dashboard
     const url = request.nextUrl.clone();
     url.pathname = "/admin/dashboard";
     return NextResponse.redirect(url);
   }
 
   if (requiresSubscription && validUser && !hasSubscription && !isAdmin) {
-    // Redirect users without subscription to mailroom page
     const url = request.nextUrl.clone();
-    url.pathname = "/mails";
+    url.pathname = "/customer/mails";
     return NextResponse.redirect(url);
   }
 
   if (requireBusinessPlan && validUser && !hasBusinessPlan && !isAdmin) {
-    // Redirect users in mailroom if not business plan
     const url = request.nextUrl.clone();
-    url.pathname = "/mails";
+    url.pathname = "/customer/mails";
     return NextResponse.redirect(url);
   }
 
   if (requireNotFreePlan && validUser && !hasSubscription && !isAdmin) {
-    // Redirect users without subscription to mailroom page
     const url = request.nextUrl.clone();
-    url.pathname = "/mails";
+    url.pathname = "/customer/mails";
     return NextResponse.redirect(url);
   }
-
-  if (isPublicAuthRoute && validUser) {
-    // Do not redirect Server Actions or POST requests
-    if (request.method === "POST") {
-      return supabaseResponse;
-    }
-    // Redirect logged-in users away from auth pages
-    const url = request.nextUrl.clone();
-    url.pathname = "/mails";
-    return NextResponse.redirect(url);
-  }
-  // IMPORTANT: You *must* return the supabaseResponse object as it is.
-  // If you're creating a new response object with NextResponse.next() make sure to:
-  // 1. Pass the request in it, like so:
-  //    const myNewResponse = NextResponse.next({ request })
-  // 2. Copy over the cookies, like so:
-  //    myNewResponse.cookies.setAll(supabaseResponse.cookies.getAll())
-  // 3. Change the myNewResponse object to fit your needs, but avoid changing
-  //    the cookies!
-  // 4. Finally:
-  //    return myNewResponse
-  // If this is not done, you may be causing the browser and server to go out
-  // of sync and terminate the user's session prematurely!
 
   return supabaseResponse;
+}
+
+async function fetchAuthData(
+  supabase: ReturnType<typeof createServerClient>,
+  userId: string
+): Promise<UserAuthData> {
+  try {
+    const { data, error } = await supabase.rpc("get_user_auth_data", {
+      input_user_id: userId,
+    } as never);
+
+    if (error || !data) {
+      return {
+        is_admin: false,
+        is_subscribed: false,
+        is_business: false,
+        account_type: "AT-FREE",
+        account_status: "SST-NONSUB",
+      };
+    }
+
+    return data as UserAuthData;
+  } catch {
+    return {
+      is_admin: false,
+      is_subscribed: false,
+      is_business: false,
+      account_type: "AT-FREE",
+      account_status: "SST-NONSUB",
+    };
+  }
+}
+
+function setCacheInResponse(response: NextResponse, authData: UserAuthData) {
+  const cacheValue = JSON.stringify({
+    data: authData,
+    exp: Date.now() + CACHE_TTL_MS,
+  });
+
+  response.cookies.set(AUTH_CACHE_COOKIE, cacheValue, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 300, // 5 minutes
+    path: "/",
+  });
 }

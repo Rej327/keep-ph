@@ -44,7 +44,7 @@ export function SettingsDropdown({
 
   const handleRouteProfile = () => {
     topLoader.start();
-    router.push(type ? "/admin/profile" : "/profile");
+    router.push(type ? "/admin/profile" : "/customer/profile");
     topLoader.remove();
   };
 

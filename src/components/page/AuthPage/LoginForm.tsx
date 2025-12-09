@@ -58,7 +58,7 @@ export default function LoginForm() {
       const { error } = await supabase.auth.signInWithPassword(data);
       if (error) throw error;
       notifications.show({ message: "Login successful", color: "green" });
-      router.push("/dashboard");
+      router.push("/customer/dashboard");
     } catch (error) {
       if ((error as Error).message.includes("Invalid login credentials")) {
         notifications.show({

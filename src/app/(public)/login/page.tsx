@@ -10,7 +10,7 @@ export default async function Page() {
   } = await supabase.auth.getUser();
 
   if (user) {
-    redirect("/dashboard");
+    redirect("/customer/mails");
   }
 
   return (

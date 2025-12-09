@@ -5,11 +5,11 @@ import {
   UserProfileDetail,
 } from "@/actions/supabase/get";
 import { AddressDetail } from "@/components/page/ProfilePage/AddressInfo";
-import ProfilePageClient from "@/components/page/ProfilePage/ProfilePage";
+import ProfilePage from "@/components/page/ProfilePage/ProfilePage";
 import { createSupabaseServerClient } from "@/utils/supabase/serverClient";
 import { redirect } from "next/navigation";
 
-export default async function ProfilePage() {
+export default async function page() {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -29,8 +29,12 @@ export default async function ProfilePage() {
 
   if (error) {
     console.error("Error fetching profile:", error);
-    // Handle error gracefully?
-    return <div>Error loading profile</div>;
+    return <div>Error loading profile. Please try again later.</div>;
+  }
+
+  if (!fullDetailsData) {
+    console.error("No profile data returned");
+    return <div>No profile data found. Please contact support.</div>;
   }
 
   // Fetch physical addresses
@@ -52,6 +56,8 @@ export default async function ProfilePage() {
         }
       : undefined;
 
+  console.log("Address Details: ", addressDetails);
+
   // Generate public URL for avatar if exists
   if (userDetails.user_avatar_bucket_path) {
     const { data: publicUrlData } = supabase.storage
@@ -61,7 +67,7 @@ export default async function ProfilePage() {
   }
 
   return (
-    <ProfilePageClient
+    <ProfilePage
       user={userDetails}
       address={addressDetails}
       physicalAddresses={physicalAddresses}

@@ -83,15 +83,19 @@ const adminLinks: LinksGroupProps[] = [
 
 const customerLinks: LinksGroupProps[] = [
   // { label: "Dashboard", icon: IconLayoutDashboard, link: "/dashboard" },
-  { label: "All mails", icon: IconMail, link: "/mails" },
-  { label: "Mailroom", icon: IconServer, link: "/mailroom" },
+  { label: "All mails", icon: IconMail, link: "/customer/mails" },
+  { label: "Mailroom", icon: IconServer, link: "/customer/mailroom" },
   // {
   //   label: "Disposal Request",
   //   icon: IconArrowsMaximize,
-  //   link: "/disposal/request",
+  //   link: "/customer/disposal/request",
   // },
-  { label: "Subscription", icon: IconCreditCard, link: "/subscription" },
-  { label: "Referral", icon: IconUsers, link: "/referral" },
+  {
+    label: "Subscription",
+    icon: IconCreditCard,
+    link: "/customer/subscription",
+  },
+  { label: "Referral", icon: IconUsers, link: "/customer/referral" },
 ];
 
 function LinksGroup({ label, icon: Icon, link, links }: LinksGroupProps) {

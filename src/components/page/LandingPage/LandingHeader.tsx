@@ -87,7 +87,11 @@ export function LandingHeader() {
             )} */}
 
             {user ? (
-              <Button color="#1966D1" component={Link} href="/dashboard">
+              <Button
+                color="#1966D1"
+                component={Link}
+                href="/customer/dashboard"
+              >
                 Dashboard
               </Button>
             ) : (

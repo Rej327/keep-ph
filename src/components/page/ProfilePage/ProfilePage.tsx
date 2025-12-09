@@ -38,7 +38,7 @@ export default function ProfilePage({
 
       <ChangePassword email={user.user_email} />
 
-      <ReferredBy referredBy={user.user_referral_email} />
+      <ReferredBy referredBy={user.user_referred_by} />
 
       <DeleteAccount email={user.user_email} userId={user.user_id} />
     </Container>

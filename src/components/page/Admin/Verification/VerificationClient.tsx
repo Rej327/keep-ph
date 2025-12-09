@@ -42,6 +42,7 @@ import {
 } from "@/actions/supabase/get";
 import { processVerificationRequest } from "@/actions/supabase/update";
 import { createNotification } from "@/actions/supabase/notification";
+import { getStatusFormat } from "@/utils/function";
 // import { createSupabaseBrowserClient } from "@/utils/supabase/browserClient";
 
 const PAGE_SIZE = 10;
@@ -115,7 +116,7 @@ export default function VerificationClient() {
       setRejectReason("");
       try {
         await createNotification({
-          userId: selectedRequest.account_id,
+          userId: selectedRequest.user_verification_user_id,
           itemType: "NIT-USER",
           title: "Verification Request Processed",
           message: `Your verification request has been ${status}.`,
@@ -131,19 +132,6 @@ export default function VerificationClient() {
       });
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "green";
-      case "rejected":
-        return "red";
-      case "pending":
-        return "yellow";
-      default:
-        return "gray";
     }
   };
 
@@ -188,7 +176,7 @@ export default function VerificationClient() {
       accessor: "user_verification_status",
       title: "STATUS",
       render: (record: VerificationRequestItem) => (
-        <Badge color={getStatusColor(record.user_verification_status)}>
+        <Badge color={getStatusFormat(record.user_verification_status)}>
           {record.user_verification_status.toUpperCase()}
         </Badge>
       ),
@@ -307,7 +295,7 @@ export default function VerificationClient() {
                           Status:
                         </Text>
                         <Badge
-                          color={getStatusColor(
+                          color={getStatusFormat(
                             selectedRequest.user_verification_status
                           )}
                         >

@@ -17,13 +17,7 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|assets/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
 
     // Include specific routes that need protection
-    "/dashboard/:path*",
-    "/profile/:path*",
-    "/mailbox/:path*",
-    "/mailroom/:path*",
-    "/subscription/:path*",
-    "/notifications/:path*",
-    "/referral/:path*",
+    "/customer/:path*",
     "/admin/:path*",
 
     // Include auth routes

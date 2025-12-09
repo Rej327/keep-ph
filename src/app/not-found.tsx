@@ -47,7 +47,7 @@ export default function NotFound() {
             the address, or the page has been moved to another URL.
           </Text>
           <Group justify="center" mt="md">
-            <Button size="lg" component={Link} href="/mails">
+            <Button size="lg" component={Link} href="/customer/mails">
               Take me back to home page
             </Button>
           </Group>

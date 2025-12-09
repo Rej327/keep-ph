@@ -148,6 +148,40 @@ END;
 $$
 LANGUAGE plpgsql;
 
+-- Combined RPC to get all user auth data in a single call (for middleware performance)
+CREATE OR REPLACE FUNCTION get_user_auth_data(input_user_id UUID)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  return_data JSON;
+BEGIN
+  SELECT JSON_BUILD_OBJECT(
+    'is_admin', COALESCE(u.user_is_admin, FALSE),
+    'is_subscribed', COALESCE(a.account_is_subscribed, FALSE),
+    'is_business', COALESCE(a.account_type = 'AT-BUSINESS' AND a.account_is_subscribed = TRUE, FALSE),
+    'account_type', COALESCE(a.account_type, 'AT-FREE'),
+    'account_status', COALESCE(a.account_subscription_status_id, 'SST-NONSUB')
+  ) INTO return_data
+  FROM user_schema.user_table u
+  LEFT JOIN user_schema.account_table a ON u.user_id = a.account_user_id
+  WHERE u.user_id = input_user_id;
+
+  IF return_data IS NULL THEN
+    return_data := JSON_BUILD_OBJECT(
+      'is_admin', FALSE,
+      'is_subscribed', FALSE,
+      'is_business', FALSE,
+      'account_type', 'AT-FREE',
+      'account_status', 'SST-NONSUB'
+    );
+  END IF;
+
+  RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;
+
 -- Check if account is free plan
 CREATE OR REPLACE FUNCTION is_account_free(input_account_user_id UUID)
 RETURNS JSON
@@ -183,8 +217,10 @@ BEGIN
       'user_email', u.user_email,
       'user_first_name', u.user_first_name,
       'user_last_name', u.user_last_name,
+      'user_phone', u.user_phone,
       'user_is_admin', u.user_is_admin,
       'user_is_verified', u.user_is_verified,
+      'user_referred_by', u.user_referred_by,
       'user_avatar_bucket_path', u.user_avatar_bucket_path
     ) FROM user_schema.user_table u WHERE u.user_id = input_user_id),
     'account', (SELECT JSON_BUILD_OBJECT(
@@ -237,6 +273,7 @@ BEGIN
       'user_email', u.user_email,
       'user_first_name', u.user_first_name,
       'user_last_name', u.user_last_name,
+      'user_phone', u.user_phone,
       'user_is_admin', u.user_is_admin,
       'user_avatar_bucket_path', u.user_avatar_bucket_path
     ) FROM user_schema.user_table u WHERE u.user_id = input_user_id)
@@ -1094,9 +1131,9 @@ BEGIN
     WHERE user_referral_code = input_referred_by;
 
     IF var_referrer_id IS NOT NULL THEN
-      -- Update user referral email
+      -- Update user referred by
       UPDATE user_schema.user_table
-      SET user_referral_code = input_referred_by,
+      SET user_referred_by = input_referred_by,
           user_updated_at = NOW()
       WHERE user_id = input_user_id;
 
@@ -1111,6 +1148,15 @@ BEGIN
         );
       END IF;
     END IF;
+  END IF;
+
+    -- 3. Generate referral code for free plan
+  IF input_account_type = 'AT-FREE' THEN
+    UPDATE user_schema.user_table
+    SET user_referral_code = UPPER(SUBSTR(MD5((random() * 1000000000)::text || input_user_id::text || NOW()::text), 1, 12)),
+        user_updated_at = NOW()
+    WHERE user_id = input_user_id
+    AND (user_referral_code IS NULL OR user_referral_code = '');
   END IF;
 
   INSERT INTO user_schema.account_table (
@@ -1145,15 +1191,7 @@ BEGIN
     account_subscription_status_id = EXCLUDED.account_subscription_status_id,
     account_updated_at = NOW();
 
-  -- 4. Generate referral code for free plan
-  IF input_account_type = 'AT-FREE' THEN
-    UPDATE user_schema.user_table
-    SET user_referral_code = UPPER(LEFT(encode(gen_random_bytes(6), 'hex'), 12)),
-        user_updated_at = NOW()
-    WHERE user_id = input_user_id
-    AND (user_referral_code IS NULL OR user_referral_code = '');
-  END IF;
-  -- 5. Insert mailboxes
+  -- 4. Insert mailboxes
   FOR var_mailbox_item IN SELECT * FROM json_array_elements(input_mailbox_data)
   LOOP
     var_mailbox_status_id := (var_mailbox_item->>'mailbox_status_id')::TEXT;
@@ -1176,7 +1214,7 @@ BEGIN
     );
   END LOOP;
 
-  -- 6. Build return data
+  -- 5. Build return data
   SELECT JSON_BUILD_OBJECT(
     'success', TRUE,
     'message', 'Account updated and mailboxes created successfully',
@@ -2538,7 +2576,7 @@ BEGIN
             COUNT(*) OVER() as total_count
         FROM user_schema.user_verification_table v
         JOIN user_schema.user_table u ON v.user_verification_user_id = u.user_id
-        JOIN user_schema.account_table acc ON u.user_id = acc.account_user_id
+        LEFT JOIN user_schema.account_table acc ON u.user_id = acc.account_user_id
         WHERE
             (input_search_term IS NULL OR input_search_term = '' OR
              u.user_first_name ILIKE '%' || input_search_term || '%' OR
