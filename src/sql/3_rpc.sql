@@ -2684,3 +2684,151 @@ BEGIN
   RETURN referral_code;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Bulk Mark as Read
+CREATE OR REPLACE FUNCTION bulk_mark_mail_as_read(input_mail_item_ids UUID[])
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  UPDATE mailroom_schema.mail_item_table
+  SET mail_item_is_read = TRUE,
+      mail_item_updated_at = NOW()
+  WHERE mail_item_id = ANY(input_mail_item_ids);
+  RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Bulk Mark as Unread
+CREATE OR REPLACE FUNCTION bulk_mark_mail_as_unread(input_mail_item_ids UUID[])
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  UPDATE mailroom_schema.mail_item_table
+  SET mail_item_is_read = FALSE,
+      mail_item_updated_at = NOW()
+  WHERE mail_item_id = ANY(input_mail_item_ids);
+  RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Bulk Request Scan
+CREATE OR REPLACE FUNCTION bulk_request_mail_item_scan(
+  input_mail_item_ids UUID[],
+  input_account_id UUID,
+  input_instructions TEXT DEFAULT NULL
+)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  -- Update statuses to scanning
+  UPDATE mailroom_schema.mail_item_table
+  SET mail_item_status_id = 'MIS-SCANNING',
+      mail_item_updated_at = NOW()
+  WHERE mail_item_id = ANY(input_mail_item_ids)
+    AND mail_item_type = 'MAIL'; -- Safety check
+
+  -- Insert requests
+  INSERT INTO request_schema.scan_request_table (
+    scan_request_mail_item_id,
+    scan_request_account_id,
+    scan_request_status_id,
+    scan_request_instructions
+  )
+  SELECT 
+    id,
+    input_account_id,
+    'SRS-PENDING',
+    input_instructions
+  FROM unnest(input_mail_item_ids) AS id
+  JOIN mailroom_schema.mail_item_table m ON m.mail_item_id = id
+  WHERE m.mail_item_type = 'MAIL'
+  AND NOT EXISTS (
+    SELECT 1 FROM request_schema.scan_request_table 
+    WHERE scan_request_mail_item_id = id 
+    AND scan_request_status_id IN ('SRS-PENDING', 'SRS-COMPLETED')
+  );
+
+  RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Bulk Request Disposal
+CREATE OR REPLACE FUNCTION bulk_request_mail_item_disposal(
+  input_mail_item_ids UUID[],
+  input_account_id UUID
+)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  -- Update statuses
+  UPDATE mailroom_schema.mail_item_table
+  SET mail_item_status_id = 'MIS-DISPOSAL',
+      mail_item_updated_at = NOW()
+  WHERE mail_item_id = ANY(input_mail_item_ids);
+
+  -- Insert requests
+  INSERT INTO request_schema.dispose_request_table (
+    dispose_request_mail_item_id,
+    dispose_request_account_id,
+    dispose_request_status_id
+  )
+  SELECT 
+    id,
+    input_account_id,
+    'DRS-PENDING'
+  FROM unnest(input_mail_item_ids) AS id
+  WHERE NOT EXISTS (
+    SELECT 1 FROM request_schema.dispose_request_table 
+    WHERE dispose_request_mail_item_id = id 
+    AND dispose_request_status_id IN ('DRS-PENDING', 'DRS-APPROVED', 'DRS-COMPLETED')
+  );
+
+  RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Bulk Request Retrieval
+CREATE OR REPLACE FUNCTION bulk_request_mail_item_retrieval(
+  input_mail_item_ids UUID[],
+  input_account_id UUID,
+  input_address TEXT,
+  input_notes TEXT DEFAULT NULL
+)
+RETURNS BOOLEAN
+SET search_path TO ''
+AS $$
+BEGIN
+  -- Update statuses
+  UPDATE mailroom_schema.mail_item_table
+  SET mail_item_status_id = 'MIS-RETRIEVAL',
+      mail_item_updated_at = NOW()
+  WHERE mail_item_id = ANY(input_mail_item_ids);
+
+  -- Insert requests
+  INSERT INTO request_schema.retrieval_request_table (
+    retrieval_request_mail_item_id,
+    retrieval_request_account_id,
+    retrieval_request_status_id,
+    retrieval_request_address,
+    retrieval_request_notes
+  )
+  SELECT 
+    id,
+    input_account_id,
+    'RRS-PENDING',
+    input_address,
+    input_notes
+  FROM unnest(input_mail_item_ids) AS id
+  WHERE NOT EXISTS (
+    SELECT 1 FROM request_schema.retrieval_request_table 
+    WHERE retrieval_request_mail_item_id = id 
+    AND retrieval_request_status_id IN ('RRS-PENDING', 'RRS-APPROVED', 'RRS-IN_TRANSIT', 'RRS-COMPLETED')
+  );
+
+  RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;

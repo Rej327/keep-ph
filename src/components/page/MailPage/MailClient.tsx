@@ -20,9 +20,11 @@ import {
   Center,
   Tooltip,
   Modal,
-  Textarea,
+  // Textarea,
   Select,
   Drawer,
+  Checkbox,
+  Menu,
 } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import {
@@ -42,6 +44,7 @@ import {
   IconInbox,
   IconBox,
   IconCheckbox,
+  IconDotsVertical,
 } from "@tabler/icons-react";
 import useSWR from "swr";
 import useAuthStore from "@/zustand/stores/useAuthStore";
@@ -54,6 +57,11 @@ import {
 } from "@/actions/supabase/get";
 import {
   markMailItemAsUnread,
+  bulkMarkMailAsRead,
+  bulkMarkMailAsUnread,
+  bulkRequestMailItemDisposal,
+  bulkRequestMailItemRetrieval,
+  bulkRequestMailItemScan,
   // setMailItemArchiveStatus,
   requestMailItemDisposal,
   requestMailItemRetrieval,
@@ -61,6 +69,7 @@ import {
   requestMailItemScan,
   cancelDisposalRequest,
   markMailItemAsRetrieved,
+  bulkCancelDisposalRequest,
 } from "@/actions/supabase/update";
 import { notifications } from "@mantine/notifications";
 import { CustomDataTable } from "@/components/common/CustomDataTable";
@@ -75,9 +84,9 @@ export default function MailClient() {
   const [statusFilter, setStatusFilter] = useState<string | null>("all");
   const [typeFilter, setTypeFilter] = useState<string | null>("all");
   const [mailboxFilter, setMailboxFilter] = useState<string | null>("all");
-  const [viewContentMode, setViewContentMode] = useState<"unopened" | "opened">(
-    "unopened"
-  );
+  // const [viewContentMode, setViewContentMode] = useState<"unopened" | "opened">(
+  //   "unopened"
+  // );
   const [actionLoading, setActionLoading] = useState(false);
 
   // Modal States
@@ -163,6 +172,97 @@ export default function MailClient() {
     { value: "package", label: "Package" },
   ];
 
+  const filteredItems = useMemo(() => {
+    if (!mailItems) return [];
+    return mailItems.filter((item) => {
+      const matchesSearch =
+        (item.mail_item_sender?.toLowerCase() || "").includes(
+          searchTerm.toLowerCase()
+        ) ||
+        (item.mailbox_label?.toLowerCase() || "").includes(
+          searchTerm.toLowerCase()
+        );
+      const matchesStatus =
+        statusFilter && statusFilter !== "all"
+          ? item.mail_item_status_value === statusFilter
+          : true;
+      const matchesType =
+        typeFilter && typeFilter !== "all"
+          ? item.mail_item_type?.toLowerCase() === typeFilter.toLowerCase()
+          : true;
+      const matchesMailbox =
+        mailboxFilter && mailboxFilter !== "all"
+          ? item.mailbox_label === mailboxFilter
+          : true;
+      return matchesSearch && matchesStatus && matchesType && matchesMailbox;
+    });
+  }, [mailItems, searchTerm, statusFilter, typeFilter, mailboxFilter]);
+
+  const isItemSelectable = (item: MailItem) => {
+    const status = item.mail_item_status_value?.toLowerCase();
+    return status !== "disposed" && status !== "retrieved";
+  };
+
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+
+  const selectableFilteredItems = useMemo(
+    () => filteredItems.filter(isItemSelectable),
+    [filteredItems]
+  );
+
+  const allSelected =
+    selectableFilteredItems.length > 0 &&
+    selectedItems.length === selectableFilteredItems.length;
+  const indeterminate =
+    selectedItems.length > 0 &&
+    selectedItems.length < selectableFilteredItems.length;
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedItems(
+        selectableFilteredItems.map((item) => item.mail_item_id)
+      );
+    } else {
+      setSelectedItems([]);
+    }
+  };
+
+  const handleSelectItem = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedItems((prev) => [...prev, id]);
+    } else {
+      setSelectedItems((prev) => prev.filter((item) => item !== id));
+    }
+  };
+
+  const handleBulkMarkAsRead = async (isRead: boolean) => {
+    setActionLoading(true);
+    try {
+      if (isRead) {
+        await bulkMarkMailAsRead(selectedItems);
+      } else {
+        await bulkMarkMailAsUnread(selectedItems);
+      }
+
+      notifications.show({
+        message: `Marked ${selectedItems.length} items as ${
+          isRead ? "read" : "unread"
+        }`,
+        color: "green",
+      });
+      mutate();
+      setSelectedItems([]);
+    } catch (error) {
+      console.error(error);
+      notifications.show({
+        message: `Failed to mark items as ${isRead ? "read" : "unread"}`,
+        color: "red",
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Fetch Request Actions for selected item
   console.log("Selected Item ID:", selectedItem?.mail_item_id);
 
@@ -182,6 +282,115 @@ export default function MailClient() {
 
   console.log("Has Request: ", requestActions);
   if (requestError) console.error("Request Actions SWR Error:", requestError);
+
+  const hasConflict = (action: "scan" | "retrieval" | "disposal") => {
+    if (selectedItems.length === 0) return false;
+    const items = mailItems?.filter((item) =>
+      selectedItems.includes(item.mail_item_id)
+    );
+    if (!items) return false;
+
+    return items.some((item) => {
+      const status = item.mail_item_status_value?.toLowerCase();
+      // Logic for conflicts:
+      // If action is retrieval, conflict if already in retrieval/transit
+      if (action === "retrieval") {
+        return (
+          status === "retrieval" ||
+          status === "transit" ||
+          status === "retrieved"
+        );
+      }
+      // If action is scan, conflict if scanning or scanned (maybe allow re-scan?)
+      // Assuming for now scanning/scanned is a 'conflict' or at least redundant
+      if (action === "scan") {
+        return status === "scanning" || status === "scanned";
+      }
+      // If action is disposal, conflict if disposal/disposed
+      if (action === "disposal") {
+        return status === "disposal" || status === "disposed";
+      }
+      return false;
+    });
+  };
+
+  const getActionTooltip = (
+    action: "scan" | "retrieval" | "disposal",
+    isDisabledByPackage = false,
+    disabled = false
+  ) => {
+    if (isDisabledByPackage && action === "scan") {
+      return "Scan not available for packages";
+    }
+    if (disabled) {
+      return "Action unavailable for the selected items";
+    }
+    if (hasConflict(action)) {
+      return "Warning: Some items have conflicting statuses";
+    }
+    return undefined;
+  };
+
+  const isScanDisabled = useMemo(() => {
+    if (selectedItems.length === 0) return true;
+    return selectedItems.some((id) => {
+      const item = mailItems?.find((i) => i.mail_item_id === id);
+      if (!item) return false;
+      const status = item.mail_item_status_value?.toLowerCase();
+      // Block if package
+      if (item.mail_item_type === "PACKAGE") return true;
+      // Block if scanned, scanning, retrieval, in_transit, retrieved, disposed, delivered
+      const blockers = [
+        "scanned",
+        "scanning",
+        "retrieval",
+        "in_transit",
+        "retrieved",
+        "disposed",
+        "delivered",
+      ];
+      return blockers.includes(status || "");
+    });
+  }, [selectedItems, mailItems]);
+
+  const isRetrievalDisabled = useMemo(() => {
+    if (selectedItems.length === 0) return true;
+    // Blockers: retrieval, in_transit, retrieved, disposed, delivered
+    const blockers = [
+      "retrieval",
+      "in_transit",
+      "retrieved",
+      "disposed",
+      "delivered",
+    ];
+    return selectedItems.some((id) => {
+      const item = mailItems?.find((i) => i.mail_item_id === id);
+      if (!item) return false;
+      return blockers.includes(
+        item.mail_item_status_value?.toLowerCase() || ""
+      );
+    });
+  }, [selectedItems, mailItems]);
+
+  const isDisposalDisabled = useMemo(() => {
+    if (selectedItems.length === 0) return true;
+    // Blockers: disposal, retrieval, in_transit, retrieved, disposed, delivered
+    const blockers = [
+      "disposal",
+      "retrieval",
+      "in_transit",
+      "retrieved",
+      "disposed",
+      "delivered",
+    ];
+    return selectedItems.some((id) => {
+      const item = mailItems?.find((i) => i.mail_item_id === id);
+      if (!item) return false;
+      return blockers.includes(
+        item.mail_item_status_value?.toLowerCase() || ""
+      );
+    });
+  }, [selectedItems, mailItems]);
 
   const handleReadStatus = async () => {
     if (!selectedItem) return;
@@ -241,21 +450,57 @@ export default function MailClient() {
   // };
 
   const handleRequestDisposal = async () => {
-    if (!selectedItem || !userDetails?.account.account_id) return;
+    if (
+      (!selectedItem && selectedItems.length === 0) ||
+      !userDetails?.account.account_id
+    )
+      return;
 
     setActionLoading(true);
     try {
-      await requestMailItemDisposal(
-        selectedItem.mail_item_id,
-        userDetails.account.account_id
-      );
-      notifications.show({ message: "Disposal requested", color: "green" });
-      await logActivity(
-        "disposal",
-        "Disposal requested",
-        selectedItem.mail_item_name || `ID: ${selectedItem.mail_item_id}`,
-        user?.id
-      );
+      if (selectedItems.length > 0) {
+        // Cancel conflicting disposal requests first
+        const disposalIds = selectedItems.filter((id) => {
+          const item = mailItems?.find((i) => i.mail_item_id === id);
+          return item?.mail_item_status_value?.toLowerCase() === "disposal";
+        });
+
+        if (disposalIds.length > 0) {
+          await bulkCancelDisposalRequest(disposalIds);
+        }
+
+        await bulkRequestMailItemDisposal(
+          selectedItems,
+          userDetails.account.account_id
+        );
+        notifications.show({
+          message: `Disposal requested for ${selectedItems.length} items`,
+          color: "green",
+        });
+        await logActivity(
+          "disposal",
+          "Bulk disposal requested",
+          `${selectedItems.length} items`,
+          user?.id
+        );
+        setSelectedItems([]);
+      } else if (selectedItem) {
+        // Single item
+        if (selectedItem.mail_item_status_value?.toLowerCase() === "disposal") {
+          await cancelDisposalRequest(selectedItem.mail_item_id);
+        }
+        await requestMailItemDisposal(
+          selectedItem.mail_item_id,
+          userDetails.account.account_id
+        );
+        notifications.show({ message: "Disposal requested", color: "green" });
+        await logActivity(
+          "disposal",
+          "Disposal requested",
+          selectedItem.mail_item_name || `ID: ${selectedItem.mail_item_id}`,
+          user?.id
+        );
+      }
       mutate();
       setDisposalModalOpen(false);
     } catch {
@@ -265,12 +510,16 @@ export default function MailClient() {
       });
     } finally {
       setActionLoading(false);
-      setSelectedItem(null);
+      if (!selectedItems.length) setSelectedItem(null);
     }
   };
 
   const handleRequestRetrieval = async () => {
-    if (!selectedItem || !userDetails?.account.account_id) return;
+    if (
+      (!selectedItem && selectedItems.length === 0) ||
+      !userDetails?.account.account_id
+    )
+      return;
 
     if (!retrievalAddress) {
       notifications.show({
@@ -282,19 +531,52 @@ export default function MailClient() {
 
     setActionLoading(true);
     try {
-      await requestMailItemRetrieval(
-        selectedItem.mail_item_id,
-        userDetails.account.account_id,
-        retrievalAddress,
-        retrievalNotes
-      );
-      notifications.show({ message: "Retrieval requested", color: "green" });
-      await logActivity(
-        "retrieval",
-        "Retrieval requested",
-        selectedItem.mail_item_name || `ID: ${selectedItem.mail_item_id}`,
-        user?.id
-      );
+      if (selectedItems.length > 0) {
+        // Cancel conflicting disposal requests first
+        const disposalIds = selectedItems.filter((id) => {
+          const item = mailItems?.find((i) => i.mail_item_id === id);
+          return item?.mail_item_status_value?.toLowerCase() === "disposal";
+        });
+
+        if (disposalIds.length > 0) {
+          await bulkCancelDisposalRequest(disposalIds);
+        }
+
+        await bulkRequestMailItemRetrieval(
+          selectedItems,
+          userDetails.account.account_id,
+          retrievalAddress,
+          retrievalNotes
+        );
+        notifications.show({
+          message: `Retrieval requested for ${selectedItems.length} items`,
+          color: "green",
+        });
+        await logActivity(
+          "retrieval",
+          "Bulk retrieval requested",
+          `${selectedItems.length} items`,
+          user?.id
+        );
+        setSelectedItems([]);
+      } else if (selectedItem) {
+        if (selectedItem.mail_item_status_value?.toLowerCase() === "disposal") {
+          await cancelDisposalRequest(selectedItem.mail_item_id);
+        }
+        await requestMailItemRetrieval(
+          selectedItem.mail_item_id,
+          userDetails.account.account_id,
+          retrievalAddress,
+          retrievalNotes
+        );
+        notifications.show({ message: "Retrieval requested", color: "green" });
+        await logActivity(
+          "retrieval",
+          "Retrieval requested",
+          selectedItem.mail_item_name || `ID: ${selectedItem.mail_item_id}`,
+          user?.id
+        );
+      }
       mutate();
       setRetrievalModalOpen(false);
       // Reset form
@@ -307,27 +589,63 @@ export default function MailClient() {
       });
     } finally {
       setActionLoading(false);
-      setSelectedItem(null);
+      if (!selectedItems.length) setSelectedItem(null);
     }
   };
 
   const handleRequestScan = async () => {
-    if (!selectedItem || !userDetails?.account.account_id) return;
+    if (
+      (!selectedItem && selectedItems.length === 0) ||
+      !userDetails?.account.account_id
+    )
+      return;
 
     setActionLoading(true);
     try {
-      await requestMailItemScan(
-        selectedItem.mail_item_id,
-        userDetails.account.account_id,
-        scanInstructions
-      );
-      notifications.show({ message: "Scan requested", color: "green" });
-      await logActivity(
-        "scan",
-        "Scan requested",
-        selectedItem.mail_item_name || `ID: ${selectedItem.mail_item_id}`,
-        user?.id
-      );
+      if (selectedItems.length > 0) {
+        // Cancel conflicting disposal requests first
+        const disposalIds = selectedItems.filter((id) => {
+          const item = mailItems?.find((i) => i.mail_item_id === id);
+          return item?.mail_item_status_value?.toLowerCase() === "disposal";
+        });
+
+        if (disposalIds.length > 0) {
+          await bulkCancelDisposalRequest(disposalIds);
+        }
+
+        await bulkRequestMailItemScan(
+          selectedItems,
+          userDetails.account.account_id,
+          scanInstructions
+        );
+        notifications.show({
+          message: `Scan requested for ${selectedItems.length} items`,
+          color: "green",
+        });
+        await logActivity(
+          "scan",
+          "Bulk scan requested",
+          `${selectedItems.length} items`,
+          user?.id
+        );
+        setSelectedItems([]);
+      } else if (selectedItem) {
+        if (selectedItem.mail_item_status_value?.toLowerCase() === "disposal") {
+          await cancelDisposalRequest(selectedItem.mail_item_id);
+        }
+        await requestMailItemScan(
+          selectedItem.mail_item_id,
+          userDetails.account.account_id,
+          scanInstructions
+        );
+        notifications.show({ message: "Scan requested", color: "green" });
+        await logActivity(
+          "scan",
+          "Scan requested",
+          selectedItem.mail_item_name || `ID: ${selectedItem.mail_item_id}`,
+          user?.id
+        );
+      }
       mutate();
       setScanModalOpen(false);
       setScanInstructions("");
@@ -338,7 +656,7 @@ export default function MailClient() {
       });
     } finally {
       setActionLoading(false);
-      setSelectedItem(null);
+      if (!selectedItems.length) setSelectedItem(null);
     }
   };
 
@@ -371,10 +689,22 @@ export default function MailClient() {
   };
 
   const handleConfirmOverrideDisposal = async () => {
-    if (!selectedItem) return;
+    if (!selectedItem && selectedItems.length === 0) return;
     setActionLoading(true);
     try {
-      await cancelDisposalRequest(selectedItem.mail_item_id);
+      if (selectedItems.length > 0) {
+        const disposalIds = selectedItems.filter((id) => {
+          const item = mailItems?.find((i) => i.mail_item_id === id);
+          return item?.mail_item_status_value?.toLowerCase() === "disposal";
+        });
+
+        if (disposalIds.length > 0) {
+          await bulkCancelDisposalRequest(disposalIds);
+        }
+      } else if (selectedItem) {
+        await cancelDisposalRequest(selectedItem.mail_item_id);
+      }
+
       notifications.show({
         message: "Disposal request canceled",
         color: "green",
@@ -382,7 +712,9 @@ export default function MailClient() {
       await logActivity(
         "disposal",
         "Disposal request canceled",
-        selectedItem.mail_item_name || `ID: ${selectedItem.mail_item_id}`,
+        selectedItems.length > 0
+          ? `${selectedItems.length} items`
+          : selectedItem?.mail_item_name || `ID: ${selectedItem!.mail_item_id}`,
         user?.id
       );
       // Proceed with the pending action
@@ -406,26 +738,82 @@ export default function MailClient() {
   };
 
   const handleOpenScanModal = () => {
-    if (requestActions?.has_request_disposal) {
+    const hasDisposalConflict =
+      selectedItems.length > 0
+        ? selectedItems.some((id) => {
+            const item = mailItems?.find((i) => i.mail_item_id === id);
+            return item?.mail_item_status_value?.toLowerCase() === "disposal";
+          })
+        : requestActions?.has_request_disposal;
+
+    if (hasDisposalConflict) {
       setPendingActionType("scan");
       setOverrideDisposalModalOpen(true);
-    } else {
-      setScanModalOpen(true);
+      return;
     }
+
+    if (selectedItems.length > 0) {
+      setScanModalOpen(true);
+      return;
+    }
+
+    setScanModalOpen(true);
   };
 
   // Set initial address when opening retrieval modal
   const openRetrievalModal = () => {
-    if (requestActions?.has_request_disposal) {
+    const hasDisposalConflict =
+      selectedItems.length > 0
+        ? selectedItems.some((id) => {
+            const item = mailItems?.find((i) => i.mail_item_id === id);
+            return item?.mail_item_status_value?.toLowerCase() === "disposal";
+          })
+        : requestActions?.has_request_disposal;
+
+    if (hasDisposalConflict) {
       setPendingActionType("retrieval");
       setOverrideDisposalModalOpen(true);
-    } else {
-      setRetrievalModalOpen(true);
+      return;
     }
+
+    if (selectedItems.length > 0) {
+      setRetrievalModalOpen(true);
+      return;
+    }
+
+    setRetrievalModalOpen(true);
   };
 
   const renderValue: DataTableColumn<MailItem>[] = useMemo(
     () => [
+      {
+        accessor: "selection",
+        title: (
+          <Checkbox
+            checked={allSelected}
+            indeterminate={indeterminate}
+            onChange={(e) => handleSelectAll(e.currentTarget.checked)}
+            aria-label="Select all rows"
+          />
+        ),
+        width: 50,
+        render: (record) => (
+          <div onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={selectedItems.includes(record.mail_item_id)}
+              onChange={(e) =>
+                handleSelectItem(record.mail_item_id, e.currentTarget.checked)
+              }
+              disabled={!isItemSelectable(record)}
+              aria-label={`Select row ${record.mail_item_name}`}
+              style={{
+                cursor: !isItemSelectable(record) ? "not-allowed" : "pointer",
+                opacity: !isItemSelectable(record) ? 0.5 : 1,
+              }}
+            />
+          </div>
+        ),
+      },
       {
         accessor: "mail_attachment_unopened_scan_file_path",
         title: "Receipt",
@@ -458,11 +846,11 @@ export default function MailClient() {
                 ? async () => {
                     setSelectedItem(record);
 
-                    if (record.mail_attachment_item_scan_file_path) {
-                      setViewContentMode("opened");
-                    } else {
-                      setViewContentMode("unopened");
-                    }
+                    // if (record.mail_attachment_item_scan_file_path) {
+                    //   setViewContentMode("opened");
+                    // } else {
+                    //   setViewContentMode("unopened");
+                    // }
 
                     if (!record.mail_item_is_read) {
                       try {
@@ -525,34 +913,8 @@ export default function MailClient() {
         ),
       },
     ],
-    []
+    [allSelected, indeterminate, selectedItems, selectableFilteredItems]
   );
-
-  const filteredItems = useMemo(() => {
-    if (!mailItems) return [];
-    return mailItems.filter((item) => {
-      const matchesSearch =
-        (item.mail_item_sender?.toLowerCase() || "").includes(
-          searchTerm.toLowerCase()
-        ) ||
-        (item.mailbox_label?.toLowerCase() || "").includes(
-          searchTerm.toLowerCase()
-        );
-      const matchesStatus =
-        statusFilter && statusFilter !== "all"
-          ? item.mail_item_status_value === statusFilter
-          : true;
-      const matchesType =
-        typeFilter && typeFilter !== "all"
-          ? item.mail_item_type?.toLowerCase() === typeFilter.toLowerCase()
-          : true;
-      const matchesMailbox =
-        mailboxFilter && mailboxFilter !== "all"
-          ? item.mailbox_label === mailboxFilter
-          : true;
-      return matchesSearch && matchesStatus && matchesType && matchesMailbox;
-    });
-  }, [mailItems, searchTerm, statusFilter, typeFilter, mailboxFilter]);
 
   const handleRefresh = () => {
     mutate();
@@ -621,26 +983,12 @@ export default function MailClient() {
         }}
         mb="xl"
       >
-        {(() => {
-          const path =
-            viewContentMode === "opened"
-              ? selectedItem.mail_attachment_item_scan_file_path
-              : selectedItem.mail_attachment_unopened_scan_file_path;
-
-          return path ? (
-            <Image
-              src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/KEEP-PH-ATTACHMENTS/${path}`}
-              alt="Mail Scan"
-              fit="contain"
-              style={{ maxHeight: 500 }}
-            />
-          ) : (
-            <Stack align="center" c="dimmed">
-              <IconMail size={48} />
-              <Text>No preview available</Text>
-            </Stack>
-          );
-        })()}
+        <Image
+          src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/KEEP-PH-ATTACHMENTS/${selectedItem.mail_attachment_unopened_scan_file_path}`}
+          alt="Mail Scan"
+          fit="contain"
+          style={{ maxHeight: 500 }}
+        />
       </Box>
 
       {/* Actions */}
@@ -811,7 +1159,7 @@ export default function MailClient() {
                     { value: "scanning", label: "Scanning" },
                     { value: "retrieval", label: "Retrieval" },
                     { value: "retrieved", label: "Retrieved" },
-                    { value: "transit", label: "In Transit" },
+                    { value: "in_transit", label: "In Transit" },
                     { value: "disposal", label: "Disposal" },
                     { value: "disposed", label: "Disposed" },
                   ]}
@@ -851,14 +1199,81 @@ export default function MailClient() {
               </Group>
             </Group>
 
-            {/* Search */}
-            <TextInput
-              placeholder="Search mail..."
-              leftSection={<IconSearch size={16} />}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.currentTarget.value)}
-              mb="md"
-            />
+            {/* Search and Bulk Actions */}
+            <Group mb="md" align="center">
+              {selectedItems.length > 0 && (
+                <Menu shadow="md" width={200}>
+                  <Menu.Target>
+                    <Button
+                      variant="light"
+                      leftSection={<IconDotsVertical size={16} />}
+                    >
+                      Bulk Actions ({selectedItems.length})
+                    </Button>
+                  </Menu.Target>
+
+                  <Menu.Dropdown>
+                    <Menu.Label>Mark Status</Menu.Label>
+                    <Menu.Item
+                      leftSection={<IconMail size={14} />}
+                      onClick={() => handleBulkMarkAsRead(true)}
+                    >
+                      Mark as Read
+                    </Menu.Item>
+                    <Menu.Item
+                      leftSection={<IconMail size={14} />}
+                      onClick={() => handleBulkMarkAsRead(false)}
+                    >
+                      Mark as Unread
+                    </Menu.Item>
+                    <Menu.Divider />
+                    <Menu.Label>Request Actions</Menu.Label>
+                    <Menu.Item
+                      leftSection={<IconScan size={14} />}
+                      disabled={isScanDisabled}
+                      color={hasConflict("scan") ? "orange" : undefined}
+                      onClick={handleOpenScanModal}
+                      title={getActionTooltip("scan", false, isScanDisabled)}
+                    >
+                      Request Scan
+                    </Menu.Item>
+                    <Menu.Item
+                      leftSection={<IconTruckDelivery size={14} />}
+                      onClick={openRetrievalModal}
+                      disabled={isRetrievalDisabled}
+                      color={hasConflict("retrieval") ? "orange" : undefined}
+                      title={getActionTooltip(
+                        "retrieval",
+                        false,
+                        isRetrievalDisabled
+                      )}
+                    >
+                      Request Retrieval
+                    </Menu.Item>
+                    <Menu.Item
+                      leftSection={<IconFileShredder size={14} />}
+                      color={hasConflict("disposal") ? "orange" : "red"}
+                      disabled={isDisposalDisabled}
+                      onClick={() => setDisposalModalOpen(true)}
+                      title={getActionTooltip(
+                        "disposal",
+                        false,
+                        isDisposalDisabled
+                      )}
+                    >
+                      Request Disposal
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
+              )}
+              <TextInput
+                placeholder="Search mail..."
+                leftSection={<IconSearch size={16} />}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                style={{ flex: 1 }}
+              />
+            </Group>
 
             {/* List */}
             <CustomDataTable
@@ -924,7 +1339,9 @@ export default function MailClient() {
           <Text ta="center" c="dimmed" size="sm" px="md">
             You are about to request disposal for{" "}
             <Text span fw={700} c="dark">
-              {selectedItem?.mail_item_name}
+              {selectedItems.length > 0
+                ? `${selectedItems.length} items`
+                : selectedItem?.mail_item_name}
             </Text>
             . This action cannot be undone and the physical item will be
             destroyed.
@@ -980,9 +1397,10 @@ export default function MailClient() {
             Pending Disposal Request
           </Text>
           <Text ta="center" c="dimmed" size="sm" px="md">
-            You have requested a disposal for this mail. If you request a{" "}
-            {pendingActionType === "scan" ? "scan" : "retrieval"}, the pending
-            disposal request will be <b>canceled</b>.
+            You have requested a disposal for{" "}
+            {selectedItems.length > 0 ? "these items" : "this mail"}. If you
+            request a {pendingActionType === "scan" ? "scan" : "retrieval"}, the
+            pending disposal request will be <b>canceled</b>.
           </Text>
           <Text ta="center" size="sm" fw={500}>
             Do you want to proceed?
@@ -1033,28 +1451,54 @@ export default function MailClient() {
               boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
             }}
           >
-            {selectedItem?.mail_attachment_item_scan_file_path && (
-              <Image
-                src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/KEEP-PH-ATTACHMENTS/${selectedItem.mail_attachment_item_scan_file_path}`}
-                alt="Scanned Document"
-                fit="contain"
-                style={{ maxHeight: 250 }}
-              />
-            )}
+            {(() => {
+              if (!selectedItem?.mail_attachment_item_scan_file_path) {
+                return null;
+              }
+
+              if (
+                selectedItem.mail_attachment_item_scan_file_path
+                  .toLowerCase()
+                  .endsWith(".pdf")
+              ) {
+                return (
+                  <Text size="lg" fw={500}>
+                    PDF Document
+                  </Text>
+                );
+              }
+
+              return (
+                <Image
+                  src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/KEEP-PH-ATTACHMENTS/${selectedItem.mail_attachment_item_scan_file_path}`}
+                  alt="Scanned Document"
+                  fit="contain"
+                  style={{ maxHeight: 250 }}
+                />
+              );
+            })()}
           </Box>
           <Group justify="space-between">
             <Button
+              target="_blank"
               component="a"
               href={
                 selectedItem?.mail_attachment_item_scan_file_path
                   ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/KEEP-PH-ATTACHMENTS/${selectedItem.mail_attachment_item_scan_file_path}`
                   : "#"
               }
-              target="_blank"
-              leftSection={<IconDownload size={16} />}
-              variant="outline"
+              {...(selectedItem?.mail_attachment_item_scan_file_path
+                ?.toLowerCase()
+                .endsWith(".pdf")
+                ? { download: true, leftSection: <IconDownload size={16} /> }
+                : { target: "_blank", leftSection: <IconEye size={16} /> })}
+              variant="light"
             >
-              Download
+              {selectedItem?.mail_attachment_item_scan_file_path
+                ?.toLowerCase()
+                .endsWith(".pdf")
+                ? "View PDF"
+                : "View"}
             </Button>
             <Button
               variant="light"
@@ -1098,11 +1542,42 @@ export default function MailClient() {
               <Divider />
               <Group justify="space-between">
                 <Text c="dimmed" size="sm">
-                  Tracking Number:
+                  Waybill:
                 </Text>
-                <Text fw={600}>
-                  {selectedItem?.retrieval_request_tracking_number || "N/A"}
-                </Text>
+                {selectedItem?.retrieval_request_tracking_number &&
+                  (selectedItem.retrieval_request_tracking_number
+                    .toLowerCase()
+                    .endsWith(".pdf") ? (
+                    <Button
+                      component="a"
+                      href={selectedItem.retrieval_request_tracking_number}
+                      download
+                      leftSection={<IconEye size={16} />}
+                      variant="light"
+                      target="_blank"
+                    >
+                      View Waybill
+                    </Button>
+                  ) : (
+                    <>
+                      <Image
+                        src={selectedItem.retrieval_request_tracking_number}
+                        alt="Scanned Document"
+                        fit="contain"
+                        style={{ maxHeight: 250 }}
+                      />
+                      <Button
+                        component="a"
+                        href={selectedItem.retrieval_request_tracking_number}
+                        download
+                        leftSection={<IconEye size={16} />}
+                        variant="light"
+                        target="_blank"
+                      >
+                        View Waybill
+                      </Button>
+                    </>
+                  ))}
               </Group>
             </Stack>
           </Paper>
@@ -1177,8 +1652,10 @@ export default function MailClient() {
       >
         <Stack gap="md" py="sm">
           <Text size="sm" c="dimmed">
-            Please select a delivery address and provide any additional
-            instructions for the courier.
+            {selectedItems.length > 0
+              ? `Please select a delivery address for these ${selectedItems.length} items`
+              : "Please select a delivery address"}{" "}
+            and provide any additional instructions for the courier.
           </Text>
 
           <Select
@@ -1198,7 +1675,7 @@ export default function MailClient() {
             }
           />
 
-          <Textarea
+          {/* <Textarea
             label="Additional Notes"
             placeholder="E.g., 'Leave at front desk', 'Call upon arrival'"
             value={retrievalNotes}
@@ -1207,7 +1684,7 @@ export default function MailClient() {
             leftSectionProps={{
               style: { alignItems: "flex-start", paddingTop: "8px" },
             }}
-          />
+          /> */}
 
           <Group justify="flex-end" mt="lg">
             <Button
@@ -1241,18 +1718,18 @@ export default function MailClient() {
       >
         <Stack gap="md" py="sm">
           <Text size="sm" c="dimmed">
-            Request a digital scan of the contents of this mail item. You can
-            provide specific instructions below (e.g., &quot;Scan only the first
-            page&quot;).
+            {selectedItems.length > 0
+              ? `Request a digital scan of the contents of these ${selectedItems.length} mail items.`
+              : "Request a digital scan of the contents of this mail item."}
           </Text>
 
-          <Textarea
+          {/* <Textarea
             label="Scan Instructions (Optional)"
             placeholder="E.g., 'Scan all pages', 'Color scan preferred'"
             value={scanInstructions}
             onChange={(e) => setScanInstructions(e.currentTarget.value)}
             minRows={3}
-          />
+          /> */}
 
           <Group justify="flex-end" mt="lg">
             <Button variant="default" onClick={() => setScanModalOpen(false)}>

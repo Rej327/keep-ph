@@ -28,6 +28,76 @@ export const markMailItemAsRead = async (mailItemId: string) => {
   return data as boolean;
 };
 
+// Bulk Actions
+export const bulkMarkMailAsRead = async (mailItemIds: string[]) => {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("bulk_mark_mail_as_read", {
+    input_mail_item_ids: mailItemIds,
+  });
+  if (error) throw new Error(error.message);
+  return data as boolean;
+};
+
+export const bulkMarkMailAsUnread = async (mailItemIds: string[]) => {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("bulk_mark_mail_as_unread", {
+    input_mail_item_ids: mailItemIds,
+  });
+  if (error) throw new Error(error.message);
+  return data as boolean;
+};
+
+export const bulkRequestMailItemScan = async (
+  mailItemIds: string[],
+  accountId: string,
+  instructions?: string
+) => {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("bulk_request_mail_item_scan", {
+    input_mail_item_ids: mailItemIds,
+    input_account_id: accountId,
+    input_instructions: instructions || null,
+  });
+  if (error) throw new Error(error.message);
+  return data as boolean;
+};
+
+export const bulkRequestMailItemDisposal = async (
+  mailItemIds: string[],
+  accountId: string
+) => {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc(
+    "bulk_request_mail_item_disposal",
+    {
+      input_mail_item_ids: mailItemIds,
+      input_account_id: accountId,
+    }
+  );
+  if (error) throw new Error(error.message);
+  return data as boolean;
+};
+
+export const bulkRequestMailItemRetrieval = async (
+  mailItemIds: string[],
+  accountId: string,
+  address: string,
+  notes?: string
+) => {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc(
+    "bulk_request_mail_item_retrieval",
+    {
+      input_mail_item_ids: mailItemIds,
+      input_account_id: accountId,
+      input_address: address,
+      input_notes: notes || null,
+    }
+  );
+  if (error) throw new Error(error.message);
+  return data as boolean;
+};
+
 export const setMailItemArchiveStatus = async (
   mailItemId: string,
   isArchived: boolean
@@ -78,6 +148,19 @@ export const cancelDisposalRequest = async (mailItemId: string) => {
   }
 
   return data as boolean;
+};
+
+export const bulkCancelDisposalRequest = async (mailItemIds: string[]) => {
+  const promises = mailItemIds.map((id) => cancelDisposalRequest(id));
+  try {
+    await Promise.all(promises);
+    return true;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
+    throw new Error("Failed to cancel disposal requests");
+  }
 };
 
 export const requestMailItemRetrieval = async (

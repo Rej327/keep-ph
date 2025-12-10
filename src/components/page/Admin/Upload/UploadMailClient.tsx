@@ -279,15 +279,7 @@ export default function UploadMailClient() {
                     />
                     <Select
                       style={{ flex: 1 }}
-                      label={
-                        selectedMailbox && selectedCustomer
-                          ? `Space Remaining: ${
-                              mailboxOptions.find(
-                                (m) => m.value === selectedMailbox
-                              )?.remaining
-                            }`
-                          : "Mailbox"
-                      }
+                      label={"Mailbox"}
                       required
                       placeholder="Select mailbox"
                       data={mailboxOptions}

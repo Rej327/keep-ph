@@ -84,7 +84,7 @@ export default function RetrievalClient() {
 
   // Form state
   const [courier, setCourier] = useState("");
-  const [trackingNumber, setTrackingNumber] = useState("");
+  // const [trackingNumber, setTrackingNumber] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
@@ -117,7 +117,7 @@ export default function RetrievalClient() {
   const handleOpenProcessModal = (request: RetrievalRequestItem) => {
     setSelectedRequest(request);
     setCourier("");
-    setTrackingNumber("");
+    // setTrackingNumber("");
     setFile(null);
     openProcess();
   };
@@ -128,7 +128,7 @@ export default function RetrievalClient() {
   };
 
   const handleProcess = async () => {
-    if (!selectedRequest || !file || !courier || !trackingNumber) {
+    if (!selectedRequest || !file || !courier) {
       notifications.show({
         message: "Please fill in all fields and upload a file.",
         color: "red",
@@ -158,7 +158,7 @@ export default function RetrievalClient() {
       await processRetrievalRequest(
         selectedRequest.retrieval_request_id,
         courier,
-        trackingNumber,
+        // trackingNumber,
         publicUrlData.publicUrl
       );
 
@@ -167,10 +167,13 @@ export default function RetrievalClient() {
         await createNotification({
           userId: selectedRequest.account_id,
           title: "Retrieval Request Processed",
-          message: `Your retrieval request for ${selectedRequest.mail_item_sender} has been processed. Courier: ${courier}, Tracking: ${trackingNumber}`,
+          message: `Your retrieval request for ${selectedRequest.mail_item_sender} has been processed. Courier: ${courier}`,
           itemType: "NIT-MAIL",
           itemId: selectedRequest.mail_item_id,
-          additionalData: { courier, trackingNumber },
+          additionalData: {
+            courier,
+            // trackingNumber
+          },
         });
       } catch (notifError) {
         console.error("Failed to send notification:", notifError);
@@ -453,13 +456,13 @@ export default function RetrievalClient() {
             onChange={(e) => setCourier(e.currentTarget.value)}
             required
           />
-          <TextInput
+          {/* <TextInput
             label="Tracking Number"
             placeholder="Enter tracking number"
             value={trackingNumber}
             onChange={(e) => setTrackingNumber(e.currentTarget.value)}
             required
-          />
+          /> */}
           <FileInput
             label="Upload Proof/Waybill"
             placeholder="Upload file"
