@@ -32,6 +32,7 @@ import {
   Overlay,
   Loader,
   Select,
+  Divider,
 } from "@mantine/core";
 import { IconCheck, IconMapPin } from "@tabler/icons-react";
 import CustomLoader from "@/components/common/CustomLoader";
@@ -43,6 +44,8 @@ import {
 } from "@/actions/supabase/post";
 import SubscriptionManagement from "./SubscriptionManagement";
 import UserVerificationStep from "../AuthPage/UserVerificationStep";
+import { createPaymentLink, paymentMethods } from "@/actions/supabase/paymongo";
+import { IconCreditCard } from "@tabler/icons-react";
 
 export default function SubscriptionClient({ user }: { user: User }) {
   const { mutate } = useSWRConfig();
@@ -246,14 +249,86 @@ export default function SubscriptionClient({ user }: { user: User }) {
   };
 
   const nextStep = () =>
-    setActiveStep((current) => (current < 3 ? current + 1 : current));
+    setActiveStep((current) => (current < 4 ? current + 1 : current));
   const prevStep = () =>
     setActiveStep((current) => (current > 0 ? current - 1 : current));
 
-  const handleConfirmSelection = async () => {
-    if (selectedPlan) {
-      await processSubscription(selectedPlan, numMailboxes);
+  const handlePayment = async () => {
+    if (!selectedPlan) return;
+
+    setIsSubmitting(true);
+
+    try {
+      const totalPrice = (selectedPlan.price ?? 0) * numMailboxes;
+      const amount = totalPrice * 100; // Convert to cents
+
+      const link = await createPaymentLink({
+        amount,
+        description: `Subscription to ${selectedPlan.name} plan with ${numMailboxes} mailboxes`,
+        metadata: {
+          userId: user.id,
+          planId: selectedPlan.id,
+          numMailboxes,
+          locationKey: selectedLocation?.mailroom_address_key,
+          referralCode: selectedReferral,
+          type: "subscription_creation",
+        },
+        paymentMethods: paymentMethods, // Only show card payment option
+      });
+
+      console.log("Payment Link Created:", link);
+      console.log("Redirecting to:", link.attributes.checkout_url);
+
+      // Redirect to checkout session
+      window.location.href = link.attributes.checkout_url;
+    } catch (error) {
+      console.error("Error creating payment link:", error);
+      notifications.show({
+        message: "Error creating payment link",
+        color: "red",
+      });
+      setIsSubmitting(false);
     }
+  };
+
+  const renderPayment = () => {
+    const totalPrice = (selectedPlan?.price ?? 0) * numMailboxes;
+
+    return (
+      <Stack align="center" gap="md" w="100%">
+        <Title order={4}>Complete Payment</Title>
+        <Text c="dimmed" size="sm" ta="center">
+          Review your total and proceed to payment.
+        </Text>
+        <Card withBorder radius="md" w="100%" p="lg">
+          <Stack gap="sm">
+            <Group justify="space-between">
+              <Text c="dimmed">Plan</Text>
+              <Text fw={600}>{selectedPlan?.name}</Text>
+            </Group>
+            <Group justify="space-between">
+              <Text c="dimmed">Mailboxes</Text>
+              <Text fw={600}>{numMailboxes}</Text>
+            </Group>
+            <Divider />
+            <Group justify="space-between">
+              <Text fw={600}>Total Amount</Text>
+              <Text fw={600} size="lg">
+                ₱{totalPrice.toLocaleString()}
+              </Text>
+            </Group>
+          </Stack>
+        </Card>
+        <Button
+          size="lg"
+          leftSection={<IconCreditCard size={20} />}
+          onClick={handlePayment}
+          loading={isSubmitting}
+        >
+          Pay Now
+        </Button>
+      </Stack>
+    );
   };
 
   const isSubscribed = userDetails?.account?.account_is_subscribed;
@@ -372,7 +447,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
               </UnstyledButton>
             ))}
           </SimpleGrid>
-          {selectedLocation?.mailroom_address_link && (
+          {/* {selectedLocation?.mailroom_address_link && (
             <Card withBorder radius="md" p={0} h={300}>
               <iframe
                 src={selectedLocation.mailroom_address_link}
@@ -384,7 +459,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
                 referrerPolicy="no-referrer-when-downgrade"
               />
             </Card>
-          )}
+          )} */}
         </Stack>
       )}
     </Stack>
@@ -534,17 +609,18 @@ export default function SubscriptionClient({ user }: { user: User }) {
         <Stack gap="xs">
           <Group justify="space-between">
             <Text size="sm" fw={500}>
-              Step {activeStep + 1} of 4
+              Step {activeStep + 1} of 5
             </Text>
             <Text size="sm" c="dimmed">
               {activeStep === 0 && "Select Address"}
               {activeStep === 1 && "Select Mailbox"}
               {activeStep === 2 && "Select Referral"}
               {activeStep === 3 && "Review Summary"}
+              {activeStep === 4 && "Complete Payment"}
             </Text>
           </Group>
           <Progress
-            value={((activeStep + 1) / 4) * 100}
+            value={((activeStep + 1) / 5) * 100}
             size="lg"
             radius="xl"
           />
@@ -555,6 +631,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
           {activeStep === 1 && renderMailboxSelection()}
           {activeStep === 2 && renderReferralSelection()}
           {activeStep === 3 && renderSummary()}
+          {activeStep === 4 && renderPayment()}
         </Box>
 
         <Group justify="space-between" mt="md">
@@ -565,7 +642,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
           >
             Back
           </Button>
-          {activeStep < 3 ? (
+          {activeStep < 4 ? (
             <Button
               onClick={nextStep}
               disabled={
@@ -573,13 +650,13 @@ export default function SubscriptionClient({ user }: { user: User }) {
                 (activeStep === 1 && numMailboxes === 0)
               }
             >
-              {activeStep === 2 ? "Skip / Next" : "Next"}
+              {(() => {
+                if (activeStep === 3) return "Proceed to Payment";
+                if (activeStep === 2) return "Skip / Next";
+                return "Next";
+              })()}
             </Button>
-          ) : (
-            <Button onClick={handleConfirmSelection} loading={isSubmitting}>
-              Confirm Subscription
-            </Button>
-          )}
+          ) : null}
         </Group>
       </Stack>
     </Modal>
@@ -614,7 +691,6 @@ export default function SubscriptionClient({ user }: { user: User }) {
         <Title order={1}>Find the Right Plan for You</Title>
         <Text c="dimmed" size="lg" ta="center">
           Choose a plan that fits your needs. You can always upgrade or
-          downgrade later.
         </Text>
       </Stack>
 
