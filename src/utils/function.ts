@@ -32,6 +32,7 @@ export const getStatusFormat = (status: string = ""): string => {
       "PERSONAL",
       "BUSINESS",
       "SCANNED",
+      "ACTIVE",
     ],
     blue: [
       "IN_PROGRESS",

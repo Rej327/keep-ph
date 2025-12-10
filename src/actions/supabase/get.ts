@@ -576,6 +576,7 @@ export type RetrievalRequestItem = {
   retrieval_request_notes: string | null;
   mail_item_sender: string | null;
   mail_item_id: string;
+  mail_item_name: string;
   user_full_name: string;
   user_email: string;
   account_id: string;
@@ -622,6 +623,7 @@ export type ScanRequestItem = {
   scan_request_url: string | null;
   mail_item_sender: string | null;
   mail_item_id: string;
+  mail_item_name: string;
   user_full_name: string;
   user_email: string;
   account_id: string;

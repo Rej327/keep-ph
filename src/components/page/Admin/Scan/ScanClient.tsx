@@ -105,6 +105,7 @@ export default function ScanClient() {
   //   filteredRequests.length > 0 ? filteredRequests[0].total_count : 0;
 
   const handleOpenProcessModal = (request: ScanRequestItem) => {
+    closeView();
     setSelectedRequest(request);
     setFile(null);
     openProcess();
@@ -194,11 +195,11 @@ export default function ScanClient() {
 
   const columns = [
     {
-      accessor: "mail_item_sender",
+      accessor: "mail_item_name",
       title: "ITEM",
       render: (record: ScanRequestItem) => (
         <Text size="sm" fw={600}>
-          {record.mail_item_sender || "Unnamed Item"}
+          {record.mail_item_name || "Unnamed Item"}
         </Text>
       ),
     },
@@ -225,15 +226,21 @@ export default function ScanClient() {
         new Date(record.scan_request_requested_at).toLocaleDateString(),
     },
     {
+      accessor: "scan_request_status_value",
+      title: "STATUS",
+      render: (record: ScanRequestItem) => (
+        <Badge
+          variant="filled"
+          color={getStatusFormat(record.scan_request_status_value)}
+        >
+          {record.scan_request_status_value}
+        </Badge>
+      ),
+    },
+    {
       accessor: "actions",
       title: "ACTIONS",
-      width: 180,
       render: (record: ScanRequestItem) => {
-        const isPending = record.scan_request_status_value === "pending";
-        // const currentStatusId = getStatusIdFromValue(
-        //   record.scan_request_status_value
-        // );
-
         return (
           <Group gap="xs" wrap="nowrap">
             <Tooltip label="View Details" withArrow position="top">
@@ -246,39 +253,6 @@ export default function ScanClient() {
                 <IconEye size={20} />
               </ActionIcon>
             </Tooltip>
-
-            {isPending ? (
-              <Tooltip label="Process Request" withArrow position="top">
-                <ActionIcon
-                  variant="light"
-                  color="blue"
-                  onClick={() => handleOpenProcessModal(record)}
-                  size="lg"
-                >
-                  <IconScan size={20} />
-                </ActionIcon>
-              </Tooltip>
-            ) : (
-              //   <Select
-              //     size="sm"
-              //     data={STATUS_OPTIONS}
-              //     value={currentStatusId}
-              //     onChange={(value) =>
-              //       value && handleStatusUpdate(record.scan_request_id, value)
-              //     }
-              //     disabled={isUpdatingStatus === record.scan_request_id}
-              //     allowDeselect={false}
-              //     w={140}
-              //     leftSection={<IconCheck size={14} />}
-              //     styles={{ input: { fontSize: "12px" } }}
-              //   />
-              <Badge
-                variant="filled"
-                color={getStatusFormat(record.scan_request_status_value)}
-              >
-                {record.scan_request_status_value}
-              </Badge>
-            )}
           </Group>
         );
       },
@@ -542,6 +516,11 @@ export default function ScanClient() {
             </Grid>
 
             <Group justify="flex-end" mt="md">
+              {selectedRequest.scan_request_status_value === "pending" && (
+                <Button onClick={() => handleOpenProcessModal(selectedRequest)}>
+                  Process
+                </Button>
+              )}
               <Button variant="default" onClick={closeView}>
                 Close
               </Button>

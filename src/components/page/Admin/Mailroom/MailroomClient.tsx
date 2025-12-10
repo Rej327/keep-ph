@@ -8,8 +8,9 @@ import {
   Select,
   Stack,
   TextInput,
-  SemiCircleProgress,
+  // SemiCircleProgress,
   Box,
+  Badge,
 } from "@mantine/core";
 import { CustomDataTable } from "@/components/common/CustomDataTable";
 import { getAllMailrooms, MailroomItem } from "@/actions/supabase/get";
@@ -18,6 +19,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { notifications } from "@mantine/notifications";
 import { createNotification } from "@/actions/supabase/notification";
+import { getStatusFormat } from "@/utils/function";
 
 const MAILBOX_STATUSES = [
   { value: "MBS-ACTIVE", label: "Active" },
@@ -116,70 +118,82 @@ export default function MailroomClient() {
         <Text size="sm">{record.user_full_name}</Text>
       ),
     },
+    // {
+    //   accessor: "remaining_mailbox_access",
+    //   title: "REMAINING SPACE",
+    //   render: (record: MailroomItem) => {
+    //     const value = record.mailbox_mail_remaining_space || 0;
+    //     const maxCapacity = record.account_max_quantity_storage || 0;
+    //     const percent = maxCapacity > 0 ? (value / maxCapacity) * 100 : 0;
+
+    //     let color = "gray";
+    //     if (percent >= 90) color = "green";
+    //     else if (percent >= 30) color = "yellow";
+    //     else if (percent >= 10) color = "orange";
+    //     else color = "red";
+
+    //     return (
+    //       <SemiCircleProgress
+    //         fillDirection="left-to-right"
+    //         transitionDuration={250}
+    //         styles={{ label: { fontSize: 10 } }}
+    //         orientation="up"
+    //         filledSegmentColor={color}
+    //         size={70}
+    //         thickness={8}
+    //         value={percent}
+    //         label={`${value === 0 ? "0" : Math.round(percent)}%`}
+    //         labelPosition="center"
+    //       />
+    //     );
+    //   },
+    // },
+    // {
+    //   accessor: "mailbox_package_remaining_space",
+    //   title: "PACKAGE SPACE",
+    //   render: (record: MailroomItem) => {
+    //     const value = record.mailbox_package_remaining_space || 0;
+    //     const maxCapacity = record.account_max_parcel_handling || 0;
+    //     const percent = maxCapacity > 0 ? (value / maxCapacity) * 100 : 0;
+
+    //     let color = "gray";
+    //     if (percent >= 90) color = "green";
+    //     else if (percent >= 30) color = "yellow";
+    //     else if (percent >= 10) color = "orange";
+    //     else color = "red";
+
+    //     return (
+    //       <SemiCircleProgress
+    //         fillDirection="left-to-right"
+    //         transitionDuration={250}
+    //         styles={{ label: { fontSize: 10 } }}
+    //         orientation="up"
+    //         filledSegmentColor={color}
+    //         size={70}
+    //         thickness={8}
+    //         value={percent}
+    //         label={`${value === 0 ? "0" : Math.round(percent)}%`}
+    //         labelPosition="center"
+    //       />
+    //     );
+    //   },
+    // },
+
     {
-      accessor: "remaining_mailbox_access",
-      title: "REMAINING SPACE",
-      render: (record: MailroomItem) => {
-        const value = record.mailbox_mail_remaining_space || 0;
-        const maxCapacity = record.account_max_quantity_storage || 0;
-        const percent = maxCapacity > 0 ? (value / maxCapacity) * 100 : 0;
-
-        let color = "gray";
-        if (percent >= 90) color = "green";
-        else if (percent >= 30) color = "yellow";
-        else if (percent >= 10) color = "orange";
-        else color = "red";
-
-        return (
-          <SemiCircleProgress
-            fillDirection="left-to-right"
-            transitionDuration={250}
-            styles={{ label: { fontSize: 10 } }}
-            orientation="up"
-            filledSegmentColor={color}
-            size={70}
-            thickness={8}
-            value={percent}
-            label={`${value === 0 ? "0" : Math.round(percent)}%`}
-            labelPosition="center"
-          />
-        );
-      },
+      accessor: "mailbox_status_value",
+      title: "STATUS",
+      render: (record: MailroomItem) => (
+        <Badge
+          variant="filled"
+          color={getStatusFormat(record.mailbox_status_value)}
+        >
+          {record.mailbox_status_value}
+        </Badge>
+      ),
     },
-    {
-      accessor: "mailbox_package_remaining_space",
-      title: "PACKAGE SPACE",
-      render: (record: MailroomItem) => {
-        const value = record.mailbox_package_remaining_space || 0;
-        const maxCapacity = record.account_max_parcel_handling || 0;
-        const percent = maxCapacity > 0 ? (value / maxCapacity) * 100 : 0;
-
-        let color = "gray";
-        if (percent >= 90) color = "green";
-        else if (percent >= 30) color = "yellow";
-        else if (percent >= 10) color = "orange";
-        else color = "red";
-
-        return (
-          <SemiCircleProgress
-            fillDirection="left-to-right"
-            transitionDuration={250}
-            styles={{ label: { fontSize: 10 } }}
-            orientation="up"
-            filledSegmentColor={color}
-            size={70}
-            thickness={8}
-            value={percent}
-            label={`${value === 0 ? "0" : Math.round(percent)}%`}
-            labelPosition="center"
-          />
-        );
-      },
-    },
-
     {
       accessor: "mailbox_status",
-      title: "STATUS",
+      title: "ACTIONS",
       render: (record: MailroomItem) => (
         <Select
           data={MAILBOX_STATUSES}

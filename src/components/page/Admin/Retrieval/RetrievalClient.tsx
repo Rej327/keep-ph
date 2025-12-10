@@ -51,7 +51,7 @@ import {
   updateRetrievalRequestStatus,
 } from "@/actions/supabase/update";
 import { getStatusFormat, replaceUnderscore } from "@/utils/function";
-import { createNotification } from "@/actions/supabase/notification";
+// import { createNotification } from "@/actions/supabase/notification";
 
 const PAGE_SIZE = 10;
 
@@ -115,6 +115,7 @@ export default function RetrievalClient() {
   //   filteredRequests.length > 0 ? filteredRequests[0].total_count : 0;
 
   const handleOpenProcessModal = (request: RetrievalRequestItem) => {
+    closeView();
     setSelectedRequest(request);
     setCourier("");
     // setTrackingNumber("");
@@ -163,21 +164,21 @@ export default function RetrievalClient() {
       );
 
       // Notify Customer
-      try {
-        await createNotification({
-          userId: selectedRequest.account_id,
-          title: "Retrieval Request Processed",
-          message: `Your retrieval request for ${selectedRequest.mail_item_sender} has been processed. Courier: ${courier}`,
-          itemType: "NIT-MAIL",
-          itemId: selectedRequest.mail_item_id,
-          additionalData: {
-            courier,
-            // trackingNumber
-          },
-        });
-      } catch (notifError) {
-        console.error("Failed to send notification:", notifError);
-      }
+      // try {
+      //   await createNotification({
+      //     userId: selectedRequest.account_id,
+      //     title: "Retrieval Request Processed",
+      //     message: `Your retrieval request for ${selectedRequest.mail_item_sender} has been processed. Courier: ${courier}`,
+      //     itemType: "NIT-MAIL",
+      //     itemId: selectedRequest.mail_item_id,
+      //     additionalData: {
+      //       courier,
+      //       // trackingNumber
+      //     },
+      //   });
+      // } catch (notifError) {
+      //   console.error("Failed to send notification:", notifError);
+      // }
 
       notifications.show({
         message: "Request processed successfully",
@@ -207,27 +208,27 @@ export default function RetrievalClient() {
       await updateRetrievalRequestStatus(requestId, newStatusId);
 
       // Notify Customer
-      try {
-        const request = requests?.find(
-          (r) => r.retrieval_request_id === requestId
-        );
-        if (request) {
-          let statusLabel = "updated";
-          if (newStatusId === "RRS-IN_TRANSIT") statusLabel = "is in transit";
-          if (newStatusId === "RRS-DELIVERED")
-            statusLabel = "has been delivered";
+      // try {
+      //   const request = requests?.find(
+      //     (r) => r.retrieval_request_id === requestId
+      //   );
+      //   if (request) {
+      //     let statusLabel = "updated";
+      //     if (newStatusId === "RRS-IN_TRANSIT") statusLabel = "is in transit";
+      //     if (newStatusId === "RRS-DELIVERED")
+      //       statusLabel = "has been delivered";
 
-          await createNotification({
-            userId: request.account_id,
-            title: "Retrieval Status Updated",
-            message: `The status of your retrieval request for ${request.mail_item_sender} has been updated: ${statusLabel}.`,
-            itemType: "NIT-MAIL",
-            itemId: request.mail_item_id,
-          });
-        }
-      } catch (notifError) {
-        console.error("Failed to send notification:", notifError);
-      }
+      //     await createNotification({
+      //       userId: request.account_id,
+      //       title: "Retrieval Status Updated",
+      //       message: `The status of your retrieval request for ${request.mail_item_sender} has been updated: ${statusLabel}.`,
+      //       itemType: "NIT-MAIL",
+      //       itemId: request.mail_item_id,
+      //     });
+      //   }
+      // } catch (notifError) {
+      //   console.error("Failed to send notification:", notifError);
+      // }
 
       notifications.show({
         message: "Status updated successfully",
@@ -268,11 +269,11 @@ export default function RetrievalClient() {
 
   const columns = [
     {
-      accessor: "mail_item_sender",
+      accessor: "mail_item_name",
       title: "ITEM",
       render: (record: RetrievalRequestItem) => (
         <Text size="sm" fw={600}>
-          {record.mail_item_sender || "Unnamed Item"}
+          {record.mail_item_name || "Unnamed Item"}
         </Text>
       ),
     },
@@ -299,6 +300,19 @@ export default function RetrievalClient() {
         new Date(record.retrieval_request_requested_at).toLocaleDateString(),
     },
     {
+      accessor: "retrieval_request_status_value",
+      title: "STATUS",
+      render: (record: RetrievalRequestItem) => (
+        <Badge
+          variant="filled"
+          color={getStatusFormat(record.retrieval_request_status_value)}
+        >
+          {replaceUnderscore(record.retrieval_request_status_value)}
+        </Badge>
+      ),
+    },
+
+    {
       accessor: "actions",
       title: "ACTIONS",
       width: 180,
@@ -321,18 +335,7 @@ export default function RetrievalClient() {
               </ActionIcon>
             </Tooltip>
 
-            {isPending ? (
-              <Tooltip label="Process Request" withArrow position="top">
-                <ActionIcon
-                  variant="light"
-                  color="blue"
-                  onClick={() => handleOpenProcessModal(record)}
-                  size="lg"
-                >
-                  <IconBoxSeam size={20} />
-                </ActionIcon>
-              </Tooltip>
-            ) : (
+            {!isPending && (
               <Select
                 size="sm"
                 data={STATUS_OPTIONS}
@@ -636,14 +639,24 @@ export default function RetrievalClient() {
                         <Grid.Col span={6}>
                           <Stack gap={4}>
                             <Text size="sm" c="dimmed">
-                              Tracking Number
+                              Waybill
                             </Text>
                             <Group gap={6}>
                               <IconBarcode size={16} color="gray" />
-                              <Text size="sm" fw={600}>
-                                {selectedRequest.retrieval_request_tracking_number ||
-                                  "N/A"}
-                              </Text>
+                              <Button
+                                component="a"
+                                variant="transparent"
+                                size="xs"
+                                rightSection={<IconEye size={16} />}
+                                href={
+                                  selectedRequest.retrieval_request_tracking_number
+                                    ? selectedRequest.retrieval_request_tracking_number
+                                    : ""
+                                }
+                                target="_blank"
+                              >
+                                View
+                              </Button>
                             </Group>
                           </Stack>
                         </Grid.Col>
@@ -676,6 +689,11 @@ export default function RetrievalClient() {
             </Grid>
 
             <Group justify="flex-end" mt="md">
+              {selectedRequest.retrieval_request_status_value === "pending" && (
+                <Button onClick={() => handleOpenProcessModal(selectedRequest)}>
+                  Process
+                </Button>
+              )}
               <Button variant="default" onClick={closeView}>
                 Close
               </Button>
