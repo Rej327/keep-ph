@@ -18,20 +18,21 @@ import {
   IconChevronUp,
   IconChevronRight,
   IconMenu2,
-  // IconLayoutDashboard,
+  IconLayoutDashboard,
   IconMail,
   // IconMailOpened,
-  IconTrash,
+  // IconTrash,
   IconUsers,
   // IconUser,
   // IconChartBar,
   // IconArrowsMaximize,
   IconCreditCard,
   IconUpload,
-  IconTruckDelivery,
+  // IconTruckDelivery,
   IconServer,
-  IconScan,
-  IconId,
+  // IconScan,
+  // IconId,
+  IconClipboardList,
   // IconPlus,
 } from "@tabler/icons-react";
 import classes from "./SideBar.module.css";
@@ -45,40 +46,29 @@ type LinksGroupProps = {
 };
 
 const adminLinks: LinksGroupProps[] = [
-  // {
-  //   label: "Admin Dashboard",
-  //   icon: IconLayoutDashboard,
-  //   link: "/admin/dashboard",
-  // },
-  { label: "All Customers", icon: IconUsers, link: "/admin/customers" },
-  { label: "Customer Mailroom", icon: IconMail, link: "/admin/mailroom" },
   {
-    label: "User Verification",
-    icon: IconId,
-    link: "/admin/verification/requests",
-  },
-  // {
-  //   label: "View Mail Item",
-  //   icon: IconMailOpened,
-  //   link: "/admin/mailroom/view",
-  // },
-  {
-    label: "Disposal Requests",
-    icon: IconTrash,
-    link: "/admin/disposal/requests",
+    label: "Dashboard",
+    icon: IconLayoutDashboard,
+    link: "/admin/dashboard",
   },
   {
-    label: "Retrieval Requests",
-    icon: IconTruckDelivery,
-    link: "/admin/retrieval/requests",
+    label: "Customer Management",
+    icon: IconUsers,
+    links: [
+      { label: "All Customers", link: "/admin/customers" },
+      { label: "Customer Mailroom", link: "/admin/mailroom" },
+      { label: "User Verification", link: "/admin/verification/requests" },
+    ],
   },
   {
-    label: "Scan Requests",
-    icon: IconScan,
-    link: "/admin/scan/requests",
+    label: "Request Management",
+    icon: IconClipboardList,
+    links: [
+      { label: "Scan Requests", link: "/admin/scan/requests" },
+      { label: "Retrieval Requests", link: "/admin/retrieval/requests" },
+      { label: "Disposal Requests", link: "/admin/disposal/requests" },
+    ],
   },
-  // { label: "Customer Detail", icon: IconUser, link: "/admin/customer/detail" },
-  // { label: "System Stats", icon: IconChartBar, link: "/admin/stats" },
 ];
 
 const customerLinks: LinksGroupProps[] = [
@@ -146,7 +136,17 @@ function LinksGroup({ label, icon: Icon, link, links }: LinksGroupProps) {
               <Link
                 key={sub.label}
                 href={sub.link}
-                className={`${classes.link} ${isActive ? classes.active : ""}`}
+                className={`py-10 ${classes.link} ${
+                  isActive ? classes.active : ""
+                }`}
+                style={
+                  isActive
+                    ? {
+                        backgroundColor: "var(--mantine-color-gray-1)",
+                        borderRadius: 5,
+                      }
+                    : {}
+                }
               >
                 {sub.label}
               </Link>
