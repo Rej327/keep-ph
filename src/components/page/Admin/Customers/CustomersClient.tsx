@@ -8,15 +8,17 @@ import {
   Select,
   Badge,
   Stack,
-  Anchor,
+  // Anchor,
   TextInput,
   Box,
+  Button,
 } from "@mantine/core";
 import { CustomDataTable } from "@/components/common/CustomDataTable";
 import { getAllCustomers } from "@/actions/supabase/get";
 import { useState } from "react";
 import useSWR from "swr";
 import { getStatusFormat, replaceUnderscore } from "@/utils/function";
+import { useRouter } from "next/navigation";
 
 // Define types for API response
 export type CustomerApiResponse = {
@@ -42,6 +44,7 @@ export default function CustomersClient() {
   const [typeFilter, setTypeFilter] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
+  const router = useRouter(); // Then in the render:
   const {
     data: customers,
     error,
@@ -123,25 +126,13 @@ export default function CustomersClient() {
       title: "ACTIONS",
       render: (record: CustomerApiResponse) => (
         <Group gap="md" justify="flex-start">
-          <Anchor component="button" size="sm" fw={500}>
-            View Details
-          </Anchor>
-          <Anchor
-            component="button"
+          <Button
             size="sm"
-            c={
-              record.account_subscription_status_value?.toLowerCase() ===
-              "suspended"
-                ? "green"
-                : "orange"
-            }
             fw={500}
+            onClick={() => router.push(`/admin/customers/${record.account_id}`)}
           >
-            {record.account_subscription_status_value?.toLowerCase() ===
-            "suspended"
-              ? "Activate"
-              : "Suspend"}
-          </Anchor>
+            View Details
+          </Button>
         </Group>
       ),
     },

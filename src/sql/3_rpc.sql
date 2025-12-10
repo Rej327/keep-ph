@@ -2834,3 +2834,70 @@ BEGIN
   RETURN TRUE;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Get Admin Customer Details
+CREATE OR REPLACE FUNCTION get_admin_customer_details(input_account_id UUID)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  return_data JSON;
+BEGIN
+  SELECT JSON_BUILD_OBJECT(
+    'customer', (
+      SELECT JSON_BUILD_OBJECT(
+        'user_id', u.user_id,
+        'full_name', CONCAT_WS(' ', u.user_first_name, u.user_last_name),
+        'email', u.user_email,
+        'phone', u.user_phone,
+        'avatar_url', u.user_avatar_bucket_path,
+        'account_id', a.account_id,
+        'account_number', a.account_number,
+        'date_joined', a.account_created_at,
+        'address', (
+             SELECT COALESCE(
+                (SELECT CONCAT_WS(', ', ua.user_address_line1, ua.user_address_line2, ua.user_address_city, ua.user_address_province, ua.user_address_postal_code, ua.user_address_country) 
+                 FROM user_schema.user_address_table ua 
+                 WHERE ua.user_address_user_id = u.user_id AND ua.user_address_is_default = TRUE LIMIT 1),
+                (SELECT ma.address_full 
+                 FROM mailroom_schema.mailroom_address_table ma 
+                 WHERE ma.address_key = a.account_address_key LIMIT 1)
+             )
+        )
+      )
+      FROM user_schema.account_table a
+      JOIN user_schema.user_table u ON a.account_user_id = u.user_id
+      WHERE a.account_id = input_account_id
+    ),
+    'subscription', (
+      SELECT JSON_BUILD_OBJECT(
+        'type', at.account_type_value,
+        'status', ss.subscription_status_value,
+        'next_billing_date', a.account_subscription_ends_at
+      )
+      FROM user_schema.account_table a
+      JOIN user_schema.account_type_table at ON a.account_type = at.account_type_id
+      JOIN status_schema.subscription_status_table ss ON a.account_subscription_status_id = ss.subscription_status_id
+      WHERE a.account_id = input_account_id
+    ),
+    'mail_history', (
+      SELECT COALESCE(JSON_AGG(t), '[]'::JSON)
+      FROM (
+        SELECT 
+          mi.mail_item_id,
+          mi.mail_item_received_at,
+          mi.mail_item_sender,
+          mis.mail_item_status_value
+        FROM mailroom_schema.mail_item_table mi
+        JOIN mailroom_schema.mailbox_table mb ON mi.mail_item_mailbox_id = mb.mailbox_id
+        JOIN status_schema.mail_item_status_table mis ON mi.mail_item_status_id = mis.mail_item_status_id
+        WHERE mb.mailbox_account_id = input_account_id
+        ORDER BY mi.mail_item_received_at DESC
+        LIMIT 5
+      ) t
+    )
+  ) INTO return_data;
+
+  RETURN return_data;
+END;
+$$ LANGUAGE plpgsql;

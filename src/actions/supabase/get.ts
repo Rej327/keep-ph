@@ -824,3 +824,47 @@ export const getUserReferralCode = async (
 
   return data as string | null;
 };
+
+export type AdminCustomerDetails = {
+  customer: {
+    user_id: string;
+    full_name: string;
+    email: string;
+    phone: string | null;
+    avatar_url: string | null;
+    account_id: string;
+    account_number: string;
+    date_joined: string;
+    is_verified: boolean;
+    remaining_mailbox_access: number | null;
+    address: string | null;
+  };
+  subscription: {
+    type: string;
+    status: string;
+    next_billing_date: string | null;
+  };
+  mail_history: {
+    mail_item_id: string;
+    mail_item_received_at: string;
+    mail_item_sender: string | null;
+    mail_item_status_value: string;
+  }[];
+};
+
+export const getAdminCustomerDetails = async (accountId: string) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("get_admin_customer_details", {
+    input_account_id: accountId,
+  });
+
+  if (error) {
+    console.error("Error fetching admin customer details:", error);
+    throw new Error(error.message);
+  }
+
+  console.log("Customer Details: ", data);
+
+  return data as AdminCustomerDetails;
+};
