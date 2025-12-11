@@ -53,7 +53,10 @@ export default function SubscriptionClient({ user }: { user: User }) {
 
   useEffect(() => {
     const status = searchParams.get("status");
-    if (status === "success") {
+    const paymentFlow = sessionStorage.getItem("payment_flow");
+
+    if (status === "success" && paymentFlow === "new_subscription") {
+      sessionStorage.removeItem("payment_flow");
       const handleSuccess = async () => {
         notifications.show({
           title: "Payment Successful",
@@ -73,7 +76,8 @@ export default function SubscriptionClient({ user }: { user: User }) {
         router.replace("/customer/subscription");
       };
       handleSuccess();
-    } else if (status === "failed") {
+    } else if (status === "failed" && paymentFlow === "new_subscription") {
+      sessionStorage.removeItem("payment_flow");
       notifications.show({
         title: "Payment Failed",
         message: "Your payment could not be processed. Please try again.",
@@ -259,6 +263,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
 
       if (result.checkout_url) {
         // Redirect to PayMongo
+        sessionStorage.setItem("payment_flow", "new_subscription");
         window.location.href = result.checkout_url;
       }
     } catch (error) {

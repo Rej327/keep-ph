@@ -54,7 +54,10 @@ export default function SubscriptionManagement({
 
   useEffect(() => {
     const status = searchParams.get("status");
-    if (status === "success") {
+    const paymentFlow = sessionStorage.getItem("payment_flow");
+
+    if (status === "success" && paymentFlow === "add_mailbox") {
+      sessionStorage.removeItem("payment_flow");
       const handleSuccess = async () => {
         notifications.show({
           title: "Payment Successful",
@@ -71,7 +74,8 @@ export default function SubscriptionManagement({
         router.replace("/customer/subscription");
       };
       handleSuccess();
-    } else if (status === "failed") {
+    } else if (status === "failed" && paymentFlow === "add_mailbox") {
+      sessionStorage.removeItem("payment_flow");
       notifications.show({
         title: "Payment Failed",
         message: "Your payment could not be processed. Please try again.",
@@ -242,6 +246,7 @@ export default function SubscriptionManagement({
       if (result.error) throw new Error(result.error);
 
       if (result.checkout_url) {
+        sessionStorage.setItem("payment_flow", "add_mailbox");
         window.location.href = result.checkout_url;
       }
     } catch (error) {
