@@ -20,6 +20,7 @@ import {
   Tooltip,
   ThemeIcon,
   Paper,
+  Alert,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -266,6 +267,20 @@ export default function ScanClient() {
           <Title order={2}>Scan Requests</Title>
           <Text c="dimmed">Manage and process mail scan requests.</Text>
         </Box>
+        <Alert
+          variant="light"
+          color="yellow"
+          title="Protocol"
+          icon={<IconInfoCircle />}
+          styles={{
+            root: { backgroundColor: "#FFF9DB", borderColor: "transparent" },
+            title: { color: "#E67700", fontWeight: 700 },
+            message: { color: "#E67700" },
+          }}
+        >
+          After scanning, the secretary must place the documents back in the
+          original envelope; resealing is not required.
+        </Alert>
 
         <Group align="flex-end">
           <TextInput
