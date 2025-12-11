@@ -45,7 +45,7 @@ export async function POST(request: Request) {
                 amount: amount, // Amount in cents
                 description: `Subscription to ${plan_name}`,
                 name: plan_name,
-                quantity: 1,
+                // quantity: 1,
               },
             ],
             payment_method_types: [
