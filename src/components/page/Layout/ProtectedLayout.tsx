@@ -13,9 +13,10 @@ import { IconChevronRight } from "@tabler/icons-react";
 import { usePathname } from "next/navigation";
 import { Topbar } from "../../common/TopBar/TopBar";
 import { SideBar } from "../../common/SideBar/SideBar";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import CustomLoader from "@/components/common/CustomLoader";
 import { isUserAdmin } from "@/actions/supabase/get";
+import useSWR from "swr";
 
 type DashboardLayoutProps = {
   children: React.ReactNode;
@@ -24,29 +25,13 @@ type DashboardLayoutProps = {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user } = useAuthStore();
   const { colorScheme } = useMantineColorScheme();
-  const [isAdmin, setIsAdmin] = useState<boolean>(true);
-  const [isLoading, setIsLoading] = useState(true);
   const [mobileOpened, setMobileOpened] = useState(false);
 
-  useEffect(() => {
-    const checkIsAdmin = async () => {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const result = await isUserAdmin(user.id);
-        setIsAdmin(result);
-        setIsLoading(false);
-      } catch (error) {
-        console.error(error);
-        setIsLoading(false);
-      }
-    };
-
-    checkIsAdmin();
-  }, [user]);
+  const { data: isAdmin, isLoading } = useSWR(
+    user ? ["is-admin", user.id] : null,
+    ([, userId]) => isUserAdmin(userId),
+    { fallbackData: false }
+  );
 
   const DashboardBreadcrumbs = () => {
     const path = usePathname();
@@ -127,7 +112,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <Flex h="100vh">
       <SideBar
-        type={isAdmin ? true : false}
+        type={!!isAdmin}
         user={user}
         mobileOpened={mobileOpened}
         onMobileClose={() => setMobileOpened(false)}
@@ -136,7 +121,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <Flex direction="column" flex={1} className="overflow-hidden">
         <Topbar
           user={user}
-          type={isAdmin ? true : false}
+          type={!!isAdmin}
           onMenuClick={() => setMobileOpened((o) => !o)}
         />
         <main
