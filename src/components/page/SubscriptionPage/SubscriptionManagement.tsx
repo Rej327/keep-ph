@@ -233,6 +233,7 @@ export default function SubscriptionManagement({
           plan_id: currentPlan?.id || "ADD-ON",
           amount: Math.round(totalAmount * 100), // Cents
           plan_name: `Additional Mailboxes (${numMailboxes})`,
+          numMailboxes: numMailboxes,
           provisioning_data: {
             action: "ADD_MAILBOX", // Marker for webhook (optional usage)
             account_id: userDetails.account.account_id,

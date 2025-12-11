@@ -12,7 +12,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { plan_id, amount, plan_name, provisioning_data } =
+    const { plan_id, amount, plan_name, provisioning_data, numMailboxes } =
       await request.json();
 
     if (!process.env.PAYMONGO_SECRET_KEY) {
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
                 amount: amount, // Amount in cents
                 description: `Subscription to ${plan_name}`,
                 name: plan_name,
-                // quantity: 1,
+                quantity: numMailboxes,
               },
             ],
             payment_method_types: [
@@ -98,6 +98,7 @@ export async function POST(request: Request) {
             checkout_url: checkoutUrl,
             paymongo_id: checkoutSessionId,
             provisioning_data: provisioning_data,
+            num_mailboxes: numMailboxes,
           },
         },
       }

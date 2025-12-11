@@ -6,14 +6,14 @@ import useSWR, { useSWRConfig } from "swr";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   getUserFullDetails,
-  getMailAccessLimit,
+  // getMailAccessLimit,
   filterExistingLabel,
   getSubscriptionPlans,
   getVirtualAddressLocations,
   getAllFreeSubscribers,
   SubscriptionPlan,
   VirtualAddressLocation,
-  UserMailAccessLimit,
+  // UserMailAccessLimit,
 } from "@/actions/supabase/get";
 import {
   Container,
@@ -96,7 +96,6 @@ export default function SubscriptionClient({ user }: { user: User }) {
   const [isFreeModalOpen, setIsFreeModalOpen] = useState(false);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [numMailboxes, setNumMailboxes] = useState<number>(0);
-  const [mailAccessLimit, setMailAccessLimit] = useState<UserMailAccessLimit>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [selectedLocation, setSelectedLocation] =
@@ -130,10 +129,9 @@ export default function SubscriptionClient({ user }: { user: User }) {
   ) => {
     setIsSubmitting(true);
 
-    const maxAccess = mailAccessLimit?.account_max_mailbox_access ?? 0;
-    if (numMailboxes > maxAccess) {
+    if (numMailboxes <= 0) {
       notifications.show({
-        message: `You can only select up to ${maxAccess} mailboxes for your plan.`,
+        message: "Please select at least 1 mailbox",
         color: "red",
       });
       setIsSubmitting(false);
@@ -163,8 +161,6 @@ export default function SubscriptionClient({ user }: { user: User }) {
       }
     }
 
-    const availableMailboxCount = mailboxes.length;
-
     const defaultLocation = addressLocations?.find(
       (l) => l.mailroom_address_key === "Gold"
     );
@@ -172,9 +168,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
 
     const now = new Date();
     const subscriptionEndsAt = new Date();
-    subscriptionEndsAt.setDate(
-      now.getDate() + (mailAccessLimit?.account_duration_days ?? 0)
-    );
+    subscriptionEndsAt.setDate(now.getDate() + 30);
 
     // Prepare Provisioning Data (Flat structure for RPC)
     const provisioningData = {
@@ -183,18 +177,14 @@ export default function SubscriptionClient({ user }: { user: User }) {
       account_type: plan.id,
       account_is_subscribed: true,
       account_subscription_ends_at: subscriptionEndsAt.toISOString(),
-      account_remaining_mailbox_access:
-        (mailAccessLimit?.account_max_mailbox_access ?? 0) -
-        availableMailboxCount,
+      account_remaining_mailbox_access: 999,
       account_subscription_status_id: "SST-ACTIVE",
       account_address_key: locationToUse?.mailroom_address_key,
       mailbox: mailboxes.map((mailroom) => ({
         mailbox_status_id: "MBS-ACTIVE",
         mailbox_label: mailroom,
-        mailbox_mail_remaining_space:
-          mailAccessLimit?.account_max_quantity_storage || 0,
-        mailbox_package_remaining_space:
-          mailAccessLimit?.account_max_parcel_handling || 0,
+        mailbox_mail_remaining_space: 999,
+        mailbox_package_remaining_space: 999,
       })),
     };
 
@@ -208,9 +198,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
             account_type: plan.id,
             account_is_subscribed: true,
             account_subscription_ends_at: subscriptionEndsAt.toISOString(),
-            account_remaining_mailbox_access:
-              (mailAccessLimit?.account_max_mailbox_access ?? 0) -
-              availableMailboxCount,
+            account_remaining_mailbox_access: 999,
             account_subscription_status_id: "SST-ACTIVE",
             account_address_key: locationToUse?.mailroom_address_key || "",
           },
@@ -252,6 +240,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
           plan_id: plan.id,
           amount: Math.round((plan.price ?? 0) * numMailboxes * 100), // Cents
           plan_name: plan.name,
+          numMailboxes: numMailboxes,
           provisioning_data: provisioningData,
         }),
       });
@@ -300,10 +289,6 @@ export default function SubscriptionClient({ user }: { user: User }) {
     setSelectedLocation(null);
 
     try {
-      const limit = await getMailAccessLimit(user.id, plan.id);
-      console.log("Mail Available: ", limit);
-      setMailAccessLimit(limit);
-
       if (plan.id === "AT-FREE") {
         // Immediate creation for AT-FREE
         setIsFreeModalOpen(true);
@@ -312,13 +297,6 @@ export default function SubscriptionClient({ user }: { user: User }) {
       }
     } catch (error) {
       console.error("Error fetching plan mail access limit:", error);
-      setMailAccessLimit({
-        account_max_mailbox_access: 1,
-        account_max_quantity_storage: 0,
-        account_max_gb_storage: 0,
-        account_max_parcel_handling: 0,
-        account_duration_days: 0,
-      }); // Default fallback
       // Still open modal or try process if free?
       // If error on free plan limit fetch, maybe safer not to auto-create?
       // But assuming it works:
@@ -387,17 +365,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
         <Button
           variant="light"
           size="sm"
-          onClick={() =>
-            setNumMailboxes(
-              Math.min(
-                mailAccessLimit?.account_max_mailbox_access ?? 0,
-                numMailboxes + 1
-              )
-            )
-          }
-          disabled={
-            numMailboxes >= (mailAccessLimit?.account_max_mailbox_access ?? 0)
-          }
+          onClick={() => setNumMailboxes(Math.min(numMailboxes + 1))}
         >
           +
         </Button>
