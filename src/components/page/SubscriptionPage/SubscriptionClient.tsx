@@ -33,6 +33,7 @@ import {
   Overlay,
   Loader,
   Select,
+  Image,
 } from "@mantine/core";
 import { IconCheck, IconMapPin } from "@tabler/icons-react";
 import CustomLoader from "@/components/common/CustomLoader";
@@ -459,15 +460,17 @@ export default function SubscriptionClient({ user }: { user: User }) {
             ))}
           </SimpleGrid>
           {selectedLocation?.mailroom_address_link && (
-            <Card withBorder radius="md" p={0} h={300}>
-              <iframe
-                src={selectedLocation.mailroom_address_link}
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                allowFullScreen
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
+            <Card withBorder radius="md" p={0}>
+              <Image
+                src="/assets/map/map.png"
+                className="cursor-pointer"
+                w="100%"
+                h="80%"
+                fit="cover"
+                alt="Location Map"
+                onClick={() =>
+                  window.open(selectedLocation.mailroom_address_link, "_blank")
+                }
               />
             </Card>
           )}
