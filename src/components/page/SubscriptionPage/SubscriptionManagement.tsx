@@ -61,7 +61,7 @@ export default function SubscriptionManagement({
       const handleSuccess = async () => {
         notifications.show({
           title: "Payment Successful",
-          message: "Activating your subscription update...",
+          message: "Mailbox has been added successfully!",
           color: "green",
           autoClose: 5000,
         });

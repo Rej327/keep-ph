@@ -60,7 +60,7 @@ export default function SubscriptionClient({ user }: { user: User }) {
       const handleSuccess = async () => {
         notifications.show({
           title: "Payment Successful",
-          message: "Activating your subscription...",
+          message: "Your Subscription has been activated!",
           color: "green",
           autoClose: 5000,
         });

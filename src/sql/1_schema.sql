@@ -27,6 +27,7 @@ DROP SCHEMA IF EXISTS referral_schema CASCADE;
 DROP SCHEMA IF EXISTS analytics_schema CASCADE;
 DROP SCHEMA IF EXISTS storage_schema CASCADE;
 DROP SCHEMA IF EXISTS notification_schema CASCADE;
+DROP SCHEMA IF EXISTS billing_schema CASCADE;
 
 -- Create all schemas
 CREATE SCHEMA public AUTHORIZATION postgres;
@@ -39,6 +40,7 @@ CREATE SCHEMA referral_schema AUTHORIZATION postgres;
 CREATE SCHEMA analytics_schema AUTHORIZATION postgres;
 CREATE SCHEMA storage_schema AUTHORIZATION postgres;
 CREATE SCHEMA notification_schema AUTHORIZATION postgres;
+CREATE SCHEMA billing_schema AUTHORIZATION postgres;
 
 -- Mailbox Status Table
 CREATE TABLE status_schema.mailbox_status_table (
@@ -496,6 +498,44 @@ CREATE TABLE notification_schema.notification_table (
     )
 );
 
+-- Customer Billing Information
+CREATE TABLE billing_schema.customer_billing_information (
+    customer_billing_information_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_billing_information_user_id UUID NOT NULL REFERENCES user_schema.user_table(user_id) ON DELETE CASCADE,
+    customer_billing_information_full_name TEXT,
+    customer_billing_information_email TEXT,
+    customer_billing_information_phone TEXT,
+    customer_billing_information_address TEXT,
+    customer_billing_information_created_at TIMESTAMPTZ DEFAULT NOW(),
+    customer_billing_information_updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Customer Subscriptions
+CREATE TABLE billing_schema.customer_subscriptions (
+    customer_subscriptions_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_subscriptions_user_id UUID NOT NULL REFERENCES user_schema.user_table(user_id) ON DELETE CASCADE,
+    customer_subscriptions_plan_id TEXT NOT NULL, -- e.g., 'AT-STARTER'
+    customer_subscriptions_status TEXT NOT NULL DEFAULT 'pending', -- pending, active, failed, cancelled
+    customer_subscriptions_start_date TIMESTAMPTZ,
+    customer_subscriptions_end_date TIMESTAMPTZ,
+    customer_subscriptions_paymongo_id TEXT, -- External Subscription ID if needed later
+    customer_subscriptions_created_at TIMESTAMPTZ DEFAULT NOW(),
+    customer_subscriptions_updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Customer PayMongo Payments
+CREATE TABLE billing_schema.customer_paymongo_payments (
+    customer_paymongo_payments_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_paymongo_payments_user_id UUID NOT NULL REFERENCES user_schema.user_table(user_id) ON DELETE CASCADE,
+    customer_paymongo_payments_subscription_id UUID REFERENCES billing_schema.customer_subscriptions(customer_subscriptions_id),
+    customer_paymongo_payments_intent_id TEXT NOT NULL, -- The Payment Intent ID or Checkout Session ID
+    customer_paymongo_payments_amount INTEGER NOT NULL, -- In cents
+    customer_paymongo_payments_status TEXT NOT NULL, -- succeeded, awaiting_payment_method, etc.
+    customer_paymongo_payments_metadata JSONB DEFAULT '{}'::JSONB,
+    customer_paymongo_payments_created_at TIMESTAMPTZ DEFAULT NOW(),
+    customer_paymongo_payments_updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 
 -- Grant permissions on public schema
 GRANT ALL ON ALL TABLES IN SCHEMA public TO public;
@@ -560,3 +600,9 @@ GRANT ALL ON SCHEMA notification_schema TO public;
 -- Grant execute permission to authenticated users
 GRANT EXECUTE ON FUNCTION delete_user_profile TO authenticated;
 GRANT EXECUTE ON FUNCTION delete_user_profile TO service_role;
+
+-- Grant permissions on billing_schema
+GRANT ALL ON ALL TABLES IN SCHEMA billing_schema TO public;
+GRANT ALL ON ALL TABLES IN SCHEMA billing_schema TO postgres;
+GRANT ALL ON SCHEMA billing_schema TO postgres;
+GRANT ALL ON SCHEMA billing_schema TO public;
