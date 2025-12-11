@@ -107,10 +107,10 @@ export default function MailClient() {
   const [retrievalNotes, setRetrievalNotes] = useState("");
   const [scanInstructions, setScanInstructions] = useState("");
 
-  // Fetch User Details
+  // Fetch User Details - uses same key as MailLayout for deduplication
   const { data: userDetails, isLoading: loadingDetails } = useSWR(
-    user?.id ? ["user-details", user.id] : null,
-    () => getUserFullDetails(user!.id)
+    user?.id ? ["user-full-details", user.id] : null,
+    ([, userId]) => getUserFullDetails(userId)
   );
 
   // Fetch User Addresses (only when retrieval modal is open)

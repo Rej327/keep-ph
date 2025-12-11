@@ -1,6 +1,7 @@
 import TopLoader from "@/components/common/TopLoader";
 import AuthProvider from "@/components/providers/AuthProvider";
 import { ClientReadyProvider } from "@/components/providers/ClientReadyProvider";
+import SWRProvider from "@/components/providers/SWRProvider";
 import {
   ColorSchemeScript,
   MantineProvider,
@@ -44,7 +45,9 @@ export default function RootLayout({
               <ClientReadyProvider>
                 <TopLoader />
                 <Notifications />
-                <AuthProvider>{children}</AuthProvider>
+                <AuthProvider>
+                  <SWRProvider>{children}</SWRProvider>
+                </AuthProvider>
               </ClientReadyProvider>
             </ModalsProvider>
           </NotificationProvider>

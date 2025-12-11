@@ -50,8 +50,8 @@ export default function MailroomBoard() {
   const [isSaving, setIsSaving] = useState(false);
 
   const { data: userDetails } = useSWR(
-    user?.id ? ["user-details", user.id] : null,
-    () => getUserFullDetails(user!.id)
+    user?.id ? ["user-full-details", user.id] : null,
+    ([, userId]) => getUserFullDetails(userId)
   );
 
   const {

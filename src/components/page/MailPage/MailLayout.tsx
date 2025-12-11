@@ -1,9 +1,8 @@
 "use client";
 
 import useAuthStore from "@/zustand/stores/useAuthStore";
-import React from "react";
 import useSWR from "swr";
-import { getUserHasAccount, isAccountFree } from "@/actions/supabase/get";
+import { getUserFullDetails } from "@/actions/supabase/get";
 import MailClient from "./MailClient";
 import MailService from "./MailService";
 import { useShallow } from "zustand/shallow";
@@ -12,24 +11,21 @@ import CustomLoader from "@/components/common/CustomLoader";
 export default function MailLayout() {
   const user = useAuthStore(useShallow((state) => state.user));
 
-  const { data: userHasAccount, isLoading: isLoadingAccount } = useSWR(
-    user ? ["user-has-account", user.id] : null,
-    ([, userId]) => getUserHasAccount(userId)
+  const { data: userDetails, isLoading } = useSWR(
+    user ? ["user-full-details", user.id] : null,
+    ([, userId]) => getUserFullDetails(userId)
   );
 
-  const { data: useIsFreePlan, isLoading: isLoadingPlan } = useSWR(
-    user ? ["user-is-free-plan", user.id] : null,
-    ([, userId]) => isAccountFree(userId)
-  );
-
-  const isPaidPlan = useIsFreePlan?.account_type !== "AT-FREE";
-  const isActiveAccount = useIsFreePlan?.account_status === "SST-ACTIVE";
-
-  if (isLoadingAccount || isLoadingPlan) {
+  if (isLoading) {
     return <CustomLoader />;
   }
 
-  if (userHasAccount && isPaidPlan && isActiveAccount) return <MailClient />;
+  const hasAccount = !!userDetails?.account;
+  const isPaidPlan = userDetails?.account?.account_type !== "AT-FREE";
+  const isActiveAccount =
+    userDetails?.account?.account_subscription_status_id === "SST-ACTIVE";
+
+  if (hasAccount && isPaidPlan && isActiveAccount) return <MailClient />;
 
   return <MailService />;
 }
