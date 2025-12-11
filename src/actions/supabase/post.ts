@@ -301,3 +301,67 @@ export const submitUserVerification = async (
     return { error: err as Error };
   }
 };
+
+export const checkAndProvisionSubscription = async (userId: string) => {
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    // 1. Get the latest pending/awaiting payment for this user
+    const { data: paymentRecord, error: fetchError } = await supabase.rpc(
+      "get_latest_pending_payment" as never,
+      {
+        input_user_id: userId,
+      }
+    );
+
+    if (fetchError || !paymentRecord) {
+      console.log("No pending payment found or error fetching", fetchError);
+      return { message: "No pending payment found" };
+    }
+
+    // 2. Verify with PayMongo API
+    const intentId = paymentRecord.customer_paymongo_payments_intent_id;
+    if (!process.env.PAYMONGO_SECRET_KEY) {
+      throw new Error("Missing PayMongo Secret Key");
+    }
+
+    const response = await fetch(
+      `https://api.paymongo.com/v1/checkout_sessions/${intentId}`,
+      {
+        headers: {
+          accept: "application/json",
+          authorization: `Basic ${Buffer.from(
+            process.env.PAYMONGO_SECRET_KEY
+          ).toString("base64")}`,
+        },
+      }
+    );
+
+    const paymongoData = await response.json();
+    const paymentStatus =
+      paymongoData.data?.attributes?.payment_intent?.attributes?.status;
+    const checkoutStatus = paymongoData.data?.attributes?.payment_status;
+
+    // 3. If paid, trigger the webhook logic manually
+    if (checkoutStatus === "paid" || paymentStatus === "succeeded") {
+      const { data, error } = await supabase.rpc(
+        "process_paymongo_webhook" as never,
+        {
+          input_data: {
+            intent_id: intentId,
+            payment_status: "succeeded",
+            event_type: "manual_trigger",
+          },
+        }
+      );
+
+      if (error) throw error;
+      return { success: true, data };
+    }
+
+    return { message: "Payment not yet succeeded" };
+  } catch (err) {
+    console.error("Error in checkAndProvisionSubscription:", err);
+    return { error: err as Error };
+  }
+};

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import useSWR, { useSWRConfig } from "swr";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   getUserFullDetails,
   getMailAccessLimit,
@@ -39,14 +40,50 @@ import CustomLoader from "@/components/common/CustomLoader";
 import { notifications } from "@mantine/notifications";
 import {
   createUserSubscriptionAccount,
-  CreateUserSubscriptionAccount,
+  checkAndProvisionSubscription,
 } from "@/actions/supabase/post";
 import SubscriptionManagement from "./SubscriptionManagement";
 import UserVerificationStep from "../AuthPage/UserVerificationStep";
 
 export default function SubscriptionClient({ user }: { user: User }) {
   const { mutate } = useSWRConfig();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const status = searchParams.get("status");
+    if (status === "success") {
+      const handleSuccess = async () => {
+        notifications.show({
+          title: "Payment Successful",
+          message: "Activating your subscription...",
+          color: "green",
+          autoClose: 5000,
+        });
+        setIsModalOpen(false);
+
+        // Trigger server-side provision check based on DB state
+        await checkAndProvisionSubscription(user.id);
+
+        // Poll for subscription status or reload user details
+        mutate(["user-full-details", user.id]);
+
+        // Clean URL
+        router.replace("/customer/subscription");
+      };
+      handleSuccess();
+    } else if (status === "failed") {
+      notifications.show({
+        title: "Payment Failed",
+        message: "Your payment could not be processed. Please try again.",
+        color: "red",
+        autoClose: 10000,
+      });
+      router.replace("/customer/subscription");
+    }
+  }, [searchParams, router, user.id, mutate]);
+
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(
     null
   );
@@ -134,60 +171,104 @@ export default function SubscriptionClient({ user }: { user: User }) {
       now.getDate() + (mailAccessLimit?.account_duration_days ?? 0)
     );
 
-    const subscriptionData = {
-      userId: user.id,
-      referralCode: selectedReferral,
-      account: {
-        account_type: plan.id,
-        account_is_subscribed: true,
-        account_subscription_ends_at: subscriptionEndsAt.toISOString(),
-        account_remaining_mailbox_access:
-          (mailAccessLimit?.account_max_mailbox_access ?? 0) -
-          availableMailboxCount,
-        account_subscription_status_id: "SST-ACTIVE",
-        account_address_key: locationToUse?.mailroom_address_key,
-      },
+    // Prepare Provisioning Data (Flat structure for RPC)
+    const provisioningData = {
+      user_id: user.id,
+      referred_by: selectedReferral || null,
+      account_type: plan.id,
+      account_is_subscribed: true,
+      account_subscription_ends_at: subscriptionEndsAt.toISOString(),
+      account_remaining_mailbox_access:
+        (mailAccessLimit?.account_max_mailbox_access ?? 0) -
+        availableMailboxCount,
+      account_subscription_status_id: "SST-ACTIVE",
+      account_address_key: locationToUse?.mailroom_address_key,
       mailbox: mailboxes.map((mailroom) => ({
         mailbox_status_id: "MBS-ACTIVE",
         mailbox_label: mailroom,
         mailbox_mail_remaining_space:
           mailAccessLimit?.account_max_quantity_storage || 0,
         mailbox_package_remaining_space:
-          mailAccessLimit?.account_max_parcel_handling,
+          mailAccessLimit?.account_max_parcel_handling || 0,
       })),
     };
 
-    try {
-      const result = await createUserSubscriptionAccount(
-        subscriptionData as CreateUserSubscriptionAccount
-      );
+    // Handle Free Plan
+    if (plan.price === 0) {
+      try {
+        const result = await createUserSubscriptionAccount({
+          userId: user.id,
+          referralCode: selectedReferral,
+          account: {
+            account_type: plan.id,
+            account_is_subscribed: true,
+            account_subscription_ends_at: subscriptionEndsAt.toISOString(),
+            account_remaining_mailbox_access:
+              (mailAccessLimit?.account_max_mailbox_access ?? 0) -
+              availableMailboxCount,
+            account_subscription_status_id: "SST-ACTIVE",
+            account_address_key: locationToUse?.mailroom_address_key || "",
+          },
+          mailbox: provisioningData.mailbox,
+        });
 
-      if (result.error) {
+        if (result.error) {
+          throw result.error;
+        }
+
         notifications.show({
-          message: "Error creating subscription",
+          message: "Subscription created successfully",
+          color: "green",
+        });
+
+        mutate(["user-full-details", user.id]);
+        setNumMailboxes(0);
+        setIsModalOpen(false);
+        setIsFreeModalOpen(false);
+        setIsSubmitting(false);
+        setSelectedReferral(null);
+      } catch (error) {
+        setIsSubmitting(false);
+        console.error("Error in subscription creation:", error);
+        notifications.show({
+          message: "An unexpected error occurred",
           color: "red",
         });
-        setIsSubmitting(false);
-        return;
       }
+      return;
+    }
 
-      notifications.show({
-        message: "Subscription created successfully",
-        color: "green",
+    // Handle Paid Plan via PayMongo
+    try {
+      const response = await fetch("/api/pay/create-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan_id: plan.id,
+          amount: Math.round((plan.price ?? 0) * numMailboxes * 100), // Cents
+          plan_name: plan.name,
+          provisioning_data: provisioningData,
+        }),
       });
 
-      mutate(["user-full-details", user.id]);
-      setNumMailboxes(0);
-      setIsModalOpen(false);
-      setIsFreeModalOpen(false);
-      setIsSubmitting(false);
-      setSelectedReferral(null);
-      // TODO: Redirect to success page or update UI
+      const result = await response.json();
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      if (result.checkout_url) {
+        // Redirect to PayMongo
+        window.location.href = result.checkout_url;
+      }
     } catch (error) {
       setIsSubmitting(false);
-      console.error("Error in subscription creation:", error);
+      console.error("Error in payment initialization:", error);
       notifications.show({
-        message: "An unexpected error occurred",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Payment initialization failed",
         color: "red",
       });
     }

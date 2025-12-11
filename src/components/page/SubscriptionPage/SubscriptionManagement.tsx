@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { useSWRConfig } from "swr";
 import useSWR from "swr";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   getMailAccessLimit,
   filterExistingLabel,
@@ -29,7 +30,10 @@ import {
 } from "@mantine/core";
 import { IconCreditCard } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
-import { addMailboxesToAccount } from "@/actions/supabase/post";
+import {
+  addMailboxesToAccount,
+  checkAndProvisionSubscription,
+} from "@/actions/supabase/post";
 import CustomLoader from "@/components/common/CustomLoader";
 
 type SubscriptionManagementProps = {
@@ -44,7 +48,40 @@ export default function SubscriptionManagement({
   plans,
 }: SubscriptionManagementProps) {
   const { mutate } = useSWRConfig();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const status = searchParams.get("status");
+    if (status === "success") {
+      const handleSuccess = async () => {
+        notifications.show({
+          title: "Payment Successful",
+          message: "Activating your subscription update...",
+          color: "green",
+          autoClose: 5000,
+        });
+        setIsAddMailboxModalOpen(false);
+
+        // Trigger server-side provision check based on DB state
+        await checkAndProvisionSubscription(user.id);
+
+        mutate(["user-full-details", user.id]);
+        router.replace("/customer/subscription");
+      };
+      handleSuccess();
+    } else if (status === "failed") {
+      notifications.show({
+        title: "Payment Failed",
+        message: "Your payment could not be processed. Please try again.",
+        color: "red",
+        autoClose: 10000,
+      });
+      router.replace("/customer/subscription");
+    }
+  }, [searchParams, router, user.id, mutate]);
+
   const [isAddMailboxModalOpen, setIsAddMailboxModalOpen] = useState(false);
   const [numMailboxes, setNumMailboxes] = useState<number>(0);
   const [mailAccessLimit, setMailAccessLimit] = useState<UserMailAccessLimit>();
@@ -137,40 +174,83 @@ export default function SubscriptionManagement({
       return;
     }
 
-    try {
-      const result = await addMailboxesToAccount({
-        accountId: userDetails.account.account_id,
-        mailboxes: mailboxes.map((label) => ({
-          mailbox_status_id: "MBS-ACTIVE",
-          mailbox_label: label,
-          mailbox_mail_remaining_space:
-            mailAccessLimit?.account_max_quantity_storage || 0,
-          mailbox_package_remaining_space:
-            mailAccessLimit?.account_max_parcel_handling || 0,
-        })),
-      });
+    const currentPlan = plans?.find(
+      (p) => p.id === userDetails?.account.account_type
+    );
+    const pricePerMailbox = currentPlan?.price ?? 0;
+    const totalAmount = pricePerMailbox * numMailboxes; // Amount in pesos
 
-      if (result.error) {
-        throw result.error;
+    const mailboxPayload = mailboxes.map((label) => ({
+      mailbox_status_id: "MBS-ACTIVE",
+      mailbox_label: label,
+      mailbox_mail_remaining_space:
+        mailAccessLimit?.account_max_quantity_storage || 0,
+      mailbox_package_remaining_space:
+        mailAccessLimit?.account_max_parcel_handling || 0,
+    }));
+
+    // If free or price is 0, just add directly
+    if (totalAmount === 0) {
+      try {
+        const result = await addMailboxesToAccount({
+          accountId: userDetails.account.account_id,
+          mailboxes: mailboxPayload,
+        });
+
+        if (result.error) throw result.error;
+
+        notifications.show({
+          message: `${availableMailboxCount} mailboxes added successfully`,
+          color: "green",
+        });
+
+        mutate(["user-full-details", user.id]);
+        setIsAddMailboxModalOpen(false);
+        setNumMailboxes(0);
+        setActiveStep(0);
+      } catch (error) {
+        console.error("Error adding mailboxes:", error);
+        notifications.show({
+          message: "Error adding mailboxes",
+          color: "red",
+        });
+      } finally {
+        setIsSubmitting(false);
       }
+      return;
+    }
 
-      notifications.show({
-        message: `${availableMailboxCount} mailboxes added successfully`,
-        color: "green",
+    // Handle Payment
+    try {
+      const response = await fetch("/api/pay/create-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan_id: currentPlan?.id || "ADD-ON",
+          amount: Math.round(totalAmount * 100), // Cents
+          plan_name: `Additional Mailboxes (${numMailboxes})`,
+          provisioning_data: {
+            action: "ADD_MAILBOX", // Marker for webhook (optional usage)
+            accountId: userDetails.account.account_id,
+            mailboxes: mailboxPayload,
+          },
+        }),
       });
 
-      mutate(["user-full-details", user.id]);
-      setIsAddMailboxModalOpen(false);
-      setNumMailboxes(0);
-      setActiveStep(0);
+      const result = await response.json();
+
+      if (result.error) throw new Error(result.error);
+
+      if (result.checkout_url) {
+        window.location.href = result.checkout_url;
+      }
     } catch (error) {
-      console.error("Error adding mailboxes:", error);
+      setIsSubmitting(false);
+      console.error("Error initiating payment:", error);
       notifications.show({
-        message: "Error adding mailboxes",
+        message: "Payment initialization failed",
         color: "red",
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
