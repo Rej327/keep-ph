@@ -56,8 +56,6 @@ export default async function page() {
         }
       : undefined;
 
-  console.log("Address Details: ", addressDetails);
-
   // Generate public URL for avatar if exists
   if (userDetails.user_avatar_bucket_path) {
     const { data: publicUrlData } = supabase.storage

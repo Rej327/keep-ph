@@ -315,7 +315,6 @@ export const checkAndProvisionSubscription = async (userId: string) => {
     );
 
     if (fetchError || !paymentRecord) {
-      console.log("No pending payment found or error fetching", fetchError);
       return { message: "No pending payment found" };
     }
 

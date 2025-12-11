@@ -17,16 +17,10 @@ export default function MailLayout() {
     ([, userId]) => getUserHasAccount(userId)
   );
 
-  const {
-    data: useIsFreePlan,
-    error,
-    isLoading: isLoadingPlan,
-  } = useSWR(user ? ["user-is-free-plan", user.id] : null, ([, userId]) =>
-    isAccountFree(userId)
+  const { data: useIsFreePlan, isLoading: isLoadingPlan } = useSWR(
+    user ? ["user-is-free-plan", user.id] : null,
+    ([, userId]) => isAccountFree(userId)
   );
-
-  console.log("User Plan", useIsFreePlan);
-  console.log("Error fetching plan", error);
 
   const isPaidPlan = useIsFreePlan?.account_type !== "AT-FREE";
   const isActiveAccount = useIsFreePlan?.account_status === "SST-ACTIVE";

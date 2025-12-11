@@ -263,9 +263,6 @@ export default function MailClient() {
     }
   };
 
-  // Fetch Request Actions for selected item
-  console.log("Selected Item ID:", selectedItem?.mail_item_id);
-
   const {
     data: requestActions,
     isLoading: loadingRequestActions,
@@ -275,12 +272,10 @@ export default function MailClient() {
       ? ["request-actions", selectedItem.mail_item_id]
       : null,
     ([, mailItemId]: [string, string]) => {
-      console.log("Fetching actions for:", mailItemId);
       return getMailHasRequestAction(mailItemId);
     }
   );
 
-  console.log("Has Request: ", requestActions);
   if (requestError) console.error("Request Actions SWR Error:", requestError);
 
   const hasConflict = (action: "scan" | "retrieval" | "disposal") => {

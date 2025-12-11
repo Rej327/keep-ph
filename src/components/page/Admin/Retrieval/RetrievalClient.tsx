@@ -108,8 +108,6 @@ export default function RetrievalClient() {
       })
   );
 
-  console.log("Request: ", selectedRequest);
-
   const filteredRequests = requests || [];
   // const totalCount =
   //   filteredRequests.length > 0 ? filteredRequests[0].total_count : 0;

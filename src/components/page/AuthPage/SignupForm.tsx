@@ -210,15 +210,9 @@ export default function SignupForm() {
         }
       }
 
-      console.log("User created", {
-        id: userData.user?.id,
-        email: userData.user?.email,
-      });
-
       setActiveStep(2);
       // setShowSignupSuccess(true);
-    } catch (err) {
-      console.log(err);
+    } catch {
       notifications.show({
         message: "There was a problem on our end. Please try again later.",
         color: "red",

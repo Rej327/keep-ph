@@ -60,8 +60,6 @@ export const isAccountFree = async (userId: string) => {
     throw new Error(error.message);
   }
 
-  console.log("isAccountFree", data);
-
   return data as IsAcccountFree;
 };
 
@@ -113,7 +111,7 @@ export const getUserFullDetails = async (userId: string) => {
   if (error) {
     throw new Error(error.message);
   }
-  console.log(data);
+
   return data as UserFullDetails;
 };
 
@@ -149,7 +147,6 @@ export const getUser = async (userId: string) => {
     userDetails.user_avatar_bucket_path = publicUrlData.publicUrl;
   }
 
-  console.log(userDetails);
   return userDetails;
 };
 
@@ -172,7 +169,7 @@ export const getMailAccessLimit = async (userId: string, planId: string) => {
   if (error) {
     throw new Error(error.message);
   }
-  console.log("Limit: ", data);
+
   return data as UserMailAccessLimit;
 };
 
@@ -278,7 +275,6 @@ export const getMailItemsByUser = async (
   if (error) {
     throw new Error(error.message);
   }
-  console.log("Customer Mails: ", data);
   return data as MailItem[];
 };
 
@@ -319,8 +315,6 @@ export const getAllMailrooms = async (filters?: {
   const { data, error } = await supabase.rpc("get_all_mailrooms", {
     input_data: inputData,
   });
-
-  console.log("All Mailrooms:", data);
 
   if (error) {
     console.error("Error fetching mailrooms:", error);
@@ -370,8 +364,6 @@ export const getAllDisposalRequests = async (filters?: {
     console.error("Error fetching disposal requests:", error);
     throw new Error(error.message);
   }
-
-  console.log("disposal req: ", data);
 
   return data as DisposalRequestItem[];
 };
@@ -441,8 +433,6 @@ export const getVirtualAddressLocations = async () => {
     throw new Error(error.message);
   }
 
-  console.log("Virtual Address: ", data);
-
   return data as VirtualAddressLocation[];
 };
 
@@ -460,8 +450,6 @@ export const getAllFreeSubscribers = async () => {
     console.error("Error fetching free subscribers:", error);
     throw new Error(error.message);
   }
-
-  console.log("Free Subscribers: ", data);
 
   return data.referral_user as FreeSubscriber[];
 };
@@ -487,8 +475,6 @@ export const getUserReferrals = async (userId: string) => {
     console.error("Error fetching user referrals:", error);
     throw new Error(error.message);
   }
-
-  console.log("User Referrals: ", data);
 
   return data as UserReferral[];
 };
@@ -559,8 +545,6 @@ export const getMailHasRequestAction = async (mailItemId: string) => {
     console.error("Error fetching mail has request action:", error);
     throw new Error(error.message);
   }
-
-  console.log("Mail Has Request Action: ", data);
 
   return data as MailHasRequestAction;
 };
@@ -732,8 +716,6 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
     throw new Error(error.message);
   }
 
-  console.log("Dashboard stats:", data);
-
   return data as DashboardStats;
 };
 
@@ -803,7 +785,6 @@ export const getUserLatestVerification = async (userId: string) => {
     console.error("Error fetching user latest verification:", error);
     throw new Error(error.message);
   }
-  console.log("User latest verification:", data);
 
   return data as UserLatestVerification;
 };
@@ -863,8 +844,6 @@ export const getAdminCustomerDetails = async (accountId: string) => {
     console.error("Error fetching admin customer details:", error);
     throw new Error(error.message);
   }
-
-  console.log("Customer Details: ", data);
 
   return data as AdminCustomerDetails;
 };
