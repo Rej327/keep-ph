@@ -9,19 +9,13 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
+     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
+     * - assets (public assets)
      * - favicon.ico (favicon file)
-     * - public assets (images, etc.)
+     * - sw.js (service worker)
      */
-    "/((?!_next/static|_next/image|favicon.ico|assets/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-
-    // Include specific routes that need protection
-    "/customer/:path*",
-    "/admin/:path*",
-
-    // Include auth routes
-    "/login",
-    "/signup",
+    "/((?!api|_next/static|_next/image|assets|favicon.ico|sw.js).*)",
   ],
 };

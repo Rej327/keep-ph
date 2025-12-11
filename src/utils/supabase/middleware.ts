@@ -97,21 +97,12 @@ export async function updateSession(request: NextRequest) {
 
   const isAdminRoute = adminRoutes.some((route) => pathname.startsWith(route));
 
-  // Early return for unauthenticated users on protected routes
-  if ((isCustomerRoute || isAdminRoute || isOnboardingRoute) && !validUser) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
+  if (validUser && isPublicAuthRoute) {
+    return NextResponse.redirect(new URL("/customer/mails", request.url));
   }
 
-  // Early return for public auth routes without needing auth data
-  if (isPublicAuthRoute && validUser) {
-    if (request.method === "POST") {
-      return supabaseResponse;
-    }
-    const url = request.nextUrl.clone();
-    url.pathname = "/customer/mails";
-    return NextResponse.redirect(url);
+  if (!validUser && (isCustomerRoute || isAdminRoute || isOnboardingRoute)) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   // Only fetch auth data if we need it for route protection
