@@ -231,8 +231,8 @@ export default function SubscriptionManagement({
           plan_name: `Additional Mailboxes (${numMailboxes})`,
           provisioning_data: {
             action: "ADD_MAILBOX", // Marker for webhook (optional usage)
-            accountId: userDetails.account.account_id,
-            mailboxes: mailboxPayload,
+            account_id: userDetails.account.account_id,
+            mailbox: mailboxPayload,
           },
         }),
       });
