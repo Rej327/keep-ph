@@ -129,14 +129,14 @@ export default function SubscriptionClient({ user }: { user: User }) {
   ) => {
     setIsSubmitting(true);
 
-    if (numMailboxes <= 0) {
-      notifications.show({
-        message: "Please select at least 1 mailbox",
-        color: "red",
-      });
-      setIsSubmitting(false);
-      return;
-    }
+    // if (numMailboxes <= 0) {
+    //   notifications.show({
+    //     message: "Please select at least 1 mailbox",
+    //     color: "red",
+    //   });
+    //   setIsSubmitting(false);
+    //   return;
+    // }
 
     // Generate mailboxes automatically
     const mailboxes: string[] = [];

@@ -19,6 +19,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { getStatusFormat, replaceUnderscore } from "@/utils/function";
 import { useRouter } from "next/navigation";
+import { useTopLoader } from "nextjs-toploader";
 
 // Define types for API response
 export type CustomerApiResponse = {
@@ -43,6 +44,7 @@ export default function CustomersClient() {
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const topLoader = useTopLoader();
 
   const router = useRouter(); // Then in the render:
   const {
@@ -60,6 +62,12 @@ export default function CustomersClient() {
       }),
     { revalidateOnFocus: false }
   );
+
+  const handleViewDetails = (id: string) => {
+    topLoader.start();
+    router.push(`/admin/customers/${id}`);
+    topLoader.remove();
+  };
 
   // Transform API data to match table expectations
   const transformedData = customers || [];
@@ -128,8 +136,9 @@ export default function CustomersClient() {
         <Group gap="md" justify="flex-start">
           <Button
             size="sm"
+            variant="transparent"
             fw={500}
-            onClick={() => router.push(`/admin/customers/${record.account_id}`)}
+            onClick={() => handleViewDetails(record.account_id)}
           >
             View Details
           </Button>

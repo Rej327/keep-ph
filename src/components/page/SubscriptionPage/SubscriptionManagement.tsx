@@ -445,10 +445,7 @@ export default function SubscriptionManagement({
               <Button
                 variant="default"
                 onClick={handleAddMailboxesOpen}
-                disabled={
-                  (userDetails?.account.account_remaining_mailbox_access ??
-                    0) <= 0
-                }
+                disabled={userDetails.account.account_type_value === "free"}
               >
                 Request More Storage
               </Button>

@@ -13,6 +13,7 @@ import {
   Title,
   Table,
   Box,
+  Center,
 } from "@mantine/core";
 import {
   IconPlayerPause,
@@ -26,6 +27,7 @@ import {
   AdminCustomerDetails,
 } from "@/actions/supabase/get";
 import { getStatusFormat, replaceUnderscore } from "@/utils/function";
+import CustomLoader from "@/components/common/CustomLoader";
 
 export default function CustomerDetailsClient({
   customerId,
@@ -39,9 +41,9 @@ export default function CustomerDetailsClient({
 
   if (isLoading) {
     return (
-      <Container fluid py="xl">
-        <Text>Loading...</Text>
-      </Container>
+      <Center h="100vh">
+        <CustomLoader />
+      </Center>
     );
   }
 
