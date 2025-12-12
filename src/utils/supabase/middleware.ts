@@ -162,7 +162,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (isCustomerRoute && isAdmin) {
+  if (!isCustomerRoute && isAdmin) {
     const url = request.nextUrl.clone();
     url.pathname = "/admin/dashboard";
     return NextResponse.redirect(url);
