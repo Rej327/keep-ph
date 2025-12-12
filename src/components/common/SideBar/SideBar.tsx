@@ -58,6 +58,7 @@ const adminLinks: LinksGroupProps[] = [
       { label: "All Customers", link: "/admin/customers" },
       { label: "Customer Mailroom", link: "/admin/mailroom" },
       { label: "User Verification", link: "/admin/verification/requests" },
+      { label: "Invoice", link: "/admin/invoice" },
     ],
   },
   {

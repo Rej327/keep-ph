@@ -22,6 +22,7 @@ type ReusableTableProps<T extends RecordType> = {
   selectedRecordId?: string | number;
   selectedRowStyle?: React.CSSProperties;
   initialSortStatus?: DataTableSortStatus<T>;
+  onRowClick?: (record: T) => void;
 };
 
 export function CustomDataTable<T extends RecordType>({
@@ -34,6 +35,7 @@ export function CustomDataTable<T extends RecordType>({
   selectedRecordId,
   selectedRowStyle,
   initialSortStatus,
+  onRowClick,
 }: ReusableTableProps<T>) {
   const [page, setPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(pageSize);
@@ -155,6 +157,7 @@ export function CustomDataTable<T extends RecordType>({
         sortStatus={sortStatus}
         onSortStatusChange={handleSortStatusChange}
         rowStyle={combinedRowStyle}
+        onRowClick={onRowClick ? ({ record }) => onRowClick(record) : undefined}
       />
     </Paper>
   );

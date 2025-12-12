@@ -847,3 +847,67 @@ export const getAdminCustomerDetails = async (accountId: string) => {
 
   return data as AdminCustomerDetails;
 };
+
+export type PaymentHistoryItem = {
+  payment_id: string;
+  amount: number;
+  status: string;
+  created_at: string;
+  intent_id: string;
+  subscription_plan: string | null;
+};
+
+export type PaymentApiResponse = {
+  user_id: string;
+  user_email: string;
+  user_full_name: string;
+  total_amount: number;
+  last_payment_at: string;
+  status: string;
+  history: PaymentHistoryItem[];
+};
+
+export const getAllPayments = async (filters?: {
+  search?: string;
+  status_filter?: string;
+  sort_order?: "asc" | "desc";
+}) => {
+  const supabase = createSupabaseBrowserClient();
+
+  const inputData = {
+    search: filters?.search || "",
+    status_filter: filters?.status_filter || "",
+    sort_order: filters?.sort_order || "desc",
+  };
+
+  const { data, error } = await supabase.rpc("get_all_payments", {
+    input_data: inputData,
+  });
+
+  if (error) {
+    console.error("Error fetching payments:", error);
+    throw new Error(error.message);
+  }
+
+  return data as PaymentApiResponse[];
+};
+
+export type PaymentStats = {
+  total_revenue: number;
+  total_transactions: number;
+  successful_transactions: number;
+  failed_transactions: number;
+};
+
+export const getPaymentStats = async () => {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("get_payment_stats");
+
+  if (error) {
+    console.error("Error fetching payment stats:", error);
+    throw new Error(error.message);
+  }
+
+  return data as PaymentStats;
+};

@@ -3191,3 +3191,87 @@ BEGIN
     RETURN return_data;
 END;
 $$ LANGUAGE plpgsql;
+
+
+-- Get all payments with user details (aggregated by user)
+CREATE OR REPLACE FUNCTION get_all_payments(input_data JSON)
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  -- Input variables
+  input_search TEXT := (input_data->>'search')::TEXT;
+  input_status_filter TEXT := (input_data->>'status_filter')::TEXT;
+  input_sort_order TEXT := (input_data->>'sort_order')::TEXT;
+  
+  -- Return variable
+  return_data JSON;
+BEGIN
+  SELECT 
+    COALESCE(JSON_AGG(payment_data), '[]'::JSON) INTO return_data
+  FROM (
+    SELECT 
+      JSON_BUILD_OBJECT(
+        'user_id', u.user_id,
+        'user_email', u.user_email,
+        'user_full_name', CONCAT_WS(' ', u.user_first_name, u.user_last_name),
+        'total_amount', SUM(cpp.customer_paymongo_payments_amount),
+        'last_payment_at', MAX(cpp.customer_paymongo_payments_created_at),
+        'status', (ARRAY_AGG(cpp.customer_paymongo_payments_status ORDER BY cpp.customer_paymongo_payments_created_at DESC))[1],
+        'history', JSON_AGG(
+          JSON_BUILD_OBJECT(
+            'payment_id', cpp.customer_paymongo_payments_id,
+            'amount', cpp.customer_paymongo_payments_amount,
+            'status', cpp.customer_paymongo_payments_status,
+            'created_at', cpp.customer_paymongo_payments_created_at,
+            'intent_id', cpp.customer_paymongo_payments_intent_id,
+            'subscription_plan', cs.customer_subscriptions_plan_id
+          ) ORDER BY cpp.customer_paymongo_payments_created_at DESC
+        )
+      ) as payment_data
+    FROM billing_schema.customer_paymongo_payments cpp
+    JOIN user_schema.user_table u ON cpp.customer_paymongo_payments_user_id = u.user_id
+    LEFT JOIN billing_schema.customer_subscriptions cs ON cpp.customer_paymongo_payments_subscription_id = cs.customer_subscriptions_id
+    WHERE 
+      (input_search IS NULL OR input_search = '' OR 
+       LOWER(u.user_email) LIKE LOWER('%' || input_search || '%') OR
+       LOWER(u.user_first_name || ' ' || u.user_last_name) LIKE LOWER('%' || input_search || '%') OR
+       LOWER(cpp.customer_paymongo_payments_intent_id) LIKE LOWER('%' || input_search || '%'))
+      AND
+      (input_status_filter IS NULL OR input_status_filter = '' OR 
+       LOWER(cpp.customer_paymongo_payments_status) = LOWER(input_status_filter))
+    GROUP BY u.user_id, u.user_email, u.user_first_name, u.user_last_name
+    ORDER BY 
+      CASE 
+        WHEN input_sort_order = 'asc' THEN MAX(cpp.customer_paymongo_payments_created_at)
+      END ASC,
+      CASE 
+        WHEN input_sort_order = 'desc' OR input_sort_order IS NULL THEN MAX(cpp.customer_paymongo_payments_created_at)
+      END DESC
+  ) subquery;
+
+  RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Get payment statistics
+CREATE OR REPLACE FUNCTION get_payment_stats()
+RETURNS JSON
+SET search_path TO ''
+AS $$
+DECLARE
+  return_data JSON;
+BEGIN
+  SELECT JSON_BUILD_OBJECT(
+    'total_revenue', COALESCE(SUM(customer_paymongo_payments_amount) FILTER (WHERE customer_paymongo_payments_status = 'succeeded'), 0),
+    'total_transactions', COUNT(*),
+    'successful_transactions', COUNT(*) FILTER (WHERE customer_paymongo_payments_status = 'succeeded'),
+    'failed_transactions', COUNT(*) FILTER (WHERE customer_paymongo_payments_status != 'succeeded')
+  ) INTO return_data
+  FROM billing_schema.customer_paymongo_payments;
+
+  RETURN return_data;
+END;
+$$
+LANGUAGE plpgsql;

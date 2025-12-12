@@ -33,6 +33,7 @@ export const getStatusFormat = (status: string = ""): string => {
       "BUSINESS",
       "SCANNED",
       "ACTIVE",
+      "SUCCEEDED",
     ],
     blue: [
       "IN_PROGRESS",
@@ -55,6 +56,7 @@ export const getStatusFormat = (status: string = ""): string => {
       "ARCHIVED",
       "NON_SUBSCRIBER",
       "ONBOARDING",
+      "AWAITING_PAYMENT_METHOD",
       "RETRIEVAL",
     ],
     red: [
